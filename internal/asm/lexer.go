@@ -355,7 +355,7 @@ func (lx *Lexer) tok(k Kind, text string, val int64) Token {
 }
 
 func (lx *Lexer) errToken(err error) Token {
-	return Token{Kind: EOF, Text: "", Val: 0, Line: lx.line, Col: lx.col}
+	return Token{Kind: EOF, Text: err.Error(), Val: 0, Line: lx.line, Col: lx.col}
 }
 
 func isIdentStart(ch rune) bool { return unicode.IsLetter(ch) || ch == '_' || ch == '.' }

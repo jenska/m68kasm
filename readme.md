@@ -101,19 +101,6 @@ See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🧑‍💻 Author
-
-**Jens Kaiser**  
-Created as an educational and functional 68k assembler project in Go.
-
----
-
-## 🏷 Version
-
-**v0.1.0 – First Public Release**
-
----
-
 ## ❤️ Contributing
 
 Pull requests are welcome!  

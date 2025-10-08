@@ -140,7 +140,7 @@ loop:
 				}
 			}
 			if len(ops) == 0 {
-				return 0, fmt.Errorf("Klammern passen nicht: ')'")
+				return 0, fmt.Errorf("expected: ')'")
 			}
 			ops = ops[:len(ops)-1]
 			wantValue = false
@@ -166,7 +166,7 @@ loop:
 		op := ops[len(ops)-1]
 		ops = ops[:len(ops)-1]
 		if op == LPAREN {
-			return 0, fmt.Errorf("Klammern passen nicht: '('")
+			return 0, fmt.Errorf("expected: '('")
 		}
 		if err := apply(op); err != nil {
 			return 0, err

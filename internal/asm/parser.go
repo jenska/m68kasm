@@ -78,7 +78,7 @@ func (p *Parser) parseStmt() error {
 		case KW_BRA:
 			return p.parseBRA()
 		case KW_NONE:
-			return fmt.Errorf("Zeile %d: unbekannter Mnemonic: %s", t.Line, t.Text)
+			return fmt.Errorf("line %d: unknoen mnemonic: %s", t.Line, t.Text)
 		}
 	}
 	if t.Kind == DOT || (t.Kind == IDENT && strings.HasPrefix(t.Text, ".")) {
@@ -98,11 +98,17 @@ func (p *Parser) parseStmt() error {
 			return p.parseORG()
 		case KW_BYTE:
 			return p.parseBYTE()
+		case KW_WORD:
+			return p.parseWORD()
+		case KW_LONG:
+			return p.parseLONG()
+		case KW_ALIGN:
+			return p.parseALIGN()
 		default:
-			return fmt.Errorf("Zeile %d: unbekannte Pseudoop: %s", t.Line, name)
+			return fmt.Errorf("line %d: unknown pseudo op: %s", t.Line, name)
 		}
 	}
-	return fmt.Errorf("Zeile %d: unerwartetes Token: %v", t.Line, t.Text)
+	return fmt.Errorf("line %d: unexpected token: %v", t.Line, t.Text)
 }
 
 func (p *Parser) parseORG() error {
@@ -133,13 +139,77 @@ func (p *Parser) parseBYTE() error {
 	return nil
 }
 
+// .word <expr>[, <expr>]...
+func (p *Parser) parseWORD() error {
+	// first value
+	v, err := p.parseExpr()
+	if err != nil {
+		return err
+	}
+
+	out := make([]byte, 0, 2*4)
+	if v < -0x8000 || v > 0xFFFF {
+		return fmt.Errorf("line %d: .word value out of 16-bit range: %d", p.line, v)
+	}
+	w := uint16(int16(v))
+	out = append(out, byte(w>>8), byte(w))
+
+	// subsequent values
+	for p.accept(COMMA) { // use lex.COMMA if you still prefix tokens
+		v, err := p.parseExpr()
+		if err != nil {
+			return err
+		}
+		if v < -0x8000 || v > 0xFFFF {
+			return fmt.Errorf("line %d: .word value out of 16-bit range: %d", p.line, v)
+		}
+		w := uint16(int16(v))
+		out = append(out, byte(w>>8), byte(w))
+	}
+
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
+	p.pc += uint32(len(out))
+	return nil
+}
+
+// .long <expr>[, <expr>]...
+func (p *Parser) parseLONG() error {
+	v, err := p.parseExpr()
+	if err != nil {
+		return err
+	}
+
+	out := make([]byte, 0, 4*4)
+	if v < -0x80000000 || v > 0xFFFFFFFF {
+		return fmt.Errorf("line %d: .long value out of range: %d", p.line, v)
+	}
+	u := uint32(v) // two's complement when v is negative
+	out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
+
+	for p.accept(COMMA) {
+		v, err := p.parseExpr()
+		if err != nil {
+			return err
+		}
+		if v < -0x80000000 || v > 0xFFFFFFFF {
+			return fmt.Errorf("line %d: .long value out of range: %d", p.line, v)
+		}
+		u := uint32(v)
+		out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
+	}
+
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
+	p.pc += uint32(len(out))
+	return nil
+}
+
 func (p *Parser) parseMOVEQ() error {
 	mn, err := p.want(IDENT)
 	if err != nil {
 		return err
 	}
 	if !strings.EqualFold(mn.Text, "MOVEQ") {
-		return fmt.Errorf("Zeile %d: MOVEQ erwartet", mn.Line)
+		return fmt.Errorf("line %d: MOVEQ expected", mn.Line)
 	}
 	if _, err := p.want(HASH); err != nil {
 		return err
@@ -157,7 +227,7 @@ func (p *Parser) parseMOVEQ() error {
 	}
 	ok, dn := isRegDn(dst.Text)
 	if !ok {
-		return fmt.Errorf("Zeile %d: erwartetes Dn, got %s", dst.Line, dst.Text)
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
 	}
 	ins := &Instr{Op: OP_MOVEQ, Mnemonic: "MOVEQ", Size: SZ_L, Args: Args{HasImm: true, Imm: int64(int8(imm)), Dn: dn}, PC: p.pc, Line: mn.Line}
 	p.items = append(p.items, ins)
@@ -171,7 +241,7 @@ func (p *Parser) parseBRA() error {
 		return err
 	}
 	if !strings.EqualFold(mn.Text, "BRA") {
-		return fmt.Errorf("Zeile %d: BRA erwartet", mn.Line)
+		return fmt.Errorf("line %d: BRA expected", mn.Line)
 	}
 	lbl, err := p.want(IDENT)
 	if err != nil {
@@ -189,7 +259,7 @@ func (p *Parser) parseLEA() error {
 		return err
 	}
 	if !strings.EqualFold(mn.Text, "LEA") {
-		return fmt.Errorf("Zeile %d: LEA erwartet", mn.Line)
+		return fmt.Errorf("line %d: LEA expected", mn.Line)
 	}
 	src, err := p.parseEA()
 	if err != nil {
@@ -204,7 +274,7 @@ func (p *Parser) parseLEA() error {
 	}
 	ok, an := isRegAn(dst.Text)
 	if !ok {
-		return fmt.Errorf("Zeile %d: erwartetes An, got %s", dst.Line, dst.Text)
+		return fmt.Errorf("line %d: expected An, got %s", dst.Line, dst.Text)
 	}
 	ins := &Instr{Op: OP_LEA, Mnemonic: "LEA", Size: SZ_L, Args: Args{Src: src, An: an}, PC: p.pc, Line: mn.Line}
 	p.items = append(p.items, ins)
@@ -243,7 +313,7 @@ func (p *Parser) parseEA() (EAExpr, error) {
 				}
 				return EAExpr{Kind: EAkAddrInd, Reg: an}, nil
 			}
-			return EAExpr{}, fmt.Errorf("Zeile %d: unerwartete EA, erwartete (An) oder (disp,An/PC)", id.Line)
+			return EAExpr{}, fmt.Errorf("line %d: unexpected EA, expected (An) or (disp,An/PC)", id.Line)
 		}
 		first, err := p.parseExprUntil(COMMA, RPAREN)
 		if err != nil {
@@ -267,7 +337,7 @@ func (p *Parser) parseEA() (EAExpr, error) {
 					ix.Reg = an
 					ix.IsA = true
 				} else {
-					return EAExpr{}, fmt.Errorf("Zeile %d: erwarteter Indexregister Dn/An", idxTok.Line)
+					return EAExpr{}, fmt.Errorf("line %d: expected index register Dn/An", idxTok.Line)
 				}
 				ix.Long = false
 				ix.Scale = 1
@@ -293,7 +363,7 @@ func (p *Parser) parseEA() (EAExpr, error) {
 				if isPC(base.Text) {
 					return EAExpr{Kind: EAkIdxPCBrief, Index: ix}, nil
 				}
-				return EAExpr{}, fmt.Errorf("Zeile %d: Basis muss An oder PC sein", base.Line)
+				return EAExpr{}, fmt.Errorf("line %d: base must be An or PC", base.Line)
 			}
 			if _, err := p.want(RPAREN); err != nil {
 				return EAExpr{}, err
@@ -304,7 +374,7 @@ func (p *Parser) parseEA() (EAExpr, error) {
 			if isPC(base.Text) {
 				return EAExpr{Kind: EAkPCDisp16, Disp16: int32(first)}, nil
 			}
-			return EAExpr{}, fmt.Errorf("Zeile %d: Basis muss An oder PC sein", base.Line)
+			return EAExpr{}, fmt.Errorf("line %d: base must be An or PC", base.Line)
 		}
 		if _, err := p.want(RPAREN); err != nil {
 			return EAExpr{}, err
@@ -321,7 +391,48 @@ func (p *Parser) parseEA() (EAExpr, error) {
 		}
 		return EAExpr{Kind: EAkAbsL, Abs32: uint32(first)}, nil
 	}
-	return EAExpr{}, fmt.Errorf("Zeile %d: unerwartete EA", t.Line)
+	return EAExpr{}, fmt.Errorf("line %d: unexpected EA", t.Line)
+}
+
+// .align <expr>[, <fill>]
+func (p *Parser) parseALIGN() error {
+	// alignment value
+	val, err := p.parseExpr()
+	if err != nil {
+		return err
+	}
+	if val < 1 {
+		return fmt.Errorf("line %d: .align expects value >= 1, got %d", p.line, val)
+	}
+	align := uint32(val)
+
+	// optional fill
+	fill := byte(0x00)
+	if p.accept(COMMA) { // if you still use prefixed tokens, use lex.COMMA
+		fv, err := p.parseExpr()
+		if err != nil {
+			return err
+		}
+		fill = byte(fv) // truncate to 8-bit
+	}
+
+	// compute padding
+	m := p.pc % align
+	if m == 0 {
+		return nil // already aligned, emit nothing
+	}
+	pad := int(align - m)
+
+	// emit pad bytes of 'fill'
+	buf := make([]byte, pad)
+	if fill != 0 {
+		for i := range buf {
+			buf[i] = fill
+		}
+	}
+	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line})
+	p.pc += uint32(pad)
+	return nil
 }
 
 // Lookahead helpers
@@ -342,7 +453,7 @@ func (p *Parser) peekN(n int) Token { p.fill(n); return p.buf[n-1] }
 func (p *Parser) want(k Kind) (Token, error) {
 	t := p.next()
 	if t.Kind != k {
-		return t, fmt.Errorf("Zeile %d Spalte %d: erwartete %v, bekam %v (%q)", t.Line, t.Col, k, t.Kind, t.Text)
+		return t, fmt.Errorf("line %d col %d: expected %v, got %v (%q)", t.Line, t.Col, k, t.Kind, t.Text)
 	}
 	return t, nil
 }
