@@ -1,3 +1,0 @@
-MOVE.W (A1), D0
-MOVE.W #5, (A2)+
-MOVE.B d8(A3,D2.W), -(A4)

@@ -1,0 +1,9 @@
+# Binaries
+out.bin
+m68kasm
+*.exe
+*.zip
+# Go stuff
+bin/
+dist/
+coverage.out
