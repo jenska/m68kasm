@@ -4,3 +4,4 @@ out.bin
 bin/
 dist/
 coverage.out
+.DS_Store

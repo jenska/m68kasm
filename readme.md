@@ -1,107 +1,50 @@
-# 🧠 M68k Assembler in Go
+# m68kasm
 
-[![Go](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://go.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/jenska/m68kasm/actions/workflows/ci.yml/badge.svg)](../../actions)
+![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)
+![License](https://img.shields.io/badge/license-MIT-informational)
 
-A compact, table-driven **Motorola 68000 assembler**, implemented entirely in **Go**.
+Ein kompakter, tabellengesteuerter **Motorola 68000 Assembler** in Go. Fokus: klare Lexer/Parser-Struktur, 2‑Pass‑Assemble, flexibler EA‑Encoder und gut erweiterbare Instruktionsdefinitionen.
 
----
+## Features (Stand: v0.1)
+- 2‑Pass‑Assembler mit deterministischem Binär‑Output
+- Table‑driven Encoding (InstrDef/FormDef/EmitSteps)
+- Erste Instruktionen (z. B. `MOVEQ`, `LEA`, `BRA`) und Pseudo‑Ops (z. B. `.org`, `.byte`)
+- Einfaches CLI: **m68kasm**
 
-## ✨ Features
-
-- Lexer and panic-free parser for 68k assembly syntax  
-- Expression parser with operator precedence and label references  
-- Effective Address (EA) parser and encoder (brief index, PC-relative, abs.W/.L)  
-- Two-pass assembler with automatic label resolution  
-- Generic encoder based on instruction tables (`InstrDef`, `FormDef`, `EmitStep`)  
-- Implemented instructions: MOVEQ, LEA, BRA  
-- Pseudo-operations: `.org`, `.byte`  
-- Deterministic binary output
-
----
-
-## 🧩 Example Source
-
-```asm
-        .org $0000 + 4*4
-start:  moveq #5+3-1,d3
-        lea (16,a1),a0
-        lea (8,pc,d2*2),a1
-        bra start
-        .byte $AA,$BB,$CC
-```
-
----
-
-## ⚙️ Building
-
-Requires **Go 1.21+**
-
+## Installation
 ```bash
-git clone https://github.com/jenska/m68kasm.git
-cd m68kasm
+go install github.com/jenska/m68kasm/cmd/m68kasm@latest
+```
+Oder lokal bauen:
+```bash
 go build ./cmd/m68kasm
 ```
 
----
-
-## ▶️ Usage
-
+## Quickstart
 ```bash
-./m68kasm -i testdata/hello.s -o out.bin
+m68kasm -o out.bin testdata/hello.s
 hexdump -C out.bin
 ```
 
-Expected output:
-```
-76 07 41 e9 00 10 43 fb 22 08 60 f6 aa bb cc
-```
-
----
-
-## 🧱 Project Structure
-
-```
-m68kasm/
-├── cmd/m68kasm/
-├── internal/
-│   └── asn/
-└── go.mod
+## CLI
+```text
+Usage: m68kasm [options] <source-files>
+  -o <file>     Schreibe Ausgabe-Binärdatei (default: a.out)
+  -I <path>     (geplant) Include-Pfad hinzufügen
+  -D name=val   (geplant) Symbol definieren
+  --list        (geplant) Listing ausgeben
+  -v            (optional) Verbose-Log
 ```
 
-Key components:
+## Projektstruktur
+```text
+cmd/m68kasm/          # CLI-Einstieg
+internal/asm/         # Lexer, Parser, Expr, EA, Encode, Opdefs, Assemble
+testdata/             # Beispiel-Programme & Golden-Files
+```
 
-| File | Purpose |
-|------|----------|
-| internal/asm/lexer.go | Tokenizes assembly text |
-| internal/asm/parser.go | Parses lines, labels, pseudo-ops |
-| internal/asm/expr.go | Expression evaluator |
-| internal/asm/ea.go | Effective Address encoding |
-| internal/asm/encode.go | Generic instruction encoder |
-| internal/asm/opdefs.go | Instruction tables |
-| internal/asm/assemble.go | Full assembly pass orchestrator |
-
----
-
-## 🧭 Roadmap
-
-- [ ] Add MOVE, ADD, SUB, CMP instructions  
-- [ ] More branch types (Bcc, BSR)  
-- [ ] .word, .long, .align pseudo-ops  
-- [ ] Object format (S-record / ELF)  
-- [ ] Source listing with address + opcode dump  
-- [ ] Unit tests for parser and encoder
-
----
-
-## 🪪 License
-
-Licensed under the **MIT License**.  
-See [LICENSE](LICENSE) for details.
-
----
-
-## ❤️ Contributing
-
-Pull requests are welcome!  
-Please run `go fmt ./...` before submitting.
+## Entwicklung
+- Code formatieren: `go fmt ./...`
+- Lint/Vet: `go vet ./...`
+- Tests: `go test ./... -v`
