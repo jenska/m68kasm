@@ -25,7 +25,7 @@ This document describes the **source language** accepted by `m68kasm`. It follow
   ```asm
   start:  MOVEQ #0, D0
   loop:   ADDQ  #1, D0
-          BRA   loop
+          BRA.S  loop
   ```
 - Labels are global; local labels (`1f/1b` style) are not yet supported.
 - **Forward references** are allowed (two‑pass assembly).

@@ -187,7 +187,6 @@ $ hexdump -C out.bin
 00000000  76 07 41 e9 00 10 43 fb  22 08 60 00 f4 aa bb cc  |v.A...C.".`.....|
 00000010
 ```
-
 ---
 
 ## ❤️ Acknowledgments
@@ -198,7 +197,6 @@ Special thanks to the open-source 68k community for documentation and references
 - The Go community for encouraging clean, modular software design.
 
 ---
-
 **Author:** Jens Kaiser  
 **Repository:** [github.com/jenska/m68kasm](https://github.com/jenska/m68kasm)  
 **Status:** Active – under continuous development  
