@@ -4,47 +4,201 @@
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-informational)
 
-Ein kompakter, tabellengesteuerter **Motorola 68000 Assembler** in Go. Fokus: klare Lexer/Parser-Struktur, 2‑Pass‑Assemble, flexibler EA‑Encoder und gut erweiterbare Instruktionsdefinitionen.
+A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-## Features (Stand: v0.1)
-- 2‑Pass‑Assembler mit deterministischem Binär‑Output
-- Table‑driven Encoding (InstrDef/FormDef/EmitSteps)
-- Erste Instruktionen (z. B. `MOVEQ`, `LEA`, `BRA`) und Pseudo‑Ops (z. B. `.org`, `.byte`)
-- Einfaches CLI: **m68kasm**
+The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
-## Installation
+---
+
+## 🚀 Features (as of v0.1)
+
+- Two-pass assembler with deterministic binary output  
+- Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)  
+- Implemented instructions: `MOVEQ`, `LEA`, `BRA`  
+- Pseudo-operations: `.org`, `.byte`  
+- Clear modular design in Go (`lexer`, `parser`, `expr`, `ea`, `encode`, `assemble`)  
+- Simple and fast command-line tool
+
+### Planned for Upcoming Releases
+- Arithmetic & logic instructions: `MOVE`, `ADD`, `SUB`, `CMP`  
+- Branch family: `Bcc`, `BSR` (short and word forms)  
+- Additional pseudo-ops: `.word`, `.long`, `.align`  
+- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)  
+- Source listing output  
+- Automated tests and regression validation
+
+---
+
+## 🧩 Project Goals
+
+The assembler is designed to demonstrate and implement core principles of assembler construction:
+- **Lexical and syntactic clarity:** each stage is well-separated and testable.  
+- **Declarative instruction definitions:** encoding logic defined via compact data tables.  
+- **Binary precision:** full control over emitted bytes without hidden abstractions.  
+- **Go idioms:** idiomatic use of Go’s type system, slices, and maps for maintainability.
+
+---
+
+## 🛠️ Installation
+
+You can install the CLI directly from GitHub using Go:
+
 ```bash
 go install github.com/jenska/m68kasm/cmd/m68kasm@latest
 ```
-Oder lokal bauen:
+
+Or build locally:
+
 ```bash
+git clone https://github.com/jenska/m68kasm.git
+cd m68kasm
 go build ./cmd/m68kasm
 ```
 
-## Quickstart
+---
+
+## ⚙️ Usage
+
+```bash
+m68kasm [options] <source-files>
+```
+
+**Options**  
+| Option | Description |
+|---------|--------------|
+| `-o <file>` | Write binary output (default: `a.out`) |
+| `-I <path>` | *(planned)* Add include search path |
+| `-D name=val` | *(planned)* Define symbol |
+| `--list` | *(planned)* Generate listing output |
+| `-v` | Verbose logging |
+
+**Example:**
 ```bash
 m68kasm -o out.bin testdata/hello.s
 hexdump -C out.bin
 ```
 
-## CLI
+---
+
+## 📁 Project Structure
+
 ```text
-Usage: m68kasm [options] <source-files>
-  -o <file>     Schreibe Ausgabe-Binärdatei (default: a.out)
-  -I <path>     (geplant) Include-Pfad hinzufügen
-  -D name=val   (geplant) Symbol definieren
-  --list        (geplant) Listing ausgeben
-  -v            (optional) Verbose-Log
+cmd/m68kasm/          # Command-line frontend
+internal/asm/         # Core assembler packages (lexer, parser, expr, ea, encode, opdefs, assemble)
+testdata/             # Example source files and golden binaries
 ```
 
-## Projektstruktur
-```text
-cmd/m68kasm/          # CLI-Einstieg
-internal/asm/         # Lexer, Parser, Expr, EA, Encode, Opdefs, Assemble
-testdata/             # Beispiel-Programme & Golden-Files
+---
+
+## ⚡ Continuous Integration (CI)
+
+A ready-to-use **GitHub Actions** workflow (`.github/workflows/ci.yml`) is provided.  
+It performs:
+- Module verification (`go mod verify`)  
+- Vetting (`go vet`)  
+- Unit and E2E tests (`go test ./...`)  
+- CLI build validation
+
+You can extend it with optional steps like `staticcheck` or release automation.
+
+---
+
+## 🧰 Development Guidelines
+
+To keep the repository clean and consistent, please follow these steps:
+
+```bash
+# Format source code
+go fmt ./...
+
+# Lint and vet
+go vet ./...
+
+# Run all tests
+go test ./... -v
 ```
 
-## Entwicklung
-- Code formatieren: `go fmt ./...`
-- Lint/Vet: `go vet ./...`
-- Tests: `go test ./... -v`
+### Recommended Future Additions
+- `Makefile` with targets for `build`, `test`, and `release`
+- Static analysis integration (`staticcheck`)
+- Example programs under `examples/`
+
+---
+
+## 💡 Contributing
+
+Contributions are welcome!  
+If you want to add new instructions, improve encoding tables, or extend pseudo-ops:
+
+1. Fork the repository.  
+2. Create a feature branch (`feature/add-cmp-instruction`).  
+3. Add or update relevant test cases.  
+4. Submit a pull request.
+
+Make sure the CI passes before submitting.
+
+---
+
+## 🧭 Roadmap Overview
+
+| Milestone | Description |
+|------------|--------------|
+| **v0.2** | Expand core instruction set (`MOVE`, `ADD`, `SUB`, `CMP`) |
+| **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
+| **v0.4** | Introduce listing and S-record output |
+| **v0.5** | Add ELF format and richer symbol handling |
+| **v1.0** | Full assembler with macros, expressions, and rich error reporting |
+
+---
+
+## 🧠 Design Philosophy
+
+The assembler aims to balance **authentic 68k semantics** with **modern Go idioms**.  
+By representing instruction encoding as data rather than code, it reduces complexity and simplifies maintenance.
+
+Each instruction is described declaratively, for example:
+
+```go
+InstDef{
+    Mnemonic: "MOVEQ",
+    Forms: []FormDef{
+        {Mask: 0x7000, Size: Byte, Src: Imm8, Dst: Dn},
+    },
+}
+```
+
+This structure allows new instructions to be added without modifying the assembler’s logic — only its data tables.
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).  
+You are free to use, modify, and distribute the project with attribution.
+
+---
+
+## 🧱 Example Output
+
+For the included `hello.s` example, assembling yields:
+
+```
+$ hexdump -C out.bin
+00000000  76 07 41 e9 00 10 43 fb  22 08 60 00 f4 aa bb cc  |v.A...C.".`.....|
+00000010
+```
+
+---
+
+## ❤️ Acknowledgments
+
+Special thanks to the open-source 68k community for documentation and references, including:
+- Motorola M68000 Programmer’s Reference Manual (3rd Ed.)  
+- Easy68k and vasm project maintainers for inspiration on encoding tables.  
+- The Go community for encouraging clean, modular software design.
+
+---
+
+**Author:** Jens Kaiser  
+**Repository:** [github.com/jenska/m68kasm](https://github.com/jenska/m68kasm)  
+**Status:** Active – under continuous development  
