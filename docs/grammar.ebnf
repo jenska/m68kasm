@@ -1,0 +1,67 @@
+(* m68kasm minimal grammar, EBNF *)
+
+source      = { line } ;
+line        = [ label ] ( directive | instruction ) [ comment ] EOL
+            | [ comment ] EOL ;
+
+label       = ident ":" ;
+
+directive   = "." ident [ arguments ] ;
+arguments   = argument { "," argument } ;
+argument    = expr | string ;
+
+instruction = mnemonic [ size ] [ operands ] ;
+operands    = operand { "," operand } ;
+
+size        = "." ( "b" | "w" | "l" ) ;
+
+operand     = ea | immediate ;
+
+immediate   = "#" expr ;
+
+ea          = data_reg
+            | addr_reg
+            | "(" "A" digit ")"
+            | "(" "A" digit ")" "+"
+            | "-" "(" "A" digit ")"
+            | "(" expr "," "A" digit ")"
+            | "(" expr "," "A" digit "," index ")"
+            | "(" expr ")" "." "W"
+            | "(" expr ")" "." "L"
+            | "(" expr "," "PC" ")"
+            | "(" expr "," "PC" "," index ")" ;
+
+index       = ( "D" | "A" ) digit "." ( "w" | "l" ) ;
+
+data_reg    = "D" digit ;
+addr_reg    = "A" digit ;
+
+mnemonic    = ident ;
+ident       = letter { letter | digit | "_" } ;
+
+expr        = term { ( "+" | "-" | "|" | "^" | "<<" | ">>" | "&" ) term } ;
+term        = factor { ( "*" | "/" ) factor } ;
+factor      = [ "+" | "-" | "~" ] ( number | char | ident | "(" expr ")" ) ;
+
+number      = dec | hex | bin | oct ;
+dec         = digit { digit } ;
+hex         = ( "0x" | "$" ) hex_digit { hex_digit } ;
+bin         = "%" bin_digit { bin_digit } ;
+oct         = "0o" oct_digit { oct_digit } ;
+
+char        = "'" printable "'" ;
+string      = "\" { printable | escape } "\" ;
+
+escape      = "\\" ( "\\" | "\"" | "n" | "t" ) ;
+
+digit       = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+hex_digit   = digit | "a" | "b" | "c" | "d" | "e" | "f"
+                    | "A" | "B" | "C" | "D" | "E" | "F" ;
+bin_digit   = "0" | "1" ;
+oct_digit   = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
+
+letter      = "A"…"Z" | "a"…"z" | "_" ;
+
+comment     = ";" { printable } ;
+EOL         = "\n" ;
+printable   = ? any printable character except EOL, according to UTF-8 ? ;
