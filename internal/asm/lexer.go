@@ -52,7 +52,7 @@ type Lexer struct {
 	peek *Token
 }
 
-func New(r io.Reader) *Lexer { return &Lexer{r: bufio.NewReader(r), line: 1, col: 0} }
+func NewLexer(r io.Reader) *Lexer { return &Lexer{r: bufio.NewReader(r), line: 1, col: 0} }
 
 func (lx *Lexer) Next() Token {
 	if lx.peek != nil {

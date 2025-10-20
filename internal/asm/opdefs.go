@@ -2,6 +2,29 @@ package asm
 
 import "fmt"
 
+type Opcode int
+
+const (
+	OP_MOVEQ Opcode = iota
+	OP_LEA
+	OP_BCC
+)
+
+type (
+	InstrDef struct {
+		Op       Opcode
+		Mnemonic string
+		Forms    []FormDef
+	}
+
+	FormDef struct {
+		Sizes     []Size
+		OperKinds []OperandKind
+		Validate  func(*Args) error
+		Steps     []EmitStep
+	}
+)
+
 var defMOVEQ = InstrDef{
 	Op:       OP_MOVEQ,
 	Mnemonic: "MOVEQ",

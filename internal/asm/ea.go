@@ -2,7 +2,46 @@ package asm
 
 import "fmt"
 
-func encodeEA(e EAExpr, sz Size) (EAEncoded, error) {
+type EAExprKind int
+
+const (
+	EAkNone EAExprKind = iota
+	EAkImm
+	EAkDn
+	EAkAn
+	EAkAddrInd
+	EAkAddrDisp16
+	EAkPCDisp16
+	EAkIdxAnBrief
+	EAkIdxPCBrief
+	EAkAbsW
+	EAkAbsL
+)
+
+type EAExpr struct {
+	Kind   EAExprKind
+	Reg    int
+	Imm    int64
+	Disp16 int32
+	Index  EAIndex
+	Abs16  uint16
+	Abs32  uint32
+}
+
+type EAIndex struct {
+	Reg   int
+	IsA   bool
+	Long  bool
+	Scale uint8
+	Disp8 int8
+}
+
+type EAEncoded struct {
+	Mode, Reg int
+	Ext       []uint16
+}
+
+func encodeEA(e EAExpr) (EAEncoded, error) {
 	var out EAEncoded
 	switch e.Kind {
 	case EAkDn:
@@ -41,14 +80,21 @@ func encodeEA(e EAExpr, sz Size) (EAEncoded, error) {
 // Brief index extension word: hi-byte encodes index reg/type/size/scale, lo-byte is disp8.
 func encodeBriefIndex(ix EAIndex) uint16 {
 	hi := uint16(0)
-	if ix.IsA { hi |= 1 << 7 }                // A/D bit
-	hi |= (uint16(ix.Reg & 7) << 4)           // index reg #
-	if ix.Long { hi |= 1 << 3 }               // 0=word,1=long
+	if ix.IsA {
+		hi |= 1 << 7
+	} // A/D bit
+	hi |= (uint16(ix.Reg&7) << 4) // index reg #
+	if ix.Long {
+		hi |= 1 << 3
+	} // 0=word,1=long
 	switch ix.Scale {
-	case 1: /* 00 */ 
-	case 2: hi |= 1 << 1
-	case 4: hi |= 2 << 1
-	case 8: hi |= 3 << 1
+	case 1: /* 00 */
+	case 2:
+		hi |= 1 << 1
+	case 4:
+		hi |= 2 << 1
+	case 8:
+		hi |= 3 << 1
 	default: /* leave 00 */
 	}
 	return (hi << 8) | uint16(uint8(ix.Disp8))

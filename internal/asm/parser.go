@@ -2,30 +2,41 @@ package asm
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
 
-type Parser struct {
-	lx     *Lexer
-	labels map[string]uint32
-	pc     uint32
-	items  []any
-	line   int
-	col    int
-
-	buf []Token // N-Token Lookahead
-}
-
-func ParseFile(path string) (*Program, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+type (
+	Args struct {
+		HasImm   bool
+		Imm      int64
+		Dn, An   int
+		Cond     Cond
+		Target   string
+		Src, Dst EAExpr
 	}
-	defer f.Close()
 
-	p := &Parser{lx: New(f), labels: map[string]uint32{}}
+	DataBytes struct {
+		Bytes []byte
+		PC    uint32
+		Line  int
+	}
 
+	Parser struct {
+		lx     *Lexer
+		labels map[string]uint32
+		pc     uint32
+		items  []any
+		line   int
+		col    int
+
+		buf []Token // N-Token Lookahead
+	}
+)
+
+func Parse(r io.Reader) (*Program, error) {
+	p := &Parser{lx: NewLexer(r), labels: map[string]uint32{}}
 	for {
 		t := p.peek()
 		if t.Kind == EOF {
@@ -65,6 +76,16 @@ func ParseFile(path string) (*Program, error) {
 	}
 
 	return &Program{Items: p.items, Labels: p.labels, Origin: 0}, nil
+}
+
+func ParseFile(path string) (*Program, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return Parse(f)
 }
 
 func (p *Parser) parseStmt() error {
