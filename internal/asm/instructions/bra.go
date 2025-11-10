@@ -1,8 +1,8 @@
 package instructions
 
-var DefBRA = InstrDef{
+var DefBranch = InstrDef{
 	Op:       OP_BCC,
-	Mnemonic: "BRA",
+	Mnemonic: "BRANCH",
 	Forms: []FormDef{
 		{
 			Sizes:     []Size{SZ_B, SZ_W},

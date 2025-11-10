@@ -51,7 +51,22 @@ const (
 type Cond uint8
 
 const (
-	CondT Cond = 0x0
+	CondT   Cond = 0x0
+	CondBSR Cond = 0x1
+	CondHI  Cond = 0x2
+	CondLS  Cond = 0x3
+	CondCC  Cond = 0x4
+	CondCS  Cond = 0x5
+	CondNE  Cond = 0x6
+	CondEQ  Cond = 0x7
+	CondVC  Cond = 0x8
+	CondVS  Cond = 0x9
+	CondPL  Cond = 0xA
+	CondMI  Cond = 0xB
+	CondGE  Cond = 0xC
+	CondLT  Cond = 0xD
+	CondGT  Cond = 0xE
+	CondLE  Cond = 0xF
 )
 
 type OperandKind int

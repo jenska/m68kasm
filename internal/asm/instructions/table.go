@@ -9,5 +9,5 @@ var Table = []InstrDef{
 	DefDIV,
 	DefCMP,
 	DefLEA,
-	DefBRA,
+	DefBranch,
 }

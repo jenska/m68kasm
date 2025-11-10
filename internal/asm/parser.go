@@ -9,6 +9,27 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
+var branchCondMap = map[string]instructions.Cond{
+	"BRA": instructions.CondT,
+	"BSR": instructions.CondBSR,
+	"BHI": instructions.CondHI,
+	"BLS": instructions.CondLS,
+	"BCC": instructions.CondCC,
+	"BHS": instructions.CondCC,
+	"BCS": instructions.CondCS,
+	"BLO": instructions.CondCS,
+	"BNE": instructions.CondNE,
+	"BEQ": instructions.CondEQ,
+	"BVC": instructions.CondVC,
+	"BVS": instructions.CondVS,
+	"BPL": instructions.CondPL,
+	"BMI": instructions.CondMI,
+	"BGE": instructions.CondGE,
+	"BLT": instructions.CondLT,
+	"BGT": instructions.CondGT,
+	"BLE": instructions.CondLE,
+}
+
 type (
 	DataBytes struct {
 		Bytes []byte
@@ -71,6 +92,25 @@ func Parse(r io.Reader) (*Program, error) {
 	return &Program{Items: p.items, Labels: p.labels, Origin: 0}, nil
 }
 
+func branchMnemonicInfo(text string) (string, instructions.Cond, bool) {
+	name := strings.ToUpper(text)
+	if idx := strings.IndexRune(name, '.'); idx > 0 {
+		name = name[:idx]
+	}
+	cond, ok := branchCondMap[name]
+	if !ok {
+		return "", 0, false
+	}
+	return name, cond, true
+}
+
+func branchDefaultSize(name string) instructions.Size {
+	if name == "BSR" {
+		return instructions.SZ_W
+	}
+	return instructions.SZ_B
+}
+
 func ParseFile(path string) (*Program, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -84,6 +124,9 @@ func ParseFile(path string) (*Program, error) {
 func (p *Parser) parseStmt() error {
 	t := p.peek()
 	if t.Kind == IDENT {
+		if name, cond, ok := branchMnemonicInfo(t.Text); ok {
+			return p.parseBranch(name, cond)
+		}
 		switch kwOf(t.Text) {
 		case KW_MOVEQ:
 			return p.parseMOVEQ()
@@ -101,8 +144,6 @@ func (p *Parser) parseStmt() error {
 			return p.parseCMP()
 		case KW_LEA:
 			return p.parseLEA()
-		case KW_BRA:
-			return p.parseBRA()
 		case KW_NONE:
 			return fmt.Errorf("line %d: unknown mnemonic: %s", t.Line, t.Text)
 		}
@@ -472,21 +513,31 @@ func (p *Parser) parseCMP() error {
 	return nil
 }
 
-func (p *Parser) parseBRA() error {
+func (p *Parser) parseBranch(name string, cond instructions.Cond) error {
 	mn, err := p.want(IDENT)
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(mn.Text, "BRA") {
-		return fmt.Errorf("line %d: BRA expected", mn.Line)
+	actualName, _, ok := branchMnemonicInfo(mn.Text)
+	if !ok || actualName != name {
+		return fmt.Errorf("line %d: %s expected", mn.Line, name)
+	}
+	sz, err := p.parseSizeSpec(mn, branchDefaultSize(name), []instructions.Size{instructions.SZ_B, instructions.SZ_W})
+	if err != nil {
+		return err
 	}
 	lbl, err := p.want(IDENT)
 	if err != nil {
 		return err
 	}
-	ins := &Instr{Op: instructions.OP_BCC, Mnemonic: "BRA", Size: instructions.SZ_B, Args: instructions.Args{Target: lbl.Text, Cond: instructions.CondT}, PC: p.pc, Line: mn.Line}
+	args := instructions.Args{Target: lbl.Text, Cond: cond, Size: sz}
+	ins := &Instr{Op: instructions.OP_BCC, Mnemonic: name, Size: sz, Args: args, PC: p.pc, Line: mn.Line}
 	p.items = append(p.items, ins)
-	p.pc += 2
+	words := 1
+	if sz == instructions.SZ_W {
+		words = 2
+	}
+	p.pc += uint32(words * 2)
 	return nil
 }
 
@@ -576,6 +627,8 @@ func (p *Parser) parseSizeSuffix(def instructions.Size, allowed []instructions.S
 func sizeFromIdent(s string) (instructions.Size, bool) {
 	switch strings.ToLower(s) {
 	case "b":
+		return instructions.SZ_B, true
+	case "s":
 		return instructions.SZ_B, true
 	case "w":
 		return instructions.SZ_W, true
