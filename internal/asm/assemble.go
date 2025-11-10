@@ -33,12 +33,14 @@ func Assemble(p *Program) ([]byte, error) {
 			if def == nil {
 				return nil, fmt.Errorf("no definition for opcode %v", x.Op)
 			}
-			// For now we assume a single form per instruction.
-			form := &def.Forms[0]
+			form, err := selectForm(def, x)
+			if err != nil {
+				return nil, fmt.Errorf("line %d: %v", x.Line, err)
+			}
 
 			if form.Validate != nil {
 				if err := form.Validate(&x.Args); err != nil {
-					return nil, err
+					return nil, fmt.Errorf("line %d: %v", x.Line, err)
 				}
 			}
 
@@ -57,4 +59,90 @@ func Assemble(p *Program) ([]byte, error) {
 	}
 
 	return out, nil
+}
+
+func selectForm(def *InstrDef, ins *Instr) (*FormDef, error) {
+	for i := range def.Forms {
+		form := &def.Forms[i]
+		if len(form.Sizes) > 0 {
+			if !sizeAllowed(form.Sizes, ins.Size) {
+				continue
+			}
+		}
+		if len(form.OperKinds) > 0 {
+			actual := operandKinds(&ins.Args)
+			if !operKindsMatch(form.OperKinds, actual) {
+				continue
+			}
+		}
+		return form, nil
+	}
+	return nil, fmt.Errorf("no form matches operands/size for %s", def.Mnemonic)
+}
+
+func sizeAllowed(list []Size, sz Size) bool {
+	for _, v := range list {
+		if v == sz {
+			return true
+		}
+	}
+	return false
+}
+
+func operandKinds(a *Args) []OperandKind {
+	kinds := make([]OperandKind, 0, 2)
+	if a.HasImm && a.Src.Kind == EAkNone {
+		kinds = append(kinds, OPK_Imm)
+	} else if a.Src.Kind != EAkNone {
+		kinds = append(kinds, operandKindFromEA(a.Src))
+	} else if a.Target != "" {
+		kinds = append(kinds, OPK_DispRel)
+	}
+
+	if a.Dst.Kind != EAkNone {
+		kinds = append(kinds, operandKindFromEA(a.Dst))
+	}
+
+	return kinds
+}
+
+func operandKindFromEA(e EAExpr) OperandKind {
+	switch e.Kind {
+	case EAkDn:
+		return OPK_Dn
+	case EAkAn:
+		return OPK_An
+	case EAkImm:
+		return OPK_Imm
+	case EAkNone:
+		return OPK_None
+	default:
+		return OPK_EA
+	}
+}
+
+func operKindsMatch(expected, actual []OperandKind) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+	for i := range expected {
+		if !operandKindCompatible(expected[i], actual[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func operandKindCompatible(expect, actual OperandKind) bool {
+	if expect == actual {
+		return true
+	}
+	switch expect {
+	case OPK_EA:
+		switch actual {
+		case OPK_EA, OPK_Dn, OPK_An, OPK_Imm:
+			return true
+		}
+	}
+	return false
 }

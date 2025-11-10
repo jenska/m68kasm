@@ -15,6 +15,7 @@ type (
 		Cond     Cond
 		Target   string
 		Src, Dst EAExpr
+		Size     Size
 	}
 
 	DataBytes struct {
@@ -94,12 +95,24 @@ func (p *Parser) parseStmt() error {
 		switch kwOf(t.Text) {
 		case KW_MOVEQ:
 			return p.parseMOVEQ()
+		case KW_MOVE:
+			return p.parseMOVE()
+		case KW_ADD:
+			return p.parseADD()
+		case KW_SUB:
+			return p.parseSUB()
+		case KW_MULTI:
+			return p.parseMULTI()
+		case KW_DIV:
+			return p.parseDIV()
+		case KW_CMP:
+			return p.parseCMP()
 		case KW_LEA:
 			return p.parseLEA()
 		case KW_BRA:
 			return p.parseBRA()
 		case KW_NONE:
-			return fmt.Errorf("line %d: unknoen mnemonic: %s", t.Line, t.Text)
+			return fmt.Errorf("line %d: unknown mnemonic: %s", t.Line, t.Text)
 		}
 	}
 	if t.Kind == DOT || (t.Kind == IDENT && strings.HasPrefix(t.Text, ".")) {
@@ -250,9 +263,220 @@ func (p *Parser) parseMOVEQ() error {
 	if !ok {
 		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
 	}
-	ins := &Instr{Op: OP_MOVEQ, Mnemonic: "MOVEQ", Size: SZ_L, Args: Args{HasImm: true, Imm: int64(int8(imm)), Dn: dn}, PC: p.pc, Line: mn.Line}
+	ins := &Instr{Op: OP_MOVEQ, Mnemonic: "MOVEQ", Size: SZ_L, Args: Args{HasImm: true, Imm: int64(int8(imm)), Dn: dn, Src: EAExpr{Kind: EAkImm, Imm: int64(int8(imm))}, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Size: SZ_L}, PC: p.pc, Line: mn.Line}
 	p.items = append(p.items, ins)
 	p.pc += 2
+	return nil
+}
+
+func (p *Parser) parseMOVE() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_B, SZ_W, SZ_L})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	args := Args{Src: src, Dst: dst, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	if dst.Kind == EAkDn {
+		args.Dn = dst.Reg
+	} else if dst.Kind == EAkAn {
+		args.An = dst.Reg
+	}
+	ins := &Instr{Op: OP_MOVE, Mnemonic: "MOVE", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true) + eaExtraWords(dst, sz, false)
+	p.pc += uint32(words * 2)
+	return nil
+}
+
+func (p *Parser) parseADD() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_B, SZ_W, SZ_L})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	ok, dn := isRegDn(dst.Text)
+	if !ok {
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
+	}
+	args := Args{Src: src, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Dn: dn, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	ins := &Instr{Op: OP_ADD, Mnemonic: "ADD", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true)
+	p.pc += uint32(words * 2)
+	return nil
+}
+
+func (p *Parser) parseSUB() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_B, SZ_W, SZ_L})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	ok, dn := isRegDn(dst.Text)
+	if !ok {
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
+	}
+	args := Args{Src: src, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Dn: dn, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	ins := &Instr{Op: OP_SUB, Mnemonic: "SUB", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true)
+	p.pc += uint32(words * 2)
+	return nil
+}
+
+func (p *Parser) parseMULTI() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_W})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	ok, dn := isRegDn(dst.Text)
+	if !ok {
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
+	}
+	args := Args{Src: src, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Dn: dn, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	ins := &Instr{Op: OP_MULTI, Mnemonic: "MULTI", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true)
+	p.pc += uint32(words * 2)
+	return nil
+}
+
+func (p *Parser) parseDIV() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_W})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	ok, dn := isRegDn(dst.Text)
+	if !ok {
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
+	}
+	args := Args{Src: src, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Dn: dn, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	ins := &Instr{Op: OP_DIV, Mnemonic: "DIV", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true)
+	p.pc += uint32(words * 2)
+	return nil
+}
+
+func (p *Parser) parseCMP() error {
+	mn, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	sz, err := p.parseSizeSpec(mn, SZ_W, []Size{SZ_B, SZ_W, SZ_L})
+	if err != nil {
+		return err
+	}
+	src, err := p.parseEA()
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	dst, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+	ok, dn := isRegDn(dst.Text)
+	if !ok {
+		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
+	}
+	args := Args{Src: src, Dst: EAExpr{Kind: EAkDn, Reg: dn}, Dn: dn, Size: sz}
+	if src.Kind == EAkImm {
+		args.Imm = src.Imm
+	}
+	ins := &Instr{Op: OP_CMP, Mnemonic: "CMP", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
+	p.items = append(p.items, ins)
+	words := 1 + eaExtraWords(src, sz, true)
+	p.pc += uint32(words * 2)
 	return nil
 }
 
@@ -297,10 +521,96 @@ func (p *Parser) parseLEA() error {
 	if !ok {
 		return fmt.Errorf("line %d: expected An, got %s", dst.Line, dst.Text)
 	}
-	ins := &Instr{Op: OP_LEA, Mnemonic: "LEA", Size: SZ_L, Args: Args{Src: src, An: an}, PC: p.pc, Line: mn.Line}
+	ins := &Instr{Op: OP_LEA, Mnemonic: "LEA", Size: SZ_L, Args: Args{Src: src, An: an, Dst: EAExpr{Kind: EAkAn, Reg: an}, Size: SZ_L}, PC: p.pc, Line: mn.Line}
 	p.items = append(p.items, ins)
-	p.pc += 4
+	words := 1 + eaExtraWords(src, SZ_L, true)
+	p.pc += uint32(words * 2)
 	return nil
+}
+
+func sizeAllowedList(sz Size, allowed []Size) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, a := range allowed {
+		if a == sz {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) parseSizeSpec(mn Token, def Size, allowed []Size) (Size, error) {
+	if idx := strings.IndexRune(mn.Text, '.'); idx > 0 {
+		suf := mn.Text[idx+1:]
+		if suf == "" {
+			return 0, fmt.Errorf("line %d: unknown size suffix", mn.Line)
+		}
+		sz, ok := sizeFromIdent(suf)
+		if !ok {
+			return 0, fmt.Errorf("line %d: unknown size suffix .%s", mn.Line, suf)
+		}
+		if !sizeAllowedList(sz, allowed) {
+			return 0, fmt.Errorf("line %d: illegal size for instruction", mn.Line)
+		}
+		return sz, nil
+	}
+	sz, err := p.parseSizeSuffix(def, allowed)
+	if err != nil {
+		return 0, err
+	}
+	return sz, nil
+}
+
+func (p *Parser) parseSizeSuffix(def Size, allowed []Size) (Size, error) {
+	sz := def
+	if p.accept(DOT) {
+		id, err := p.want(IDENT)
+		if err != nil {
+			return 0, err
+		}
+		val, ok := sizeFromIdent(id.Text)
+		if !ok {
+			return 0, fmt.Errorf("line %d: unknown size suffix .%s", id.Line, id.Text)
+		}
+		sz = val
+	}
+	if !sizeAllowedList(sz, allowed) {
+		return 0, fmt.Errorf("line %d: illegal size for instruction", p.line)
+	}
+	return sz, nil
+}
+
+func sizeFromIdent(s string) (Size, bool) {
+	switch strings.ToLower(s) {
+	case "b":
+		return SZ_B, true
+	case "w":
+		return SZ_W, true
+	case "l":
+		return SZ_L, true
+	default:
+		return 0, false
+	}
+}
+
+func eaExtraWords(e EAExpr, sz Size, source bool) int {
+	switch e.Kind {
+	case EAkAddrDisp16, EAkPCDisp16, EAkIdxAnBrief, EAkIdxPCBrief, EAkAbsW:
+		return 1
+	case EAkAbsL:
+		return 2
+	case EAkImm:
+		if !source {
+			return 0
+		}
+		if sz == SZ_L {
+			return 2
+		}
+		return 1
+	default:
+		return 0
+	}
 }
 
 // ---------- EA parsing ----------
@@ -371,7 +681,7 @@ func (p *Parser) parseEA() (EAExpr, error) {
 					case 1, 2, 4, 8:
 						ix.Scale = uint8(sc)
 					default:
-						return EAExpr{}, fmt.Errorf("ungültiger Scale-Faktor: %d", sc)
+						return EAExpr{}, fmt.Errorf("invalid scale factor: %d", sc)
 					}
 				}
 				ix.Disp8 = int8(first)

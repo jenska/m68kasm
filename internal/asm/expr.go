@@ -173,7 +173,7 @@ loop:
 		}
 	}
 	if len(out) != 1 {
-		return 0, fmt.Errorf("ungültiger Ausdruck")
+		return 0, fmt.Errorf("invalid expression")
 	}
 	return out[0], nil
 }

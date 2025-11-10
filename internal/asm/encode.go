@@ -13,6 +13,8 @@ const (
 	F_Cond
 	F_ImmLow8
 	F_BranchLow8
+	F_MoveDestEA
+	F_MoveSize
 )
 
 type TrailerItem int
@@ -21,6 +23,7 @@ const (
 	T_SrcEAExt TrailerItem = iota
 	T_DstEAExt
 	T_ImmSized
+	T_SrcImm
 	T_BranchWordIfNeeded
 )
 
@@ -78,6 +81,7 @@ func appendWord(out []byte, v uint16) []byte {
 type prepared struct {
 	PC       uint32
 	SizeBits uint16
+	Size     Size
 
 	Imm  int64
 	Dn   int
@@ -120,6 +124,19 @@ func applyField(wordVal uint16, f FieldRef, p *prepared) uint16 {
 			return wordVal | uint16(uint8(p.BrDisp8))
 		}
 		return wordVal
+	case F_MoveDestEA:
+		return wordVal | (uint16(p.DstEA.Mode&7) << 6) | (uint16(p.DstEA.Reg&7) << 9)
+	case F_MoveSize:
+		switch p.Size {
+		case SZ_B:
+			return wordVal | 0x1000
+		case SZ_W:
+			return wordVal | 0x3000
+		case SZ_L:
+			return wordVal | 0x2000
+		default:
+			return wordVal
+		}
 	default:
 		return wordVal
 	}
@@ -145,6 +162,23 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 		return out, nil
 	case T_ImmSized:
 		return appendWord(out, uint16(int16(p.Imm))), nil
+	case T_SrcImm:
+		if p.SrcEA.Mode == 7 && p.SrcEA.Reg == 4 {
+			switch p.Size {
+			case SZ_B:
+				return appendWord(out, uint16(uint8(p.Imm))), nil
+			case SZ_W:
+				return appendWord(out, uint16(uint16(p.Imm))), nil
+			case SZ_L:
+				u := uint32(int32(p.Imm))
+				out = appendWord(out, uint16(u>>16))
+				out = appendWord(out, uint16(u))
+				return out, nil
+			default:
+				return appendWord(out, uint16(uint16(p.Imm))), nil
+			}
+		}
+		return out, nil
 	case T_BranchWordIfNeeded:
 		if p.BrUseWord {
 			return appendWord(out, uint16(p.BrDisp16)), nil
@@ -155,7 +189,7 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 }
 
 func Encode(def *InstrDef, form *FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
-	p := prepared{PC: ins.PC, Imm: ins.Args.Imm, Dn: ins.Args.Dn, An: ins.Args.An, Cond: uint8(ins.Args.Cond)}
+	p := prepared{PC: ins.PC, Size: ins.Size, Imm: ins.Args.Imm, Dn: ins.Args.Dn, An: ins.Args.An, Cond: uint8(ins.Args.Cond)}
 	var err error
 
 	if ins.Args.Src.Kind != EAkNone {
