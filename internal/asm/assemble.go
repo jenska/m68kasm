@@ -1,17 +1,21 @@
 package asm
 
-import "fmt"
+import (
+	"fmt"
 
-var instrDefsByOpcode = func() map[Opcode]*InstrDef {
-	defs := make(map[Opcode]*InstrDef, len(InstrTable))
-	for i := range InstrTable {
-		d := &InstrTable[i]
+	"github.com/jenska/m68kasm/internal/asm/instructions"
+)
+
+var instrDefsByOpcode = func() map[instructions.Opcode]*instructions.InstrDef {
+	defs := make(map[instructions.Opcode]*instructions.InstrDef, len(instructions.Table))
+	for i := range instructions.Table {
+		d := &instructions.Table[i]
 		defs[d.Op] = d
 	}
 	return defs
 }()
 
-func getInstrDef(op Opcode) *InstrDef {
+func getInstrDef(op instructions.Opcode) *instructions.InstrDef {
 	return instrDefsByOpcode[op]
 }
 
@@ -61,7 +65,7 @@ func Assemble(p *Program) ([]byte, error) {
 	return out, nil
 }
 
-func selectForm(def *InstrDef, ins *Instr) (*FormDef, error) {
+func selectForm(def *instructions.InstrDef, ins *Instr) (*instructions.FormDef, error) {
 	for i := range def.Forms {
 		form := &def.Forms[i]
 		if len(form.Sizes) > 0 {
@@ -80,7 +84,7 @@ func selectForm(def *InstrDef, ins *Instr) (*FormDef, error) {
 	return nil, fmt.Errorf("no form matches operands/size for %s", def.Mnemonic)
 }
 
-func sizeAllowed(list []Size, sz Size) bool {
+func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
 	for _, v := range list {
 		if v == sz {
 			return true
@@ -89,39 +93,39 @@ func sizeAllowed(list []Size, sz Size) bool {
 	return false
 }
 
-func operandKinds(a *Args) []OperandKind {
-	kinds := make([]OperandKind, 0, 2)
-	if a.HasImm && a.Src.Kind == EAkNone {
-		kinds = append(kinds, OPK_Imm)
-	} else if a.Src.Kind != EAkNone {
+func operandKinds(a *instructions.Args) []instructions.OperandKind {
+	kinds := make([]instructions.OperandKind, 0, 2)
+	if a.HasImm && a.Src.Kind == instructions.EAkNone {
+		kinds = append(kinds, instructions.OPK_Imm)
+	} else if a.Src.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Src))
 	} else if a.Target != "" {
-		kinds = append(kinds, OPK_DispRel)
+		kinds = append(kinds, instructions.OPK_DispRel)
 	}
 
-	if a.Dst.Kind != EAkNone {
+	if a.Dst.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Dst))
 	}
 
 	return kinds
 }
 
-func operandKindFromEA(e EAExpr) OperandKind {
+func operandKindFromEA(e instructions.EAExpr) instructions.OperandKind {
 	switch e.Kind {
-	case EAkDn:
-		return OPK_Dn
-	case EAkAn:
-		return OPK_An
-	case EAkImm:
-		return OPK_Imm
-	case EAkNone:
-		return OPK_None
+	case instructions.EAkDn:
+		return instructions.OPK_Dn
+	case instructions.EAkAn:
+		return instructions.OPK_An
+	case instructions.EAkImm:
+		return instructions.OPK_Imm
+	case instructions.EAkNone:
+		return instructions.OPK_None
 	default:
-		return OPK_EA
+		return instructions.OPK_EA
 	}
 }
 
-func operKindsMatch(expected, actual []OperandKind) bool {
+func operKindsMatch(expected, actual []instructions.OperandKind) bool {
 	if len(expected) != len(actual) {
 		return false
 	}
@@ -133,14 +137,14 @@ func operKindsMatch(expected, actual []OperandKind) bool {
 	return true
 }
 
-func operandKindCompatible(expect, actual OperandKind) bool {
+func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 	if expect == actual {
 		return true
 	}
 	switch expect {
-	case OPK_EA:
+	case instructions.OPK_EA:
 		switch actual {
-		case OPK_EA, OPK_Dn, OPK_An, OPK_Imm:
+		case instructions.OPK_EA, instructions.OPK_Dn, instructions.OPK_An, instructions.OPK_Imm:
 			return true
 		}
 	}
