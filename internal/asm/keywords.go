@@ -15,7 +15,6 @@ const (
 	KW_DIV
 	KW_CMP
 	KW_LEA
-	KW_BRA
 	KW_ORG
 	KW_ALIGN
 	KW_BYTE
@@ -45,8 +44,6 @@ func kwOf(s string) kw {
 		return KW_CMP
 	case "LEA":
 		return KW_LEA
-	case "BRA":
-		return KW_BRA
 	case ".ORG":
 		return KW_ORG
 	case ".BYTE":
