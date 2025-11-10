@@ -1,47 +1,9 @@
-package asm
+package instructions
 
 import "fmt"
 
-type EAExprKind int
-
-const (
-	EAkNone EAExprKind = iota
-	EAkImm
-	EAkDn
-	EAkAn
-	EAkAddrInd
-	EAkAddrDisp16
-	EAkPCDisp16
-	EAkIdxAnBrief
-	EAkIdxPCBrief
-	EAkAbsW
-	EAkAbsL
-)
-
-type EAExpr struct {
-	Kind   EAExprKind
-	Reg    int
-	Imm    int64
-	Disp16 int32
-	Index  EAIndex
-	Abs16  uint16
-	Abs32  uint32
-}
-
-type EAIndex struct {
-	Reg   int
-	IsA   bool
-	Long  bool
-	Scale uint8
-	Disp8 int8
-}
-
-type EAEncoded struct {
-	Mode, Reg int
-	Ext       []uint16
-}
-
-func encodeEA(e EAExpr) (EAEncoded, error) {
+// EncodeEA converts an addressing expression into the mode/reg pair and any extension words.
+func EncodeEA(e EAExpr) (EAEncoded, error) {
 	var out EAEncoded
 	switch e.Kind {
 	case EAkDn:
@@ -69,33 +31,32 @@ func encodeEA(e EAExpr) (EAEncoded, error) {
 		out.Mode, out.Reg = 7, 1
 		out.Ext = append(out.Ext, uint16(e.Abs32>>16), uint16(e.Abs32))
 	case EAkImm:
-		// immediate EA (mode=7, reg=4) — trailers are handled per-instruction; here we return mode/reg only if needed
 		out.Mode, out.Reg = 7, 4
+	case EAkNone:
+		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
 	default:
 		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
 	}
 	return out, nil
 }
 
-// Brief index extension word: hi-byte encodes index reg/type/size/scale, lo-byte is disp8.
 func encodeBriefIndex(ix EAIndex) uint16 {
 	hi := uint16(0)
 	if ix.IsA {
 		hi |= 1 << 7
-	} // A/D bit
-	hi |= (uint16(ix.Reg&7) << 4) // index reg #
+	}
+	hi |= (uint16(ix.Reg&7) << 4)
 	if ix.Long {
 		hi |= 1 << 3
-	} // 0=word,1=long
+	}
 	switch ix.Scale {
-	case 1: /* 00 */
+	case 1:
 	case 2:
 		hi |= 1 << 1
 	case 4:
 		hi |= 2 << 1
 	case 8:
 		hi |= 3 << 1
-	default: /* leave 00 */
 	}
 	return (hi << 8) | uint16(uint8(ix.Disp8))
 }

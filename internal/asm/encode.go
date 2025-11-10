@@ -1,73 +1,27 @@
 package asm
 
-import "fmt"
+import (
+	"fmt"
 
-type FieldRef int
-
-const (
-	F_SrcEA FieldRef = iota
-	F_DstEA
-	F_SizeBits
-	F_AnReg
-	F_DnReg
-	F_Cond
-	F_ImmLow8
-	F_BranchLow8
-	F_MoveDestEA
-	F_MoveSize
-)
-
-type TrailerItem int
-
-const (
-	T_SrcEAExt TrailerItem = iota
-	T_DstEAExt
-	T_ImmSized
-	T_SrcImm
-	T_BranchWordIfNeeded
-)
-
-type Size int
-
-const (
-	SZ_B Size = iota
-	SZ_W
-	SZ_L
-)
-
-type Cond uint8
-
-const (
-	CondT Cond = 0x0
-)
-
-type OperandKind int
-
-const (
-	OPK_None OperandKind = iota
-	OPK_Imm
-	OPK_Dn
-	OPK_An
-	OPK_EA
-	OPK_DispRel
+	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
 type Instr struct {
-	Op       Opcode
+	Op       instructions.Opcode
 	Mnemonic string
-	Size     Size
-	Args     Args
+	Size     instructions.Size
+	Args     instructions.Args
 	PC       uint32
 	Line     int
 }
 
-func sizeToBits(sz Size) uint16 {
+func sizeToBits(sz instructions.Size) uint16 {
 	switch sz {
-	case SZ_B:
+	case instructions.SZ_B:
 		return 0x0000
-	case SZ_W:
+	case instructions.SZ_W:
 		return 0x0040
-	case SZ_L:
+	case instructions.SZ_L:
 		return 0x0080
 	default:
 		return 0
@@ -81,15 +35,15 @@ func appendWord(out []byte, v uint16) []byte {
 type prepared struct {
 	PC       uint32
 	SizeBits uint16
-	Size     Size
+	Size     instructions.Size
 
 	Imm  int64
 	Dn   int
 	An   int
 	Cond uint8
 
-	SrcEA EAEncoded
-	DstEA EAEncoded
+	SrcEA instructions.EAEncoded
+	DstEA instructions.EAEncoded
 
 	TargetPC  uint32
 	BrUseWord bool
@@ -97,42 +51,36 @@ type prepared struct {
 	BrDisp16  int16
 }
 
-type EmitStep struct {
-	WordBits uint16
-	Fields   []FieldRef
-	Trailer  []TrailerItem
-}
-
-func applyField(wordVal uint16, f FieldRef, p *prepared) uint16 {
+func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	switch f {
-	case F_SizeBits:
+	case instructions.F_SizeBits:
 		return wordVal | p.SizeBits
-	case F_SrcEA:
+	case instructions.F_SrcEA:
 		return wordVal | (uint16(p.SrcEA.Mode&7) << 3) | uint16(p.SrcEA.Reg&7)
-	case F_DstEA:
+	case instructions.F_DstEA:
 		return wordVal | (uint16(p.DstEA.Mode&7) << 3) | uint16(p.DstEA.Reg&7)
-	case F_DnReg:
+	case instructions.F_DnReg:
 		return wordVal | (uint16(p.Dn&7) << 9)
-	case F_AnReg:
+	case instructions.F_AnReg:
 		return wordVal | (uint16(p.An&7) << 9)
-	case F_Cond:
+	case instructions.F_Cond:
 		return wordVal | (uint16(p.Cond&0x0F) << 8)
-	case F_ImmLow8:
+	case instructions.F_ImmLow8:
 		return wordVal | uint16(uint8(p.Imm))
-	case F_BranchLow8:
+	case instructions.F_BranchLow8:
 		if !p.BrUseWord {
 			return wordVal | uint16(uint8(p.BrDisp8))
 		}
 		return wordVal
-	case F_MoveDestEA:
+	case instructions.F_MoveDestEA:
 		return wordVal | (uint16(p.DstEA.Mode&7) << 6) | (uint16(p.DstEA.Reg&7) << 9)
-	case F_MoveSize:
+	case instructions.F_MoveSize:
 		switch p.Size {
-		case SZ_B:
+		case instructions.SZ_B:
 			return wordVal | 0x1000
-		case SZ_W:
+		case instructions.SZ_W:
 			return wordVal | 0x3000
-		case SZ_L:
+		case instructions.SZ_L:
 			return wordVal | 0x2000
 		default:
 			return wordVal
@@ -142,9 +90,9 @@ func applyField(wordVal uint16, f FieldRef, p *prepared) uint16 {
 	}
 }
 
-func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
+func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, error) {
 	switch t {
-	case T_SrcEAExt:
+	case instructions.T_SrcEAExt:
 		if len(p.SrcEA.Ext) == 0 {
 			return out, nil
 		}
@@ -152,7 +100,7 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 			out = appendWord(out, w)
 		}
 		return out, nil
-	case T_DstEAExt:
+	case instructions.T_DstEAExt:
 		if len(p.DstEA.Ext) == 0 {
 			return out, nil
 		}
@@ -160,16 +108,16 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 			out = appendWord(out, w)
 		}
 		return out, nil
-	case T_ImmSized:
+	case instructions.T_ImmSized:
 		return appendWord(out, uint16(int16(p.Imm))), nil
-	case T_SrcImm:
+	case instructions.T_SrcImm:
 		if p.SrcEA.Mode == 7 && p.SrcEA.Reg == 4 {
 			switch p.Size {
-			case SZ_B:
+			case instructions.SZ_B:
 				return appendWord(out, uint16(uint8(p.Imm))), nil
-			case SZ_W:
+			case instructions.SZ_W:
 				return appendWord(out, uint16(uint16(p.Imm))), nil
-			case SZ_L:
+			case instructions.SZ_L:
 				u := uint32(int32(p.Imm))
 				out = appendWord(out, uint16(u>>16))
 				out = appendWord(out, uint16(u))
@@ -179,7 +127,7 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 			}
 		}
 		return out, nil
-	case T_BranchWordIfNeeded:
+	case instructions.T_BranchWordIfNeeded:
 		if p.BrUseWord {
 			return appendWord(out, uint16(p.BrDisp16)), nil
 		}
@@ -188,18 +136,18 @@ func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 	return out, nil
 }
 
-func Encode(def *InstrDef, form *FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
+func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
 	p := prepared{PC: ins.PC, Size: ins.Size, Imm: ins.Args.Imm, Dn: ins.Args.Dn, An: ins.Args.An, Cond: uint8(ins.Args.Cond)}
 	var err error
 
-	if ins.Args.Src.Kind != EAkNone {
-		p.SrcEA, err = encodeEA(ins.Args.Src)
+	if ins.Args.Src.Kind != instructions.EAkNone {
+		p.SrcEA, err = instructions.EncodeEA(ins.Args.Src)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if ins.Args.Dst.Kind != EAkNone {
-		p.DstEA, err = encodeEA(ins.Args.Dst)
+	if ins.Args.Dst.Kind != instructions.EAkNone {
+		p.DstEA, err = instructions.EncodeEA(ins.Args.Dst)
 		if err != nil {
 			return nil, err
 		}
