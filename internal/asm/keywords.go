@@ -8,6 +8,12 @@ type kw int
 const (
 	KW_NONE kw = iota
 	KW_MOVEQ
+	KW_MOVE
+	KW_ADD
+	KW_SUB
+	KW_MULTI
+	KW_DIV
+	KW_CMP
 	KW_LEA
 	KW_BRA
 	KW_ORG
@@ -19,9 +25,24 @@ const (
 
 func kwOf(s string) kw {
 	s = strings.ToUpper(s)
+	if idx := strings.IndexRune(s, '.'); idx > 0 {
+		s = s[:idx]
+	}
 	switch s {
 	case "MOVEQ":
 		return KW_MOVEQ
+	case "MOVE":
+		return KW_MOVE
+	case "ADD":
+		return KW_ADD
+	case "SUB":
+		return KW_SUB
+	case "MULTI":
+		return KW_MULTI
+	case "DIV":
+		return KW_DIV
+	case "CMP":
+		return KW_CMP
 	case "LEA":
 		return KW_LEA
 	case "BRA":
