@@ -14,15 +14,14 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)  
-- Implemented instructions: `MOVEQ`, `LEA`, `BRA`  
-- Pseudo-operations: `.org`, `.byte`  
-- Clear modular design in Go (`lexer`, `parser`, `expr`, `ea`, `encode`, `assemble`)  
+- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`, `SUB`, `MULTI`, `DIV`, `CMP`, `LEA`, `BRA`
+- Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
+- Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
 
 ### Planned for Upcoming Releases
-- Arithmetic & logic instructions: `MOVE`, `ADD`, `SUB`, `CMP`  
-- Branch family: `Bcc`, `BSR` (short and word forms)  
-- Additional pseudo-ops: `.word`, `.long`, `.align`  
+- Additional arithmetic & logic coverage (e.g., `AND`, `OR`, `EOR`)
+- Extended branch family: `Bcc`, `BSR` (short and word forms)
 - Output formats: Motorola S-Record, ELF (for cross-tool compatibility)  
 - Source listing output  
 - Automated tests and regression validation
@@ -74,18 +73,36 @@ m68kasm [options] <source-files>
 
 **Example:**
 ```bash
-m68kasm -o out.bin testdata/hello.s
+m68kasm -o out.bin tests/e2e/testdata/hello.s
 hexdump -C out.bin
 ```
+
+### Quick start: assemble and run the sample program
+
+If you want to see the assembler in action immediately, clone the repository and build the CLI, then assemble the bundled
+`hello.s` example. The following commands will produce a binary and print it as hexadecimal bytes:
+
+```bash
+git clone https://github.com/jenska/m68kasm.git
+cd m68kasm
+go build ./cmd/m68kasm
+./m68kasm -o hello.bin tests/e2e/testdata/hello.s
+hexdump -C hello.bin
+```
+
+The `tests/e2e/testdata/hello.s` file demonstrates the currently implemented instructions (`MOVEQ`, `LEA`, and `BRA`) and is
+exercised by the automated end-to-end tests.
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-cmd/m68kasm/          # Command-line frontend
-internal/asm/         # Core assembler packages (lexer, parser, expr, ea, encode, opdefs, assemble)
-testdata/             # Example source files and golden binaries
+cmd/m68kasm/              # Command-line frontend
+internal/asm/             # Assembler pipeline (lexer, parser, evaluation, encoding)
+internal/asm/instructions # Declarative instruction tables and helpers
+tests/e2e/                # End-to-end tests for the CLI
+tests/e2e/testdata/       # Sample assembly sources and expected binaries used by the tests
 ```
 
 ---
