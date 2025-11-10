@@ -71,9 +71,8 @@ func sizeToBits(sz Size) uint16 {
 	}
 }
 
-func word(v int16) []byte {
-	u := uint16(v)
-	return []byte{byte(u >> 8), byte(u)}
+func appendWord(out []byte, v uint16) []byte {
+	return append(out, byte(v>>8), byte(v))
 }
 
 type prepared struct {
@@ -126,35 +125,33 @@ func applyField(wordVal uint16, f FieldRef, p *prepared) uint16 {
 	}
 }
 
-func emitTrailer(t TrailerItem, p *prepared) ([]byte, error) {
+func emitTrailer(out []byte, t TrailerItem, p *prepared) ([]byte, error) {
 	switch t {
 	case T_SrcEAExt:
 		if len(p.SrcEA.Ext) == 0 {
-			return nil, nil
+			return out, nil
 		}
-		out := make([]byte, 0, 2*len(p.SrcEA.Ext))
 		for _, w := range p.SrcEA.Ext {
-			out = append(out, byte(w>>8), byte(w))
+			out = appendWord(out, w)
 		}
 		return out, nil
 	case T_DstEAExt:
 		if len(p.DstEA.Ext) == 0 {
-			return nil, nil
+			return out, nil
 		}
-		out := make([]byte, 0, 2*len(p.DstEA.Ext))
 		for _, w := range p.DstEA.Ext {
-			out = append(out, byte(w>>8), byte(w))
+			out = appendWord(out, w)
 		}
 		return out, nil
 	case T_ImmSized:
-		return word(int16(p.Imm)), nil
+		return appendWord(out, uint16(int16(p.Imm))), nil
 	case T_BranchWordIfNeeded:
 		if p.BrUseWord {
-			return word(p.BrDisp16), nil
+			return appendWord(out, uint16(p.BrDisp16)), nil
 		}
-		return nil, nil
+		return out, nil
 	}
-	return nil, nil
+	return out, nil
 }
 
 func Encode(def *InstrDef, form *FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
@@ -208,11 +205,11 @@ func Encode(def *InstrDef, form *FormDef, ins *Instr, sym map[string]uint32) ([]
 			out = append(out, byte(w>>8), byte(w))
 		}
 		for _, tr := range step.Trailer {
-			tb, err := emitTrailer(tr, &p)
+			var err error
+			out, err = emitTrailer(out, tr, &p)
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, tb...)
 		}
 	}
 	return out, nil
