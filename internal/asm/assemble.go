@@ -2,6 +2,19 @@ package asm
 
 import "fmt"
 
+var instrDefsByOpcode = func() map[Opcode]*InstrDef {
+	defs := make(map[Opcode]*InstrDef, len(InstrTable))
+	for i := range InstrTable {
+		d := &InstrTable[i]
+		defs[d.Op] = d
+	}
+	return defs
+}()
+
+func getInstrDef(op Opcode) *InstrDef {
+	return instrDefsByOpcode[op]
+}
+
 type Program struct {
 	Items  []any
 	Labels map[string]uint32
@@ -13,17 +26,10 @@ type Program struct {
 func Assemble(p *Program) ([]byte, error) {
 	out := make([]byte, 0, 1024)
 
-	// Build a quick lookup table for instruction definitions
-	defs := map[Opcode]*InstrDef{}
-	for i := range InstrTable {
-		d := &InstrTable[i]
-		defs[d.Op] = d
-	}
-
 	for _, it := range p.Items {
 		switch x := it.(type) {
 		case *Instr:
-			def := defs[x.Op]
+			def := getInstrDef(x.Op)
 			if def == nil {
 				return nil, fmt.Errorf("no definition for opcode %v", x.Op)
 			}
