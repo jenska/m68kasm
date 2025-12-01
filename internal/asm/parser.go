@@ -593,7 +593,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 				}
 				return instructions.EAExpr{Kind: instructions.EAkAddrInd, Reg: an}, nil
 			}
-			return instructions.EAExpr{}, parserError(id, "lunexpected EA, expected (An) or (disp,An/PC)")
+			return instructions.EAExpr{}, parserError(id, "unexpected EA, expected (An) or (disp,An/PC)")
 		}
 		first, err := p.parseExprUntil(COMMA, RPAREN)
 		if err != nil {
