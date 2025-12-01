@@ -60,6 +60,7 @@ const (
 const (
 	OPK_None OperandKind = iota
 	OPK_Imm
+	OPK_ImmQuick
 	OPK_Dn
 	OPK_An
 	OPK_EA
@@ -98,6 +99,8 @@ type Args struct {
 	Target   string
 	Src, Dst EAExpr
 	Size     Size
+
+	HasImmQuick bool
 }
 
 type EAExprKind int
