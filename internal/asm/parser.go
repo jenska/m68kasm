@@ -415,6 +415,30 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			p.next()
 			return instructions.EAExpr{Kind: instructions.EAkAn, Reg: an}, nil
 		}
+		// treat bare identifiers as absolute addresses (default long)
+		v, err := p.parseExprUntil(DOT, COMMA, NEWLINE, EOF)
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		kind := instructions.EAkAbsL
+		if p.accept(DOT) {
+			suf, err := p.want(IDENT)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			switch strings.ToUpper(suf.Text) {
+			case "W":
+				kind = instructions.EAkAbsW
+			case "L":
+				kind = instructions.EAkAbsL
+			default:
+				return instructions.EAExpr{}, fmt.Errorf("line %d: unknown size suffix .%s", suf.Line, suf.Text)
+			}
+		}
+		if kind == instructions.EAkAbsW {
+			return instructions.EAExpr{Kind: kind, Abs16: uint16(v)}, nil
+		}
+		return instructions.EAExpr{Kind: kind, Abs32: uint32(v)}, nil
 	}
 	if p.accept(LPAREN) {
 		// (An)
