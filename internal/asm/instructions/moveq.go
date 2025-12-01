@@ -1,16 +1,29 @@
 package instructions
 
+import "fmt"
+
+func init() {
+	registerInstrDef(&DefMOVEQ)
+}
+
 var DefMOVEQ = InstrDef{
-	Op:       OP_MOVEQ,
 	Mnemonic: "MOVEQ",
 	Forms: []FormDef{
 		{
-			Sizes:     []Size{SZ_L},
-			OperKinds: []OperandKind{OPK_Imm, OPK_Dn},
-			Validate:  validateMOVEQ,
+			DefaultSize: SZ_L,
+			Sizes:       []Size{SZ_L},
+			OperKinds:   []OperandKind{OPK_Imm, OPK_Dn},
+			Validate:    validateMOVEQ,
 			Steps: []EmitStep{
 				{WordBits: 0x7000, Fields: []FieldRef{F_DnReg, F_ImmLow8}},
 			},
 		},
 	},
+}
+
+func validateMOVEQ(a *Args) error {
+	if a.Src.Kind != EAkImm {
+		return fmt.Errorf("MOVEQ needs immediate")
+	}
+	return checkImmediateRange(a.Src.Imm, SZ_B)
 }

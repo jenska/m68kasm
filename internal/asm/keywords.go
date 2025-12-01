@@ -7,14 +7,6 @@ type kw int
 // add to the kw enum
 const (
 	KW_NONE kw = iota
-	KW_MOVEQ
-	KW_MOVE
-	KW_ADD
-	KW_SUB
-	KW_MULTI
-	KW_DIV
-	KW_CMP
-	KW_LEA
 	KW_ORG
 	KW_ALIGN
 	KW_BYTE
@@ -28,22 +20,6 @@ func kwOf(s string) kw {
 		s = s[:idx]
 	}
 	switch s {
-	case "MOVEQ":
-		return KW_MOVEQ
-	case "MOVE":
-		return KW_MOVE
-	case "ADD":
-		return KW_ADD
-	case "SUB":
-		return KW_SUB
-	case "MULTI":
-		return KW_MULTI
-	case "DIV":
-		return KW_DIV
-	case "CMP":
-		return KW_CMP
-	case "LEA":
-		return KW_LEA
 	case ".ORG":
 		return KW_ORG
 	case ".BYTE":

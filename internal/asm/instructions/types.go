@@ -1,19 +1,6 @@
 package instructions
 
-// Opcode identifies each supported instruction.
-type Opcode int
-
-const (
-	OP_MOVEQ Opcode = iota
-	OP_MOVE
-	OP_ADD
-	OP_SUB
-	OP_MULTI
-	OP_DIV
-	OP_CMP
-	OP_LEA
-	OP_BCC
-)
+import "fmt"
 
 type FieldRef int
 
@@ -23,7 +10,6 @@ const (
 	F_SizeBits
 	F_AnReg
 	F_DnReg
-	F_Cond
 	F_ImmLow8
 	F_BranchLow8
 	F_MoveDestEA
@@ -43,33 +29,33 @@ const (
 type Size int
 
 const (
-	SZ_B Size = iota
-	SZ_W
-	SZ_L
-)
-
-type Cond uint8
-
-const (
-	CondT   Cond = 0x0
-	CondBSR Cond = 0x1
-	CondHI  Cond = 0x2
-	CondLS  Cond = 0x3
-	CondCC  Cond = 0x4
-	CondCS  Cond = 0x5
-	CondNE  Cond = 0x6
-	CondEQ  Cond = 0x7
-	CondVC  Cond = 0x8
-	CondVS  Cond = 0x9
-	CondPL  Cond = 0xA
-	CondMI  Cond = 0xB
-	CondGE  Cond = 0xC
-	CondLT  Cond = 0xD
-	CondGT  Cond = 0xE
-	CondLE  Cond = 0xF
+	SZ_B Size = 0
+	SZ_W Size = 4
+	SZ_L Size = 8
 )
 
 type OperandKind int
+
+type cond uint8
+
+const (
+	condT   cond = 0x0
+	condBSR cond = 0x1
+	condHI  cond = 0x2
+	condLS  cond = 0x3
+	condCC  cond = 0x4
+	condCS  cond = 0x5
+	condNE  cond = 0x6
+	condEQ  cond = 0x7
+	condVC  cond = 0x8
+	condVS  cond = 0x9
+	condPL  cond = 0xA
+	condMI  cond = 0xB
+	condGE  cond = 0xC
+	condLT  cond = 0xD
+	condGT  cond = 0xE
+	condLE  cond = 0xF
+)
 
 const (
 	OPK_None OperandKind = iota
@@ -81,16 +67,25 @@ const (
 )
 
 type InstrDef struct {
-	Op       Opcode
 	Mnemonic string
 	Forms    []FormDef
 }
 
+func registerInstrDef(def *InstrDef) {
+	if Instructions[def.Mnemonic] != nil {
+		panic(fmt.Errorf("instruction %s already rgistered", def.Mnemonic))
+	}
+	Instructions[def.Mnemonic] = def
+}
+
+var Instructions = map[string]*InstrDef{}
+
 type FormDef struct {
-	Sizes     []Size
-	OperKinds []OperandKind
-	Validate  func(*Args) error
-	Steps     []EmitStep
+	DefaultSize Size
+	Sizes       []Size
+	OperKinds   []OperandKind
+	Validate    func(*Args) error
+	Steps       []EmitStep
 }
 
 type EmitStep struct {
@@ -100,10 +95,6 @@ type EmitStep struct {
 }
 
 type Args struct {
-	HasImm   bool
-	Imm      int64
-	Dn, An   int
-	Cond     Cond
 	Target   string
 	Src, Dst EAExpr
 	Size     Size

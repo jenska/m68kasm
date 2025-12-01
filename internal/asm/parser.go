@@ -9,27 +9,6 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
-var branchCondMap = map[string]instructions.Cond{
-	"BRA": instructions.CondT,
-	"BSR": instructions.CondBSR,
-	"BHI": instructions.CondHI,
-	"BLS": instructions.CondLS,
-	"BCC": instructions.CondCC,
-	"BHS": instructions.CondCC,
-	"BCS": instructions.CondCS,
-	"BLO": instructions.CondCS,
-	"BNE": instructions.CondNE,
-	"BEQ": instructions.CondEQ,
-	"BVC": instructions.CondVC,
-	"BVS": instructions.CondVS,
-	"BPL": instructions.CondPL,
-	"BMI": instructions.CondMI,
-	"BGE": instructions.CondGE,
-	"BLT": instructions.CondLT,
-	"BGT": instructions.CondGT,
-	"BLE": instructions.CondLE,
-}
-
 type (
 	DataBytes struct {
 		Bytes []byte
@@ -92,25 +71,6 @@ func Parse(r io.Reader) (*Program, error) {
 	return &Program{Items: p.items, Labels: p.labels, Origin: 0}, nil
 }
 
-func branchMnemonicInfo(text string) (string, instructions.Cond, bool) {
-	name := strings.ToUpper(text)
-	if idx := strings.IndexRune(name, '.'); idx > 0 {
-		name = name[:idx]
-	}
-	cond, ok := branchCondMap[name]
-	if !ok {
-		return "", 0, false
-	}
-	return name, cond, true
-}
-
-func branchDefaultSize(name string) instructions.Size {
-	if name == "BSR" {
-		return instructions.SZ_W
-	}
-	return instructions.SZ_B
-}
-
 func ParseFile(path string) (*Program, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -124,29 +84,16 @@ func ParseFile(path string) (*Program, error) {
 func (p *Parser) parseStmt() error {
 	t := p.peek()
 	if t.Kind == IDENT {
-		if name, cond, ok := branchMnemonicInfo(t.Text); ok {
-			return p.parseBranch(name, cond)
+		s := strings.ToUpper(t.Text)
+		if idx := strings.IndexRune(s, '.'); idx > 0 {
+			s = s[:idx]
 		}
-		switch kwOf(t.Text) {
-		case KW_MOVEQ:
-			return p.parseMOVEQ()
-		case KW_MOVE:
-			return p.parseMOVE()
-		case KW_ADD:
-			return p.parseADD()
-		case KW_SUB:
-			return p.parseSUB()
-		case KW_MULTI:
-			return p.parseMULTI()
-		case KW_DIV:
-			return p.parseDIV()
-		case KW_CMP:
-			return p.parseCMP()
-		case KW_LEA:
-			return p.parseLEA()
-		case KW_NONE:
+		if instrDef, ok := instructions.Instructions[s]; ok {
+			return p.parseInstruction(instrDef)
+		} else {
 			return fmt.Errorf("line %d: unknown mnemonic: %s", t.Line, t.Text)
 		}
+
 	}
 	if t.Kind == DOT || (t.Kind == IDENT && strings.HasPrefix(t.Text, ".")) {
 		name := t.Text
@@ -270,304 +217,94 @@ func (p *Parser) parseLONG() error {
 	return nil
 }
 
-func (p *Parser) parseMOVEQ() error {
+func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 	mn, err := p.want(IDENT)
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(mn.Text, "MOVEQ") {
-		return fmt.Errorf("line %d: MOVEQ expected", mn.Line)
-	}
-	if _, err := p.want(HASH); err != nil {
-		return err
-	}
-	imm, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	ins := &Instr{Op: instructions.OP_MOVEQ, Mnemonic: "MOVEQ", Size: instructions.SZ_L, Args: instructions.Args{HasImm: true, Imm: int64(int8(imm)), Dn: dn, Src: instructions.EAExpr{Kind: instructions.EAkImm, Imm: int64(int8(imm))}, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Size: instructions.SZ_L}, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	p.pc += 2
-	return nil
-}
 
-func (p *Parser) parseMOVE() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_B, instructions.SZ_W, instructions.SZ_L})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	args := instructions.Args{Src: src, Dst: dst, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	if dst.Kind == instructions.EAkDn {
-		args.Dn = dst.Reg
-	} else if dst.Kind == instructions.EAkAn {
-		args.An = dst.Reg
-	}
-	ins := &Instr{Op: instructions.OP_MOVE, Mnemonic: "MOVE", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true) + eaExtraWords(dst, sz, false)
-	p.pc += uint32(words * 2)
-	return nil
-}
+	for _, form := range instrDef.Forms {
+		args := instructions.Args{}
+		sz, err := p.parseSizeSpec(mn, form.DefaultSize, form.Sizes)
+		if err != nil {
+			return err
+		}
+		args.Size = sz
 
-func (p *Parser) parseADD() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_B, instructions.SZ_W, instructions.SZ_L})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	args := instructions.Args{Src: src, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Dn: dn, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	ins := &Instr{Op: instructions.OP_ADD, Mnemonic: "ADD", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true)
-	p.pc += uint32(words * 2)
-	return nil
-}
+		for i, operandKind := range form.OperKinds {
+			var eaExpr instructions.EAExpr
+			if i == 1 {
+				if _, err := p.want(COMMA); err != nil {
+					return err
+				}
+			}
 
-func (p *Parser) parseSUB() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_B, instructions.SZ_W, instructions.SZ_L})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	args := instructions.Args{Src: src, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Dn: dn, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	ins := &Instr{Op: instructions.OP_SUB, Mnemonic: "SUB", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true)
-	p.pc += uint32(words * 2)
-	return nil
-}
+			switch operandKind {
+			case instructions.OPK_Imm:
+				if _, err := p.want(HASH); err != nil {
+					return err
+				}
+				imm, err := p.parseExpr()
+				if err != nil {
+					return err
+				}
+				eaExpr.Kind = instructions.EAkImm
+				eaExpr.Imm = imm
 
-func (p *Parser) parseMULTI() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_W})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	args := instructions.Args{Src: src, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Dn: dn, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	ins := &Instr{Op: instructions.OP_MULTI, Mnemonic: "MULTI", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true)
-	p.pc += uint32(words * 2)
-	return nil
-}
+			case instructions.OPK_Dn:
+				dreg, err := p.want(IDENT)
+				if err != nil {
+					return err
+				}
+				ok, dn := isRegDn(dreg.Text)
+				if !ok {
+					return fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
+				}
+				eaExpr.Kind = instructions.EAkDn
+				eaExpr.Reg = dn
 
-func (p *Parser) parseDIV() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_W})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	args := instructions.Args{Src: src, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Dn: dn, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	ins := &Instr{Op: instructions.OP_DIV, Mnemonic: "DIV", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true)
-	p.pc += uint32(words * 2)
-	return nil
-}
+			case instructions.OPK_An:
+				areg, err := p.want(IDENT)
+				if err != nil {
+					return err
+				}
+				ok, an := isRegAn(areg.Text)
+				if !ok {
+					return fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
+				}
+				eaExpr.Kind = instructions.EAkAn
+				eaExpr.Reg = an
 
-func (p *Parser) parseCMP() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	sz, err := p.parseSizeSpec(mn, instructions.SZ_W, []instructions.Size{instructions.SZ_B, instructions.SZ_W, instructions.SZ_L})
-	if err != nil {
-		return err
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, dn := isRegDn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected Dn, got %s", dst.Line, dst.Text)
-	}
-	args := instructions.Args{Src: src, Dst: instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, Dn: dn, Size: sz}
-	if src.Kind == instructions.EAkImm {
-		args.Imm = src.Imm
-	}
-	ins := &Instr{Op: instructions.OP_CMP, Mnemonic: "CMP", Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, sz, true)
-	p.pc += uint32(words * 2)
-	return nil
-}
+			case instructions.OPK_EA:
+				ea, err := p.parseEA()
+				if err != nil {
+					return err
+				}
+				eaExpr = ea
 
-func (p *Parser) parseBranch(name string, cond instructions.Cond) error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	actualName, _, ok := branchMnemonicInfo(mn.Text)
-	if !ok || actualName != name {
-		return fmt.Errorf("line %d: %s expected", mn.Line, name)
-	}
-	sz, err := p.parseSizeSpec(mn, branchDefaultSize(name), []instructions.Size{instructions.SZ_B, instructions.SZ_W})
-	if err != nil {
-		return err
-	}
-	lbl, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	args := instructions.Args{Target: lbl.Text, Cond: cond, Size: sz}
-	ins := &Instr{Op: instructions.OP_BCC, Mnemonic: name, Size: sz, Args: args, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1
-	if sz == instructions.SZ_W {
-		words = 2
-	}
-	p.pc += uint32(words * 2)
-	return nil
-}
+			case instructions.OPK_DispRel:
+				lbl, err := p.want(IDENT)
+				if err != nil {
+					return err
+				}
+				args.Target = lbl.Text
 
-func (p *Parser) parseLEA() error {
-	mn, err := p.want(IDENT)
-	if err != nil {
-		return err
+			default:
+				return fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
+			}
+			if i == 0 {
+				args.Src = eaExpr
+			} else {
+				args.Dst = eaExpr
+			}
+		}
+
+		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line}
+		p.items = append(p.items, ins)
+		words := 1 + eaExtraWords(args.Src, sz, true) + eaExtraWords(args.Dst, sz, false)
+		p.pc += uint32(words * 2)
+		return nil
 	}
-	if !strings.EqualFold(mn.Text, "LEA") {
-		return fmt.Errorf("line %d: LEA expected", mn.Line)
-	}
-	src, err := p.parseEA()
-	if err != nil {
-		return err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return err
-	}
-	dst, err := p.want(IDENT)
-	if err != nil {
-		return err
-	}
-	ok, an := isRegAn(dst.Text)
-	if !ok {
-		return fmt.Errorf("line %d: expected An, got %s", dst.Line, dst.Text)
-	}
-	ins := &Instr{Op: instructions.OP_LEA, Mnemonic: "LEA", Size: instructions.SZ_L, Args: instructions.Args{Src: src, An: an, Dst: instructions.EAExpr{Kind: instructions.EAkAn, Reg: an}, Size: instructions.SZ_L}, PC: p.pc, Line: mn.Line}
-	p.items = append(p.items, ins)
-	words := 1 + eaExtraWords(src, instructions.SZ_L, true)
-	p.pc += uint32(words * 2)
 	return nil
 }
 

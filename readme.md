@@ -14,7 +14,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)  
-- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`, `SUB`, `MULTI`, `DIV`, `CMP`, `LEA`, `BRA`
+- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`, `SUB`, `MUL`, `DIV`, `CMP`, `LEA`, `BRA`
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool

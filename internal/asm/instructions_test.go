@@ -34,7 +34,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"AddImmediate", "ADD.W #1,D0\n", []byte{0xD0, 0x7C, 0x00, 0x01}},
 		{"SubLong", "SUB.L (A1),D3\n", []byte{0x96, 0x91}},
 		{"CmpByte", "CMP.B (16,A0),D2\n", []byte{0xB4, 0x28, 0x00, 0x10}},
-		{"MultiplyWord", "MULTI (A1),D0\n", []byte{0xC1, 0xD1}},
+		{"MultiplyWord", "MUL (A1),D0\n", []byte{0xC1, 0xD1}},
 		{"DivideWord", "DIV (A2),D1\n", []byte{0x82, 0xD2}},
 		{"BranchAlwaysShort", "BRA target\n.WORD 0\ntarget:\n", []byte{0x60, 0x02, 0x00, 0x00}},
 		{"BranchConditionWord", "BNE.W target\n.WORD 0\n.WORD 0\ntarget:\n", []byte{0x66, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},

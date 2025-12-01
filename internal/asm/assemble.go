@@ -6,19 +6,6 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
-var instrDefsByOpcode = func() map[instructions.Opcode]*instructions.InstrDef {
-	defs := make(map[instructions.Opcode]*instructions.InstrDef, len(instructions.Table))
-	for i := range instructions.Table {
-		d := &instructions.Table[i]
-		defs[d.Op] = d
-	}
-	return defs
-}()
-
-func getInstrDef(op instructions.Opcode) *instructions.InstrDef {
-	return instrDefsByOpcode[op]
-}
-
 type Program struct {
 	Items  []any
 	Labels map[string]uint32
@@ -33,9 +20,9 @@ func Assemble(p *Program) ([]byte, error) {
 	for _, it := range p.Items {
 		switch x := it.(type) {
 		case *Instr:
-			def := getInstrDef(x.Op)
+			def := x.Def
 			if def == nil {
-				return nil, fmt.Errorf("no definition for opcode %v", x.Op)
+				return nil, fmt.Errorf("no definition for opcode %v", x.Def.Mnemonic)
 			}
 			form, err := selectForm(def, x)
 			if err != nil {
@@ -69,7 +56,7 @@ func selectForm(def *instructions.InstrDef, ins *Instr) (*instructions.FormDef, 
 	for i := range def.Forms {
 		form := &def.Forms[i]
 		if len(form.Sizes) > 0 {
-			if !sizeAllowed(form.Sizes, ins.Size) {
+			if !sizeAllowed(form.Sizes, ins.Args.Size) {
 				continue
 			}
 		}
@@ -95,9 +82,11 @@ func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	kinds := make([]instructions.OperandKind, 0, 2)
-	if a.HasImm && a.Src.Kind == instructions.EAkNone {
+	/*	if a.HasImm && a.Src.Kind == instructions.EAkNone {
 		kinds = append(kinds, instructions.OPK_Imm)
-	} else if a.Src.Kind != instructions.EAkNone {
+	} else */
+
+	if a.Src.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Src))
 	} else if a.Target != "" {
 		kinds = append(kinds, instructions.OPK_DispRel)
