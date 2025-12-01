@@ -60,7 +60,7 @@ This document describes the **source language** accepted by `m68kasm`. It follow
 
 ## 4. Directives (Pseudo‑ops)
 
-- `.org <expr>` — Set absolute location counter. No backfilling.
+- `.org <expr>` — Set absolute location counter. The first `.org` captures the program origin; later forward jumps emit zero-fill bytes to preserve gaps, and backward jumps are rejected.
 - `.byte <expr[, expr ...]>` — Emit bytes (low 8 bits).
 - *(planned)* `.word <expr[, ...]>` — Emit 16‑bit words (big‑endian).
 - *(planned)* `.long <expr[, ...]>` — Emit 32‑bit longs (big‑endian).

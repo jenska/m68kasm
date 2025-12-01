@@ -27,6 +27,11 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		src  string
 		want []byte
 	}{
+		{"NoOperation", "NOP\n", []byte{0x4E, 0x71}},
+		{"Reset", "RESET\n", []byte{0x4E, 0x70}},
+		{"ReturnFromSubroutine", "RTS\n", []byte{0x4E, 0x75}},
+		{"ReturnFromException", "RTE\n", []byte{0x4E, 0x73}},
+		{"TrapVector", "TRAP #9\n", []byte{0x4E, 0x49}},
 		{"MoveRegisterByte", "MOVE.B D1,D0\n", []byte{0x10, 0x01}},
 		{"MoveImmediateLong", "MOVE.L #$12345678,D1\n", []byte{0x22, 0x3C, 0x12, 0x34, 0x56, 0x78}},
 		{"MoveImmediateByteToMem", "MOVE.B #$12,(A0)\n", []byte{0x10, 0xBC, 0x00, 0x12}},
@@ -51,5 +56,45 @@ func TestAssembleCoreInstructions(t *testing.T) {
 				t.Fatalf("unexpected encoding for %s: got %x want %x", tt.src, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBranchPCIncludesExtensionWords(t *testing.T) {
+	src := "BSR target\nNOP\nNOP\ntarget:\nNOP\n"
+	prog, err := asm.Parse(strings.NewReader(src))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	addr, ok := prog.Labels["target"]
+	if !ok {
+		t.Fatalf("label not recorded")
+	}
+	if got := int(addr - prog.Origin); got != 8 {
+		t.Fatalf("unexpected target address: got %d want 8", got)
+	}
+
+	if _, err := asm.Assemble(prog); err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+}
+
+func TestOrgSetsOriginAndFillsGaps(t *testing.T) {
+	src := ".org 4\n.byte 1\n.org 8\n.byte 2\n"
+	prog, err := asm.Parse(strings.NewReader(src))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if prog.Origin != 4 {
+		t.Fatalf("origin not recorded: got %d want 4", prog.Origin)
+	}
+
+	out, err := asm.Assemble(prog)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+	want := []byte{0x01, 0x00, 0x00, 0x00, 0x02}
+	if !bytes.Equal(out, want) {
+		t.Fatalf("unexpected output: got %x want %x", out, want)
 	}
 }

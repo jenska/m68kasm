@@ -155,17 +155,18 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			return nil, fmt.Errorf("undefined label: %s", ins.Args.Target)
 		}
 		p.TargetPC = addr
+		basePC := p.PC + 2
 		switch ins.Args.Size {
 		case instructions.SZ_B:
-			d8 := int32(addr) - int32(p.PC+2)
+			d8 := int32(addr) - int32(basePC)
 			if d8 < -128 || d8 > 127 {
 				return nil, fmt.Errorf("branch displacement out of range for .S")
 			}
 			p.BrUseWord = false
 			p.BrDisp8 = int8(d8)
 		case instructions.SZ_W:
-			// TODO
-			d16 := int32(addr) - int32(p.PC+2)
+			basePC += 2
+			d16 := int32(addr) - int32(basePC)
 			if d16 < -32768 || d16 > 32767 {
 				return nil, fmt.Errorf("branch displacement out of range for .W")
 			}

@@ -22,7 +22,7 @@ func Assemble(p *Program) ([]byte, error) {
 		case *Instr:
 			def := x.Def
 			if def == nil {
-				return nil, fmt.Errorf("no definition for opcode %v", x.Def.Mnemonic)
+				return nil, fmt.Errorf("no definition for opcode on line %d", x.Line)
 			}
 			form, err := selectForm(def, x)
 			if err != nil {
@@ -82,11 +82,9 @@ func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	kinds := make([]instructions.OperandKind, 0, 2)
-	/*	if a.HasImm && a.Src.Kind == instructions.EAkNone {
-		kinds = append(kinds, instructions.OPK_Imm)
-	} else */
-
-	if a.Src.Kind != instructions.EAkNone {
+	if a.HasImmQuick {
+		kinds = append(kinds, instructions.OPK_ImmQuick)
+	} else if a.Src.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Src))
 	} else if a.Target != "" {
 		kinds = append(kinds, instructions.OPK_DispRel)
