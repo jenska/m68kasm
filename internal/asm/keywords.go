@@ -44,6 +44,7 @@ func isRegDn(s string) (bool, int) {
 	}
 	return false, 0
 }
+
 func isRegAn(s string) (bool, int) {
 	if len(s) == 2 && (s[0] == 'a' || s[0] == 'A') {
 		r := int(s[1] - '0')
@@ -51,6 +52,7 @@ func isRegAn(s string) (bool, int) {
 			return true, r
 		}
 	}
-	return false, 0
+	return strings.EqualFold(s, "SP"), 7
 }
+
 func isPC(s string) bool { return strings.EqualFold(s, "PC") }
