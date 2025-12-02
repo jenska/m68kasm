@@ -1,6 +1,6 @@
 package instructions
 
-var BranchCondMap = map[string]cond{
+var branchCondMap = map[string]cond{
 	"BRA": condT,
 	"BSR": condBSR,
 	"BHI": condHI,
@@ -22,7 +22,7 @@ var BranchCondMap = map[string]cond{
 }
 
 func init() {
-	for b, c := range BranchCondMap {
+	for b, c := range branchCondMap {
 		sz := SZ_B
 		if b == "BSR" {
 			sz = SZ_W

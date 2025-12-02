@@ -101,8 +101,14 @@ func ParseFile(path string) (*Program, error) {
 	return Parse(f)
 }
 
+func parserError(t Token, msg string) error {
+	return fmt.Errorf("%s: %s", t.String(), msg)
+}
+
 func (p *Parser) parseStmt() error {
 	t := p.peek()
+
+	// Instruction
 	if t.Kind == IDENT {
 		s := strings.ToUpper(t.Text)
 		if idx := strings.IndexRune(s, '.'); idx > 0 {
@@ -111,10 +117,12 @@ func (p *Parser) parseStmt() error {
 		if instrDef, ok := instructions.Instructions[s]; ok {
 			return p.parseInstruction(instrDef)
 		} else {
-			return fmt.Errorf("line %d: unknown mnemonic: %s", t.Line, t.Text)
+			return parserError(t, "unknown mnemonic")
 		}
 
 	}
+
+	// Pseudo Op
 	if t.Kind == DOT || (t.Kind == IDENT && strings.HasPrefix(t.Text, ".")) {
 		name := t.Text
 		if t.Kind == DOT {
@@ -139,10 +147,10 @@ func (p *Parser) parseStmt() error {
 		case KW_ALIGN:
 			return p.parseALIGN()
 		default:
-			return fmt.Errorf("line %d: unknown pseudo op: %s", t.Line, name)
+			return parserError(t, "unknown pseudo op")
 		}
 	}
-	return fmt.Errorf("line %d: unexpected token: %v", t.Line, t.Text)
+	return parserError(t, "unexpected token")
 }
 
 func (p *Parser) parseORG() error {
@@ -207,7 +215,7 @@ func (p *Parser) parseWORD() error {
 
 	out := make([]byte, 0, 2*4)
 	if v < -0x8000 || v > 0xFFFF {
-		return fmt.Errorf("line %d: .word value out of 16-bit range: %d", p.line, v)
+		return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
 	}
 	w := uint16(int16(v))
 	out = append(out, byte(w>>8), byte(w))
@@ -219,7 +227,7 @@ func (p *Parser) parseWORD() error {
 			return err
 		}
 		if v < -0x8000 || v > 0xFFFF {
-			return fmt.Errorf("line %d: .word value out of 16-bit range: %d", p.line, v)
+			return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
 		}
 		w := uint16(int16(v))
 		out = append(out, byte(w>>8), byte(w))
@@ -239,7 +247,7 @@ func (p *Parser) parseLONG() error {
 
 	out := make([]byte, 0, 4*4)
 	if v < -0x80000000 || v > 0xFFFFFFFF {
-		return fmt.Errorf("line %d: .long value out of range: %d", p.line, v)
+		return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
 	}
 	u := uint32(v) // two's complement when v is negative
 	out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
@@ -250,7 +258,7 @@ func (p *Parser) parseLONG() error {
 			return err
 		}
 		if v < -0x80000000 || v > 0xFFFFFFFF {
-			return fmt.Errorf("line %d: .long value out of range: %d", p.line, v)
+			return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
 		}
 		u := uint32(v)
 		out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
@@ -487,14 +495,14 @@ func (p *Parser) parseSizeSpec(mn Token, def instructions.Size, allowed []instru
 	if idx := strings.IndexRune(mn.Text, '.'); idx > 0 {
 		suf := mn.Text[idx+1:]
 		if suf == "" {
-			return 0, fmt.Errorf("line %d: unknown size suffix", mn.Line)
+			return 0, parserError(mn, "unknown size suffix")
 		}
 		sz, ok := sizeFromIdent(suf)
 		if !ok {
-			return 0, fmt.Errorf("line %d: unknown size suffix .%s", mn.Line, suf)
+			return 0, parserError(mn, "unknown size suffix "+suf)
 		}
 		if !sizeAllowedList(sz, allowed) {
-			return 0, fmt.Errorf("line %d: illegal size for instruction", mn.Line)
+			return 0, parserError(mn, "illegal size for instruction")
 		}
 		return sz, nil
 	}
@@ -514,12 +522,12 @@ func (p *Parser) parseSizeSuffix(def instructions.Size, allowed []instructions.S
 		}
 		val, ok := sizeFromIdent(id.Text)
 		if !ok {
-			return 0, fmt.Errorf("line %d: unknown size suffix .%s", id.Line, id.Text)
+			return 0, parserError(id, "unknown size suffix")
 		}
 		sz = val
 	}
 	if !sizeAllowedList(sz, allowed) {
-		return 0, fmt.Errorf("line %d: illegal size for instruction", p.line)
+		return 0, fmt.Errorf("(%d, %d): illegal size for instruction", p.line, p.col)
 	}
 	return sz, nil
 }
@@ -536,25 +544,6 @@ func sizeFromIdent(s string) (instructions.Size, bool) {
 		return instructions.SZ_L, true
 	default:
 		return 0, false
-	}
-}
-
-func eaExtraWords(e instructions.EAExpr, sz instructions.Size, source bool) int {
-	switch e.Kind {
-	case instructions.EAkAddrDisp16, instructions.EAkPCDisp16, instructions.EAkIdxAnBrief, instructions.EAkIdxPCBrief, instructions.EAkAbsW:
-		return 1
-	case instructions.EAkAbsL:
-		return 2
-	case instructions.EAkImm:
-		if !source {
-			return 0
-		}
-		if sz == instructions.SZ_L {
-			return 2
-		}
-		return 1
-	default:
-		return 0
 	}
 }
 
@@ -632,7 +621,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 				}
 				return instructions.EAExpr{Kind: instructions.EAkAddrInd, Reg: an}, nil
 			}
-			return instructions.EAExpr{}, fmt.Errorf("line %d: unexpected EA, expected (An) or (disp,An/PC)", id.Line)
+			return instructions.EAExpr{}, parserError(id, "unexpected EA, expected (An) or (disp,An/PC)")
 		}
 		first, err := p.parseExprUntil(COMMA, RPAREN)
 		if err != nil {
@@ -656,7 +645,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 					ix.Reg = an
 					ix.IsA = true
 				} else {
-					return instructions.EAExpr{}, fmt.Errorf("line %d: expected index register Dn/An", idxTok.Line)
+					return instructions.EAExpr{}, parserError(idxTok, "lexpected index register Dn/An")
 				}
 				ix.Long = false
 				ix.Scale = 1
@@ -669,6 +658,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 					case 1, 2, 4, 8:
 						ix.Scale = uint8(sc)
 					default:
+						// TODO impprove error message
 						return instructions.EAExpr{}, fmt.Errorf("invalid scale factor: %d", sc)
 					}
 				}
@@ -682,7 +672,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 				if isPC(base.Text) {
 					return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
 				}
-				return instructions.EAExpr{}, fmt.Errorf("line %d: base must be An or PC", base.Line)
+				return instructions.EAExpr{}, parserError(base, "base must be An or PC")
 			}
 			if _, err := p.want(RPAREN); err != nil {
 				return instructions.EAExpr{}, err
@@ -693,7 +683,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			if isPC(base.Text) {
 				return instructions.EAExpr{Kind: instructions.EAkPCDisp16, Disp16: int32(first)}, nil
 			}
-			return instructions.EAExpr{}, fmt.Errorf("line %d: base must be An or PC", base.Line)
+			return instructions.EAExpr{}, parserError(base, "base must be An or PC")
 		}
 		if _, err := p.want(RPAREN); err != nil {
 			return instructions.EAExpr{}, err
@@ -710,7 +700,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 		}
 		return instructions.EAExpr{Kind: instructions.EAkAbsL, Abs32: uint32(first)}, nil
 	}
-	return instructions.EAExpr{}, fmt.Errorf("line %d: unexpected EA", t.Line)
+	return instructions.EAExpr{}, parserError(t, "unexpected EA")
 }
 
 // .align <expr>[, <fill>]
@@ -767,8 +757,16 @@ func (p *Parser) next() Token {
 	p.line, p.col = t.Line, t.Col
 	return t
 }
-func (p *Parser) peek() Token       { p.fill(1); return p.buf[0] }
-func (p *Parser) peekN(n int) Token { p.fill(n); return p.buf[n-1] }
+func (p *Parser) peek() Token {
+	p.fill(1)
+	return p.buf[0]
+}
+
+func (p *Parser) peekN(n int) Token {
+	p.fill(n)
+	return p.buf[n-1]
+}
+
 func (p *Parser) want(k Kind) (Token, error) {
 	t := p.next()
 	if t.Kind != k {
@@ -776,6 +774,7 @@ func (p *Parser) want(k Kind) (Token, error) {
 	}
 	return t, nil
 }
+
 func (p *Parser) accept(k Kind) bool {
 	if p.peek().Kind == k {
 		_ = p.next()
