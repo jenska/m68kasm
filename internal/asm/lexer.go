@@ -37,19 +37,25 @@ const (
 	NEWLINE
 )
 
-type Token struct {
-	Kind Kind
-	Text string
-	Val  int64
-	Line int
-	Col  int
-}
+type (
+	Token struct {
+		Kind Kind
+		Text string
+		Val  int64
+		Line int
+		Col  int
+	}
 
-type Lexer struct {
-	r    *bufio.Reader
-	line int
-	col  int
-	peek *Token
+	Lexer struct {
+		r    *bufio.Reader
+		line int
+		col  int
+		peek *Token
+	}
+)
+
+func (t *Token) String() string {
+	return fmt.Sprintf("(%d, %d) token '%s'", t.Line, t.Col, t.Text)
 }
 
 func NewLexer(r io.Reader) *Lexer { return &Lexer{r: bufio.NewReader(r), line: 1, col: 0} }
