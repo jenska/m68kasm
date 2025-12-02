@@ -14,6 +14,8 @@ const (
 	F_BranchLow8
 	F_MoveDestEA
 	F_MoveSize
+	F_SrcDnReg
+	F_SrcAnReg
 )
 
 type TrailerItem int
@@ -60,8 +62,10 @@ const (
 const (
 	OPK_None OperandKind = iota
 	OPK_Imm
+	OPK_ImmQuick
 	OPK_Dn
 	OPK_An
+	OPK_PredecAn
 	OPK_EA
 	OPK_DispRel
 )
@@ -98,6 +102,8 @@ type Args struct {
 	Target   string
 	Src, Dst EAExpr
 	Size     Size
+
+	HasImmQuick bool
 }
 
 type EAExprKind int
@@ -107,6 +113,7 @@ const (
 	EAkImm
 	EAkDn
 	EAkAn
+	EAkAddrPredec
 	EAkAddrInd
 	EAkAddrDisp16
 	EAkPCDisp16

@@ -14,7 +14,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)  
-- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`, `SUB`, `MUL`, `DIV`, `CMP`, `LEA`, `BRA`
+- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`, `SUB`, `MUL`, `DIV`, `CMP`, `LEA`, `BRA`, `NOP`, `RESET`, `TRAP`, `RTS`, `RTE`
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
@@ -73,8 +73,8 @@ m68kasm [options] <source-files>
 
 **Example:**
 ```bash
-m68kasm -o out.bin tests/e2e/testdata/hello.s
-hexdump -C out.bin
+m68kasm -o hello.bin tests/e2e/testdata/hello.s
+hexdump -C hello.bin
 ```
 
 ### Quick start: assemble and run the sample program
@@ -200,7 +200,7 @@ You are free to use, modify, and distribute the project with attribution.
 For the included `hello.s` example, assembling yields:
 
 ```
-$ hexdump -C out.bin
+$ hexdump -C hello.bin
 00000000  76 07 41 e9 00 10 43 fb  22 08 60 00 f4 aa bb cc  |v.A...C.".`.....|
 00000010
 ```

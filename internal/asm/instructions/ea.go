@@ -10,6 +10,8 @@ func EncodeEA(e EAExpr) (EAEncoded, error) {
 		out.Mode, out.Reg = 0, e.Reg
 	case EAkAn:
 		out.Mode, out.Reg = 1, e.Reg
+	case EAkAddrPredec:
+		out.Mode, out.Reg = 4, e.Reg
 	case EAkAddrInd:
 		out.Mode, out.Reg = 2, e.Reg
 	case EAkAddrDisp16:

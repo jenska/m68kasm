@@ -35,8 +35,9 @@ type prepared struct {
 	SizeBits uint16
 	Size     instructions.Size
 
-	Imm int64
-	Reg int
+	Imm    int64
+	SrcReg int
+	DstReg int
 
 	SrcEA instructions.EAEncoded
 	DstEA instructions.EAEncoded
@@ -56,9 +57,9 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	case instructions.F_DstEA:
 		return wordVal | (uint16(p.DstEA.Mode&7) << 3) | uint16(p.DstEA.Reg&7)
 	case instructions.F_DnReg:
-		return wordVal | (uint16(p.Reg&7) << 9)
+		return wordVal | (uint16(p.DstReg&7) << 9)
 	case instructions.F_AnReg:
-		return wordVal | (uint16(p.Reg&7) << 9)
+		return wordVal | (uint16(p.DstReg&7) << 9)
 	case instructions.F_ImmLow8:
 		return wordVal | uint16(uint8(p.Imm))
 	case instructions.F_BranchLow8:
@@ -79,6 +80,10 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		default:
 			return wordVal
 		}
+	case instructions.F_SrcDnReg:
+		return wordVal | uint16(p.SrcReg&7)
+	case instructions.F_SrcAnReg:
+		return wordVal | uint16(p.SrcReg&7)
 	default:
 		return wordVal
 	}
@@ -131,7 +136,7 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 }
 
 func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
-	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, Reg: ins.Args.Dst.Reg}
+	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg}
 	var err error
 
 	if ins.Args.Src.Kind != instructions.EAkNone {
@@ -155,17 +160,18 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			return nil, fmt.Errorf("undefined label: %s", ins.Args.Target)
 		}
 		p.TargetPC = addr
+		basePC := p.PC + 2
 		switch ins.Args.Size {
 		case instructions.SZ_B:
-			d8 := int32(addr) - int32(p.PC+2)
+			d8 := int32(addr) - int32(basePC)
 			if d8 < -128 || d8 > 127 {
 				return nil, fmt.Errorf("branch displacement out of range for .S")
 			}
 			p.BrUseWord = false
 			p.BrDisp8 = int8(d8)
 		case instructions.SZ_W:
-			// TODO
-			d16 := int32(addr) - int32(p.PC+2)
+			basePC += 2
+			d16 := int32(addr) - int32(basePC)
 			if d16 < -32768 || d16 > 32767 {
 				return nil, fmt.Errorf("branch displacement out of range for .W")
 			}
