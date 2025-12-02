@@ -27,6 +27,10 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		src  string
 		want []byte
 	}{
+		{"ABCDDataRegs", "ABCD D1,D0\n", []byte{0xC1, 0x01}},
+		{"ABCDPredecrement", "ABCD -(A1),-(A0)\n", []byte{0xC1, 0x09}},
+{"SBCDDataRegs", "SBCD D2,D3\n", []byte{0x87, 0x02}},
+		{"SBCDPredecrement", "SBCD -(A3),-(A5)\n", []byte{0x8B, 0x0B}},
 		{"NoOperation", "NOP\n", []byte{0x4E, 0x71}},
 		{"Reset", "RESET\n", []byte{0x4E, 0x70}},
 		{"ReturnFromSubroutine", "RTS\n", []byte{0x4E, 0x75}},

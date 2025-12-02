@@ -103,6 +103,8 @@ func operandKindFromEA(e instructions.EAExpr) instructions.OperandKind {
 		return instructions.OPK_Dn
 	case instructions.EAkAn:
 		return instructions.OPK_An
+	case instructions.EAkAddrPredec:
+		return instructions.OPK_PredecAn
 	case instructions.EAkImm:
 		return instructions.OPK_Imm
 	case instructions.EAkNone:

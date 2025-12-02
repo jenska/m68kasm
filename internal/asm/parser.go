@@ -445,6 +445,15 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 				return args, err
 			}
 			eaExpr = ea
+		case instructions.OPK_PredecAn:
+			ea, err := p.parseEA()
+			if err != nil {
+				return args, err
+			}
+			if ea.Kind != instructions.EAkAddrPredec {
+				return args, fmt.Errorf("line %d: expected -(An)", mn.Line)
+			}
+			eaExpr = ea
 
 		case instructions.OPK_DispRel:
 			lbl, err := p.want(IDENT)
@@ -541,6 +550,25 @@ func sizeFromIdent(s string) (instructions.Size, bool) {
 // ---------- EA parsing ----------
 func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	t := p.peek()
+	if t.Kind == MINUS && p.peekN(2).Kind == LPAREN {
+		p.next() // '-'
+		p.next() // '('
+		areg, err := p.want(IDENT)
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") {
+			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+		}
+		if _, err := p.want(RPAREN); err != nil {
+			return instructions.EAExpr{}, err
+		}
+		ok, an := isRegAn(areg.Text)
+		if !ok {
+			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+		}
+		return instructions.EAExpr{Kind: instructions.EAkAddrPredec, Reg: an}, nil
+	}
 	if t.Kind == HASH {
 		p.next()
 		v, err := p.parseExpr()

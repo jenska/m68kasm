@@ -14,6 +14,8 @@ const (
 	F_BranchLow8
 	F_MoveDestEA
 	F_MoveSize
+	F_SrcDnReg
+	F_SrcAnReg
 )
 
 type TrailerItem int
@@ -63,6 +65,7 @@ const (
 	OPK_ImmQuick
 	OPK_Dn
 	OPK_An
+	OPK_PredecAn
 	OPK_EA
 	OPK_DispRel
 )
@@ -110,6 +113,7 @@ const (
 	EAkImm
 	EAkDn
 	EAkAn
+	EAkAddrPredec
 	EAkAddrInd
 	EAkAddrDisp16
 	EAkPCDisp16
