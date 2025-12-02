@@ -9,6 +9,10 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
+type lexer interface {
+	Next() Token
+}
+
 type (
 	DataBytes struct {
 		Bytes []byte
@@ -17,16 +21,32 @@ type (
 	}
 
 	Parser struct {
-		lx     *Lexer
+		lx     lexer
 		labels map[string]uint32
 		pc     uint32
+		origin uint32
+		hasOrg bool
 		items  []any
 		line   int
 		col    int
 
 		buf []Token // N-Token Lookahead
 	}
+
+	sliceLexer struct {
+		tokens []Token
+		pos    int
+	}
 )
+
+func (s *sliceLexer) Next() Token {
+	if s.pos >= len(s.tokens) {
+		return Token{Kind: EOF}
+	}
+	t := s.tokens[s.pos]
+	s.pos++
+	return t
+}
 
 func Parse(r io.Reader) (*Program, error) {
 	p := &Parser{lx: NewLexer(r), labels: map[string]uint32{}}
@@ -55,20 +75,20 @@ func Parse(r io.Reader) (*Program, error) {
 			return nil, err
 		}
 
-		// Zeilenende verbrauchen
-		for {
-			t := p.peek()
-			if t.Kind == NEWLINE || t.Kind == EOF {
-				break
-			}
-			p.next()
+		if t := p.peek(); t.Kind != NEWLINE && t.Kind != EOF {
+			return nil, fmt.Errorf("line %d: unexpected token: %s", t.Line, t.Text)
 		}
 		if p.peek().Kind == NEWLINE {
 			p.next()
 		}
 	}
 
-	return &Program{Items: p.items, Labels: p.labels, Origin: 0}, nil
+	origin := p.origin
+	if !p.hasOrg {
+		origin = 0
+	}
+
+	return &Program{Items: p.items, Labels: p.labels, Origin: origin}, nil
 }
 
 func ParseFile(path string) (*Program, error) {
@@ -130,7 +150,31 @@ func (p *Parser) parseORG() error {
 	if err != nil {
 		return err
 	}
-	p.pc = uint32(val)
+	newPC := uint32(val)
+
+	if !p.hasOrg && p.pc == 0 {
+		p.origin = newPC
+		p.hasOrg = true
+		p.pc = newPC
+		return nil
+	}
+	if !p.hasOrg {
+		p.origin = 0
+		p.hasOrg = true
+	}
+
+	if newPC < p.pc {
+		return fmt.Errorf("line %d: .org cannot move backwards (pc=%d -> %d)", p.line, p.pc, newPC)
+	}
+
+	if newPC > p.pc {
+		gap := int(newPC - p.pc)
+		zeros := make([]byte, gap)
+		p.items = append(p.items, &DataBytes{Bytes: zeros, PC: p.pc, Line: p.line})
+		p.pc = newPC
+		return nil
+	}
+
 	return nil
 }
 
@@ -223,89 +267,221 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 		return err
 	}
 
+	operandTokens := p.consumeUntilEOL()
+	var lastErr error
 	for _, form := range instrDef.Forms {
-		args := instructions.Args{}
-		sz, err := p.parseSizeSpec(mn, form.DefaultSize, form.Sizes)
+		args, err := p.tryParseForm(mn, &form, operandTokens)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line}
+		p.items = append(p.items, ins)
+		words, err := instructionWords(&form, args)
 		if err != nil {
 			return err
 		}
-		args.Size = sz
-
-		for i, operandKind := range form.OperKinds {
-			var eaExpr instructions.EAExpr
-			if i == 1 {
-				if _, err := p.want(COMMA); err != nil {
-					return err
-				}
-			}
-
-			switch operandKind {
-			case instructions.OPK_Imm:
-				if _, err := p.want(HASH); err != nil {
-					return err
-				}
-				imm, err := p.parseExpr()
-				if err != nil {
-					return err
-				}
-				eaExpr.Kind = instructions.EAkImm
-				eaExpr.Imm = imm
-
-			case instructions.OPK_Dn:
-				dreg, err := p.want(IDENT)
-				if err != nil {
-					return err
-				}
-				ok, dn := isRegDn(dreg.Text)
-				if !ok {
-					return fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
-				}
-				eaExpr.Kind = instructions.EAkDn
-				eaExpr.Reg = dn
-
-			case instructions.OPK_An:
-				areg, err := p.want(IDENT)
-				if err != nil {
-					return err
-				}
-				ok, an := isRegAn(areg.Text)
-				if !ok {
-					return fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
-				}
-				eaExpr.Kind = instructions.EAkAn
-				eaExpr.Reg = an
-
-			case instructions.OPK_EA:
-				ea, err := p.parseEA()
-				if err != nil {
-					return err
-				}
-				eaExpr = ea
-
-			case instructions.OPK_DispRel:
-				lbl, err := p.want(IDENT)
-				if err != nil {
-					return err
-				}
-				args.Target = lbl.Text
-
-			default:
-				return fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
-			}
-			if i == 0 {
-				args.Src = eaExpr
-			} else {
-				args.Dst = eaExpr
-			}
-		}
-
-		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line}
-		p.items = append(p.items, ins)
-		words := 1 + eaExtraWords(args.Src, sz, true) + eaExtraWords(args.Dst, sz, false)
 		p.pc += uint32(words * 2)
 		return nil
 	}
-	return nil
+
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("line %d: no form matches operands", mn.Line)
+}
+
+func instructionWords(form *instructions.FormDef, args instructions.Args) (int, error) {
+	words := 0
+
+	var srcEA, dstEA instructions.EAEncoded
+	var err error
+
+	if args.Src.Kind != instructions.EAkNone {
+		srcEA, err = instructions.EncodeEA(args.Src)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if args.Dst.Kind != instructions.EAkNone {
+		dstEA, err = instructions.EncodeEA(args.Dst)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	for _, step := range form.Steps {
+		haveWord := (step.WordBits != 0) || (len(step.Fields) > 0)
+		if haveWord {
+			words++
+		}
+		for _, tr := range step.Trailer {
+			switch tr {
+			case instructions.T_SrcEAExt:
+				words += len(srcEA.Ext)
+			case instructions.T_DstEAExt:
+				words += len(dstEA.Ext)
+			case instructions.T_ImmSized:
+				words++
+			case instructions.T_SrcImm:
+				if args.Src.Kind == instructions.EAkImm {
+					switch args.Size {
+					case instructions.SZ_L:
+						words += 2
+					default:
+						words++
+					}
+				}
+			case instructions.T_BranchWordIfNeeded:
+				if args.Size == instructions.SZ_W {
+					words++
+				}
+			case instructions.T_SrcRegMask, instructions.T_DstRegMask:
+				words++
+			}
+		}
+	}
+
+	return words, nil
+}
+
+func (p *Parser) consumeUntilEOL() []Token {
+	tokens := make([]Token, 0, len(p.buf))
+	for {
+		t := p.peek()
+		if t.Kind == NEWLINE || t.Kind == EOF {
+			break
+		}
+		tokens = append(tokens, p.next())
+	}
+	return tokens
+}
+
+func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Token) (instructions.Args, error) {
+	args := instructions.Args{}
+	origLX, origBuf, origLine, origCol := p.lx, p.buf, p.line, p.col
+	defer func() {
+		p.lx, p.buf, p.line, p.col = origLX, origBuf, origLine, origCol
+	}()
+
+	// isolate parsing to the captured tokens
+	tmp := make([]Token, 0, len(tokens)+1)
+	tmp = append(tmp, tokens...)
+	tmp = append(tmp, Token{Kind: EOF, Line: mn.Line})
+	p.lx = &sliceLexer{tokens: tmp}
+	p.buf = nil
+
+	sz, err := p.parseSizeSpec(mn, form.DefaultSize, form.Sizes)
+	if err != nil {
+		return args, err
+	}
+	args.Size = sz
+
+	for i, operandKind := range form.OperKinds {
+		var eaExpr instructions.EAExpr
+		if i == 1 {
+			if _, err := p.want(COMMA); err != nil {
+				return args, err
+			}
+		}
+
+		switch operandKind {
+		case instructions.OPK_Imm:
+			if _, err := p.want(HASH); err != nil {
+				return args, err
+			}
+			imm, err := p.parseExpr()
+			if err != nil {
+				return args, err
+			}
+			eaExpr.Kind = instructions.EAkImm
+			eaExpr.Imm = imm
+
+		case instructions.OPK_ImmQuick:
+			if _, err := p.want(HASH); err != nil {
+				return args, err
+			}
+			imm, err := p.parseExpr()
+			if err != nil {
+				return args, err
+			}
+			eaExpr.Kind = instructions.EAkNone
+			eaExpr.Imm = imm
+			args.HasImmQuick = true
+
+		case instructions.OPK_Dn:
+			dreg, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			ok, dn := isRegDn(dreg.Text)
+			if !ok {
+				return args, fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
+			}
+			eaExpr.Kind = instructions.EAkDn
+			eaExpr.Reg = dn
+
+		case instructions.OPK_An:
+			areg, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			ok, an := isRegAn(areg.Text)
+			if !ok {
+				return args, fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
+			}
+			eaExpr.Kind = instructions.EAkAn
+			eaExpr.Reg = an
+
+		case instructions.OPK_EA:
+			ea, err := p.parseEA()
+			if err != nil {
+				return args, err
+			}
+			eaExpr = ea
+		case instructions.OPK_PredecAn:
+			ea, err := p.parseEA()
+			if err != nil {
+				return args, err
+			}
+			if ea.Kind != instructions.EAkAddrPredec {
+				return args, fmt.Errorf("line %d: expected -(An)", mn.Line)
+			}
+			eaExpr = ea
+		case instructions.OPK_RegList:
+			mask, err := p.parseRegList()
+			if err != nil {
+				return args, err
+			}
+			eaExpr.Kind = instructions.EAkNone
+			if i == 0 {
+				args.RegMaskSrc = mask
+			} else {
+				args.RegMaskDst = mask
+			}
+
+		case instructions.OPK_DispRel:
+			lbl, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			args.Target = lbl.Text
+
+		default:
+			return args, fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
+		}
+		if i == 0 {
+			args.Src = eaExpr
+		} else {
+			args.Dst = eaExpr
+		}
+	}
+
+	if trailing := p.peek(); trailing.Kind != EOF {
+		return args, fmt.Errorf("line %d: unexpected token %s", trailing.Line, trailing.Text)
+	}
+
+	return args, nil
 }
 
 func sizeAllowedList(sz instructions.Size, allowed []instructions.Size) bool {
@@ -376,6 +552,74 @@ func sizeFromIdent(s string) (instructions.Size, bool) {
 	}
 }
 
+func (p *Parser) parseRegList() (uint16, error) {
+	mask := uint16(0)
+	for {
+		regTok, err := p.want(IDENT)
+		if err != nil {
+			return 0, err
+		}
+		isA, reg, err := parseRegName(regTok)
+		if err != nil {
+			return 0, err
+		}
+		endIsA, endReg := isA, reg
+		if p.accept(MINUS) {
+			toTok, err := p.want(IDENT)
+			if err != nil {
+				return 0, err
+			}
+			endIsA, endReg, err = parseRegName(toTok)
+			if err != nil {
+				return 0, err
+			}
+			if endIsA != isA {
+				return 0, fmt.Errorf("line %d: register ranges must stay within D or A registers", toTok.Line)
+			}
+			if endReg < reg {
+				return 0, fmt.Errorf("line %d: descending ranges are not allowed", toTok.Line)
+			}
+		}
+		for r := reg; r <= endReg; r++ {
+			bit := uint16(1 << r)
+			if isA {
+				bit <<= 8
+			}
+			mask |= bit
+		}
+		if p.peek().Kind == SLASH {
+			p.next()
+			continue
+		}
+		if p.peek().Kind == COMMA {
+			nxt := p.peekN(2)
+			if nxt.Kind == IDENT {
+				if ok, _ := isRegDn(nxt.Text); ok {
+					p.next()
+					continue
+				}
+				if ok, _ := isRegAn(nxt.Text); ok {
+					p.next()
+					continue
+				}
+			}
+			return mask, nil
+		}
+		break
+	}
+	return mask, nil
+}
+
+func parseRegName(tok Token) (bool, int, error) {
+	if ok, dn := isRegDn(tok.Text); ok {
+		return false, dn, nil
+	}
+	if ok, an := isRegAn(tok.Text); ok {
+		return true, an, nil
+	}
+	return false, 0, fmt.Errorf("line %d: expected register in list", tok.Line)
+}
+
 func eaExtraWords(e instructions.EAExpr, sz instructions.Size, source bool) int {
 	switch e.Kind {
 	case instructions.EAkAddrDisp16, instructions.EAkPCDisp16, instructions.EAkIdxAnBrief, instructions.EAkIdxPCBrief, instructions.EAkAbsW:
@@ -398,6 +642,25 @@ func eaExtraWords(e instructions.EAExpr, sz instructions.Size, source bool) int 
 // ---------- EA parsing ----------
 func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	t := p.peek()
+	if t.Kind == MINUS && p.peekN(2).Kind == LPAREN {
+		p.next() // '-'
+		p.next() // '('
+		areg, err := p.want(IDENT)
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") {
+			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+		}
+		if _, err := p.want(RPAREN); err != nil {
+			return instructions.EAExpr{}, err
+		}
+		ok, an := isRegAn(areg.Text)
+		if !ok {
+			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+		}
+		return instructions.EAExpr{Kind: instructions.EAkAddrPredec, Reg: an}, nil
+	}
 	if t.Kind == HASH {
 		p.next()
 		v, err := p.parseExpr()
@@ -447,6 +710,9 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			if ok, an := isRegAn(id.Text); ok {
 				if _, err := p.want(RPAREN); err != nil {
 					return instructions.EAExpr{}, err
+				}
+				if p.accept(PLUS) {
+					return instructions.EAExpr{Kind: instructions.EAkAddrPostinc, Reg: an}, nil
 				}
 				return instructions.EAExpr{Kind: instructions.EAkAddrInd, Reg: an}, nil
 			}

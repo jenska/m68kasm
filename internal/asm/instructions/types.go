@@ -14,6 +14,11 @@ const (
 	F_BranchLow8
 	F_MoveDestEA
 	F_MoveSize
+	F_SrcDnReg
+	F_SrcAnReg
+	F_MovemSize
+	F_AddaSize
+	F_SrcDnRegHi
 )
 
 type TrailerItem int
@@ -24,6 +29,8 @@ const (
 	T_ImmSized
 	T_SrcImm
 	T_BranchWordIfNeeded
+	T_SrcRegMask
+	T_DstRegMask
 )
 
 type Size int
@@ -60,8 +67,11 @@ const (
 const (
 	OPK_None OperandKind = iota
 	OPK_Imm
+	OPK_ImmQuick
 	OPK_Dn
 	OPK_An
+	OPK_PredecAn
+	OPK_RegList
 	OPK_EA
 	OPK_DispRel
 )
@@ -98,6 +108,10 @@ type Args struct {
 	Target   string
 	Src, Dst EAExpr
 	Size     Size
+
+	HasImmQuick bool
+	RegMaskSrc  uint16
+	RegMaskDst  uint16
 }
 
 type EAExprKind int
@@ -107,6 +121,8 @@ const (
 	EAkImm
 	EAkDn
 	EAkAn
+	EAkAddrPredec
+	EAkAddrPostinc
 	EAkAddrInd
 	EAkAddrDisp16
 	EAkPCDisp16
