@@ -20,8 +20,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Simple and fast command-line tool
 
 ### Planned for Upcoming Releases
-- Additional arithmetic & logic coverage (e.g., `AND`, `OR`, `EOR`)
-- Extended branch family: `Bcc`, `BSR` (short and word forms)
+- Support all mnemonics 0f 68000 CPU
 - Output formats: Motorola S-Record, ELF (for cross-tool compatibility)  
 - Source listing output  
 - Automated tests and regression validation
