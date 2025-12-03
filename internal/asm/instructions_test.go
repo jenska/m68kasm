@@ -27,6 +27,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		src  string
 		want []byte
 	}{
+		{"TrapOverflow", "TRAPV\n", []byte{0x4E, 0x76}},
 		{"DBRADefault", "loop:\nDBRA D0, loop\n", []byte{0x51, 0xC8, 0xFF, 0xFC}},
 		{"DBNEForward", "DBNE D1, target\nNOP\nNOP\ntarget:\n", []byte{0x56, 0xC9, 0x00, 0x04, 0x4E, 0x71, 0x4E, 0x71}},
 		{"ABCDDataRegs", "ABCD D1,D0\n", []byte{0xC1, 0x01}},
@@ -67,6 +68,8 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"MoveUSPToSSP", "MOVE USP,SSP\n", []byte{0x4E, 0x6F}},
 		{"MoveSSPToUSP", "MOVE SSP,USP\n", []byte{0x4E, 0x67}},
 		{"MoveLongToSSP", "MOVE.L D0,SSP\n", []byte{0x2E, 0x40}},
+		{"StopWithStatus", "STOP #$2700\n", []byte{0x4E, 0x72, 0x27, 0x00}},
+		{"JumpAddressIndirect", "JMP (A0)\n", []byte{0x4E, 0xD0}},
 		{"ORIToCCR", "ORI #1,CCR\n", []byte{0x00, 0x3C, 0x00, 0x01}},
 		{"ANDIToSR", "ANDI #$FF00,SR\n", []byte{0x02, 0x7C, 0xFF, 0x00}},
 		{"MoveByteLabel", "label:\n.WORD 0\nMOVE.B label,D0\n", []byte{0x00, 0x00, 0x10, 0x39, 0x00, 0x00, 0x00, 0x00}},
@@ -81,6 +84,8 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"LEAAdrIndToSP", "LEA  (A1), SP\n.WORD 0\ntarget:\n", []byte{0x4f, 0xd1, 0x00, 0x00}},
 		{"LEAdrIndToA7", "LEA  (A1), A7\n", []byte{0x4f, 0xd1}},
 		{"Comment", "; comment\nLEA  (A1), A7\n", []byte{0x4f, 0xd1}},
+		{"MovepLoadWord", "MOVEP (6,A1),D0\n", []byte{0x01, 0x49, 0x00, 0x06}},
+		{"MovepStoreLong", "MOVEP.L D2,(8,A3)\n", []byte{0x05, 0x8b, 0x00, 0x08}},
 	}
 
 	for _, tt := range tests {
