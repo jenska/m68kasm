@@ -1,6 +1,7 @@
 package asm
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -53,15 +54,25 @@ func BenchmarkAssembleOnly(b *testing.B) {
 	}
 }
 
-func buildBenchmarkSource(lines int) string {
+func buildBenchmarkSource(blocks int) string {
 	var sb strings.Builder
-	sb.Grow(lines * 32)
-	sb.WriteString("start:\n")
-	for i := 0; i < lines; i++ {
-		sb.WriteString("        MOVEQ #1,D0\n")
-		sb.WriteString("        ADD.L D0,D1\n")
-		sb.WriteString("        SUB.L D1,D2\n")
+	// Roughly 60 bytes per block; helps avoid repeated allocations.
+	sb.Grow(blocks * 64)
+
+	sb.WriteString(".org 0\n")
+	for i := 0; i < blocks; i++ {
+		sb.WriteString(fmt.Sprintf("label%d: moveq #%d,d0\n", i, i%8))
+		sb.WriteString("nop\n")
+
+		sb.WriteString("add.l d0,d1\n")
+		sb.WriteString("sub.l d1,d0\n")
+		sb.WriteString("MOVEM.L D0-D1/A6,-(A7)\n")
+		sb.WriteString(fmt.Sprintf("bra label%d\n", i))
+		if (i+1)%50 == 0 {
+			sb.WriteString(".byte $AA,$BB,$CC,$DD\n")
+			sb.WriteString(".align 4,$00\n")
+		}
 	}
-	sb.WriteString("        RTS\n")
+
 	return sb.String()
 }

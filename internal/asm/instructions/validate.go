@@ -5,7 +5,7 @@ import "fmt"
 func checkImmediateRange(v int64, sz Size) error {
 	switch sz {
 	case SZ_B:
-		if v < -128 || v > 255 {
+		if v < -128 || v > 128 {
 			return fmt.Errorf("immediate out of range for .b: %d", v)
 		}
 	case SZ_W:

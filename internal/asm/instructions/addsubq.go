@@ -3,11 +3,11 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefADDQ)
-	registerInstrDef(&DefSUBQ)
+	registerInstrDef(&defADDQ)
+	registerInstrDef(&defSUBQ)
 }
 
-var DefADDQ = InstrDef{
+var defADDQ = InstrDef{
 	Mnemonic: "ADDQ",
 	Forms: []FormDef{
 		{
@@ -23,7 +23,7 @@ var DefADDQ = InstrDef{
 	},
 }
 
-var DefSUBQ = InstrDef{
+var defSUBQ = InstrDef{
 	Mnemonic: "SUBQ",
 	Forms: []FormDef{
 		{

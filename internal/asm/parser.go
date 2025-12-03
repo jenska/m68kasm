@@ -123,10 +123,6 @@ func (p *Parser) parseStmt() error {
 		if instrDef, ok := instructions.Instructions[s]; ok {
 			return p.parseInstruction(instrDef)
 		}
-		if kw := kwOf(t.Text); kw != KW_NONE {
-			p.next()
-			return p.parsePseudo(kw)
-		}
 		return parserError(t, "unknown mnemonic")
 	}
 
@@ -136,149 +132,13 @@ func (p *Parser) parseStmt() error {
 		if err != nil {
 			return err
 		}
-		name := "." + id.Text
-		if kw := kwOf(name); kw != KW_NONE {
-			return p.parsePseudo(kw)
+		name := "." + strings.ToUpper(id.Text)
+		if pseudo, ok := pseudoMap[name]; ok {
+			return pseudo(p)
 		}
 		return parserError(t, "unknown pseudo op")
 	}
 	return parserError(t, "unexpected token")
-}
-
-func (p *Parser) parsePseudo(kw kw) error {
-	switch kw {
-	case KW_ORG:
-		return p.parseORG()
-	case KW_BYTE:
-		return p.parseBYTE()
-	case KW_WORD:
-		return p.parseWORD()
-	case KW_LONG:
-		return p.parseLONG()
-	case KW_ALIGN:
-		return p.parseALIGN()
-	default:
-		return fmt.Errorf("line %d: unknown pseudo op", p.line)
-	}
-}
-
-func (p *Parser) parseORG() error {
-	val, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-	newPC := uint32(val)
-
-	if newPC > maxProgramSize {
-		return fmt.Errorf("line %d: .org would exceed maximum program size of %d bytes", p.line, maxProgramSize)
-	}
-
-	if !p.hasOrg && p.pc == 0 {
-		p.origin = newPC
-		p.hasOrg = true
-		p.pc = newPC
-		return nil
-	}
-	if !p.hasOrg {
-		p.origin = 0
-		p.hasOrg = true
-	}
-
-	if newPC < p.pc {
-		return fmt.Errorf("line %d: .org cannot move backwards (pc=%d -> %d)", p.line, p.pc, newPC)
-	}
-
-	if newPC > p.pc {
-		if err := p.emitPaddingBytes(newPC-p.pc, 0x00); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	return nil
-}
-
-func (p *Parser) parseBYTE() error {
-	val, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-	var bytes []byte
-	bytes = append(bytes, byte(val))
-	for p.accept(COMMA) {
-		v, err := p.parseExpr()
-		if err != nil {
-			return err
-		}
-		bytes = append(bytes, byte(v))
-	}
-	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line})
-	p.pc += uint32(len(bytes))
-	return nil
-}
-
-// .word <expr>[, <expr>]...
-func (p *Parser) parseWORD() error {
-	// first value
-	v, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-
-	out := make([]byte, 0, 2*4)
-	if v < -0x8000 || v > 0xFFFF {
-		return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
-	}
-	w := uint16(int16(v))
-	out = append(out, byte(w>>8), byte(w))
-
-	// subsequent values
-	for p.accept(COMMA) { // use lex.COMMA if you still prefix tokens
-		v, err := p.parseExpr()
-		if err != nil {
-			return err
-		}
-		if v < -0x8000 || v > 0xFFFF {
-			return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
-		}
-		w := uint16(int16(v))
-		out = append(out, byte(w>>8), byte(w))
-	}
-
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
-	p.pc += uint32(len(out))
-	return nil
-}
-
-// .long <expr>[, <expr>]...
-func (p *Parser) parseLONG() error {
-	v, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-
-	out := make([]byte, 0, 4*4)
-	if v < -0x80000000 || v > 0xFFFFFFFF {
-		return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
-	}
-	u := uint32(v) // two's complement when v is negative
-	out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
-
-	for p.accept(COMMA) {
-		v, err := p.parseExpr()
-		if err != nil {
-			return err
-		}
-		if v < -0x80000000 || v > 0xFFFFFFFF {
-			return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
-		}
-		u := uint32(v)
-		out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
-	}
-
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
-	p.pc += uint32(len(out))
-	return nil
 }
 
 func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
@@ -830,39 +690,6 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	return instructions.EAExpr{}, parserError(t, "unexpected EA")
 }
 
-// .align <expr>[, <fill>]
-func (p *Parser) parseALIGN() error {
-	// alignment value
-	val, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-	if val < 1 {
-		return fmt.Errorf("line %d: .align expects value >= 1, got %d", p.line, val)
-	}
-	align := uint32(val)
-
-	// optional fill
-	fill := byte(0x00)
-	if p.accept(COMMA) { // if you still use prefixed tokens, use lex.COMMA
-		fv, err := p.parseExpr()
-		if err != nil {
-			return err
-		}
-		fill = byte(fv) // truncate to 8-bit
-	}
-
-	// compute padding
-	m := p.pc % align
-	if m == 0 {
-		return nil // already aligned, emit nothing
-	}
-	pad := align - m
-
-	// emit pad bytes of 'fill'
-	return p.emitPaddingBytes(pad, fill)
-}
-
 // Lookahead helpers
 func (p *Parser) fill(n int) {
 	for len(p.buf) < n {
@@ -900,4 +727,28 @@ func (p *Parser) accept(k Kind) bool {
 		return true
 	}
 	return false
+}
+
+func isRegDn(s string) (bool, int) {
+	if len(s) == 2 && (s[0] == 'd' || s[0] == 'D') {
+		r := int(s[1] - '0')
+		if 0 <= r && r <= 7 {
+			return true, r
+		}
+	}
+	return false, 0
+}
+
+func isRegAn(s string) (bool, int) {
+	if len(s) == 2 && (s[0] == 'a' || s[0] == 'A') {
+		r := int(s[1] - '0')
+		if 0 <= r && r <= 7 {
+			return true, r
+		}
+	}
+	return strings.EqualFold(s, "SP"), 7
+}
+
+func isPC(s string) bool {
+	return strings.EqualFold(s, "PC")
 }
