@@ -51,6 +51,10 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"AddImmediate", "ADD.W #1,D0\n", []byte{0xD0, 0x7C, 0x00, 0x01}},
 		{"AddQuickByte", "ADDQ.B #1,D0\n", []byte{0x52, 0x00}},
 		{"AddQuickLongPredec", "ADDQ.L #8,-(A7)\n", []byte{0x50, 0xA7}},
+		{"AndWord", "AND.W D1,D0\n", []byte{0xC0, 0x41}},
+		{"OrByteToMemory", "OR.B D0,(A1)\n", []byte{0x81, 0x11}},
+		{"ExclusiveOrLong", "EOR.L D2,D3\n", []byte{0xB5, 0x83}},
+		{"NotWordPostIncrement", "NOT.W (A0)+\n", []byte{0x46, 0x58}},
 		{"SubLong", "SUB.L (A1),D3\n", []byte{0x96, 0x91}},
 		{"SubQuickWordToAn", "SUBQ.W #3,A1\n", []byte{0x57, 0x49}},
 		{"CmpByte", "CMP.B (16,A0),D2\n", []byte{0xB4, 0x28, 0x00, 0x10}},
@@ -106,6 +110,8 @@ func TestAddSubQuickAndMoveQValidation(t *testing.T) {
 		{"AddQuickImmediateRange", "ADDQ #9,D0\n", "immediate out of range"},
 		{"SubQuickByteToAn", "SUBQ.B #1,A0\n", "not allowed"},
 		{"MoveQImmediateRange", "MOVEQ #200,D0\n", "immediate out of range"},
+		{"AndAddressRegisterSource", "AND.W A0,D1\n", "address register source"},
+		{"NotAddressRegisterDestination", "NOT.W A0\n", "address register destination"},
 	}
 
 	for _, tt := range tests {
