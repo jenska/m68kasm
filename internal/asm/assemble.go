@@ -24,7 +24,8 @@ func Assemble(p *Program) ([]byte, error) {
 			if def == nil {
 				return nil, fmt.Errorf("no definition for opcode on line %d", x.Line)
 			}
-			form, err := selectForm(def, x)
+			actualKinds := operandKinds(&x.Args)
+			form, err := selectForm(def, x, actualKinds)
 			if err != nil {
 				return nil, fmt.Errorf("line %d: %v", x.Line, err)
 			}
@@ -52,7 +53,7 @@ func Assemble(p *Program) ([]byte, error) {
 	return out, nil
 }
 
-func selectForm(def *instructions.InstrDef, ins *Instr) (*instructions.FormDef, error) {
+func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.OperandKind) (*instructions.FormDef, error) {
 	for i := range def.Forms {
 		form := &def.Forms[i]
 		if len(form.Sizes) > 0 {
@@ -61,7 +62,6 @@ func selectForm(def *instructions.InstrDef, ins *Instr) (*instructions.FormDef, 
 			}
 		}
 		if len(form.OperKinds) > 0 {
-			actual := operandKinds(&ins.Args)
 			if !operKindsMatch(form.OperKinds, actual) {
 				continue
 			}
@@ -81,30 +81,38 @@ func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
 }
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
-	kinds := make([]instructions.OperandKind, 0, 2)
+	var kinds [3]instructions.OperandKind
+	n := 0
 	haveTarget := false
 	if a.HasImmQuick {
-		kinds = append(kinds, instructions.OPK_ImmQuick)
+		kinds[n] = instructions.OPK_ImmQuick
+		n++
 	} else if a.RegMaskSrc != 0 {
-		kinds = append(kinds, instructions.OPK_RegList)
+		kinds[n] = instructions.OPK_RegList
+		n++
 	} else if a.Src.Kind != instructions.EAkNone {
-		kinds = append(kinds, operandKindFromEA(a.Src))
+		kinds[n] = operandKindFromEA(a.Src)
+		n++
 	} else if a.Target != "" {
-		kinds = append(kinds, instructions.OPK_DispRel)
+		kinds[n] = instructions.OPK_DispRel
+		n++
 		haveTarget = true
 	}
 
 	if a.RegMaskDst != 0 {
-		kinds = append(kinds, instructions.OPK_RegList)
+		kinds[n] = instructions.OPK_RegList
+		n++
 	} else if a.Dst.Kind != instructions.EAkNone {
-		kinds = append(kinds, operandKindFromEA(a.Dst))
+		kinds[n] = operandKindFromEA(a.Dst)
+		n++
 	}
 
 	if a.Target != "" && !haveTarget {
-		kinds = append(kinds, instructions.OPK_DispRel)
+		kinds[n] = instructions.OPK_DispRel
+		n++
 	}
 
-	return kinds
+	return kinds[:n]
 }
 
 func operandKindFromEA(e instructions.EAExpr) instructions.OperandKind {
