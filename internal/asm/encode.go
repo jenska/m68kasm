@@ -35,9 +35,11 @@ type prepared struct {
 	SizeBits uint16
 	Size     instructions.Size
 
-	Imm    int64
-	SrcReg int
-	DstReg int
+	Imm        int64
+	SrcReg     int
+	DstReg     int
+	SrcRegMask uint16
+	DstRegMask uint16
 
 	SrcEA instructions.EAEncoded
 	DstEA instructions.EAEncoded
@@ -84,6 +86,18 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | uint16(p.SrcReg&7)
 	case instructions.F_SrcAnReg:
 		return wordVal | uint16(p.SrcReg&7)
+	case instructions.F_MovemSize:
+		if p.Size == instructions.SZ_L {
+			return wordVal | 0x0040
+		}
+		return wordVal
+	case instructions.F_AddaSize:
+		if p.Size == instructions.SZ_L {
+			return wordVal | 0x0100
+		}
+		return wordVal
+	case instructions.F_SrcDnRegHi:
+		return wordVal | (uint16(p.SrcReg&7) << 9)
 	default:
 		return wordVal
 	}
@@ -131,12 +145,20 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 			return appendWord(out, uint16(p.BrDisp16)), nil
 		}
 		return out, nil
+	case instructions.T_SrcRegMask:
+		mask := p.SrcRegMask
+		if p.DstEA.Mode == 4 {
+			mask = reverse16(mask)
+		}
+		return appendWord(out, mask), nil
+	case instructions.T_DstRegMask:
+		return appendWord(out, p.DstRegMask), nil
 	}
 	return out, nil
 }
 
 func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
-	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg}
+	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg, SrcRegMask: ins.Args.RegMaskSrc, DstRegMask: ins.Args.RegMaskDst}
 	var err error
 
 	if ins.Args.Src.Kind != instructions.EAkNone {
@@ -201,4 +223,12 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		}
 	}
 	return out, nil
+}
+
+func reverse16(v uint16) uint16 {
+	v = (v >> 8) | (v << 8)
+	v = ((v & 0xF0F0) >> 4) | ((v & 0x0F0F) << 4)
+	v = ((v & 0xCCCC) >> 2) | ((v & 0x3333) << 2)
+	v = ((v & 0xAAAA) >> 1) | ((v & 0x5555) << 1)
+	return v
 }

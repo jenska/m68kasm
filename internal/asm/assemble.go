@@ -84,13 +84,17 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	kinds := make([]instructions.OperandKind, 0, 2)
 	if a.HasImmQuick {
 		kinds = append(kinds, instructions.OPK_ImmQuick)
+	} else if a.RegMaskSrc != 0 {
+		kinds = append(kinds, instructions.OPK_RegList)
 	} else if a.Src.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Src))
 	} else if a.Target != "" {
 		kinds = append(kinds, instructions.OPK_DispRel)
 	}
 
-	if a.Dst.Kind != instructions.EAkNone {
+	if a.RegMaskDst != 0 {
+		kinds = append(kinds, instructions.OPK_RegList)
+	} else if a.Dst.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Dst))
 	}
 
@@ -133,7 +137,7 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 	switch expect {
 	case instructions.OPK_EA:
 		switch actual {
-		case instructions.OPK_EA, instructions.OPK_Dn, instructions.OPK_An, instructions.OPK_Imm:
+		case instructions.OPK_EA, instructions.OPK_Dn, instructions.OPK_An, instructions.OPK_Imm, instructions.OPK_PredecAn:
 			return true
 		}
 	}

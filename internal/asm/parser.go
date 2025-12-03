@@ -344,6 +344,8 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 				if args.Size == instructions.SZ_W {
 					words++
 				}
+			case instructions.T_SrcRegMask, instructions.T_DstRegMask:
+				words++
 			}
 		}
 	}
@@ -454,6 +456,17 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 				return args, fmt.Errorf("line %d: expected -(An)", mn.Line)
 			}
 			eaExpr = ea
+		case instructions.OPK_RegList:
+			mask, err := p.parseRegList()
+			if err != nil {
+				return args, err
+			}
+			eaExpr.Kind = instructions.EAkNone
+			if i == 0 {
+				args.RegMaskSrc = mask
+			} else {
+				args.RegMaskDst = mask
+			}
 
 		case instructions.OPK_DispRel:
 			lbl, err := p.want(IDENT)
@@ -547,6 +560,93 @@ func sizeFromIdent(s string) (instructions.Size, bool) {
 	}
 }
 
+func (p *Parser) parseRegList() (uint16, error) {
+	mask := uint16(0)
+	for {
+		regTok, err := p.want(IDENT)
+		if err != nil {
+			return 0, err
+		}
+		isA, reg, err := parseRegName(regTok)
+		if err != nil {
+			return 0, err
+		}
+		endIsA, endReg := isA, reg
+		if p.accept(MINUS) {
+			toTok, err := p.want(IDENT)
+			if err != nil {
+				return 0, err
+			}
+			endIsA, endReg, err = parseRegName(toTok)
+			if err != nil {
+				return 0, err
+			}
+			if endIsA != isA {
+				return 0, fmt.Errorf("line %d: register ranges must stay within D or A registers", toTok.Line)
+			}
+			if endReg < reg {
+				return 0, fmt.Errorf("line %d: descending ranges are not allowed", toTok.Line)
+			}
+		}
+		for r := reg; r <= endReg; r++ {
+			bit := uint16(1 << r)
+			if isA {
+				bit <<= 8
+			}
+			mask |= bit
+		}
+		if p.peek().Kind == SLASH {
+			p.next()
+			continue
+		}
+		if p.peek().Kind == COMMA {
+			nxt := p.peekN(2)
+			if nxt.Kind == IDENT {
+				if ok, _ := isRegDn(nxt.Text); ok {
+					p.next()
+					continue
+				}
+				if ok, _ := isRegAn(nxt.Text); ok {
+					p.next()
+					continue
+				}
+			}
+			return mask, nil
+		}
+		break
+	}
+	return mask, nil
+}
+
+func parseRegName(tok Token) (bool, int, error) {
+	if ok, dn := isRegDn(tok.Text); ok {
+		return false, dn, nil
+	}
+	if ok, an := isRegAn(tok.Text); ok {
+		return true, an, nil
+	}
+	return false, 0, fmt.Errorf("line %d: expected register in list", tok.Line)
+}
+
+func eaExtraWords(e instructions.EAExpr, sz instructions.Size, source bool) int {
+	switch e.Kind {
+	case instructions.EAkAddrDisp16, instructions.EAkPCDisp16, instructions.EAkIdxAnBrief, instructions.EAkIdxPCBrief, instructions.EAkAbsW:
+		return 1
+	case instructions.EAkAbsL:
+		return 2
+	case instructions.EAkImm:
+		if !source {
+			return 0
+		}
+		if sz == instructions.SZ_L {
+			return 2
+		}
+		return 1
+	default:
+		return 0
+	}
+}
+
 // ---------- EA parsing ----------
 func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	t := p.peek()
@@ -618,6 +718,9 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			if ok, an := isRegAn(id.Text); ok {
 				if _, err := p.want(RPAREN); err != nil {
 					return instructions.EAExpr{}, err
+				}
+				if p.accept(PLUS) {
+					return instructions.EAExpr{Kind: instructions.EAkAddrPostinc, Reg: an}, nil
 				}
 				return instructions.EAExpr{Kind: instructions.EAkAddrInd, Reg: an}, nil
 			}

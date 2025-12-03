@@ -132,6 +132,11 @@ loop:   ADDQ #1, D0
 - Byte/word/long suffixes are checked by the encoder.
 - Branches (`BRA/Bcc/BSR`) verify displacement fits **short** (‑128..+127) or **word** (‑32768..+32767) ranges; out‑of‑range branches are errors.
 
+### 5.5 Register lists (for `MOVEM`)
+- Lists combine registers with `/` (or commas) and allow ascending ranges: `D0-D3/A6`.
+- Ranges must stay within the same register class (`D` or `A`) and cannot descend.
+- Pre‑decrement destinations automatically reverse the bit ordering to match 68000 push order.
+
 ---
 
 ## 6. Errors & Diagnostics
@@ -168,7 +173,7 @@ operands    = operand { "," operand } ;
 
 size        = "." ( "b" | "w" | "l" ) ;
 
-operand     = ea | immediate ;
+operand     = ea | immediate | reg_list ;
 
 immediate   = "#" expr ;
 
@@ -188,6 +193,10 @@ index       = ( "D" | "A" ) digit "." ( "w" | "l" ) ;
 
 data_reg    = "D" digit ;
 addr_reg    = "A" digit ;
+
+reg_list    = reg_item { ( "/" | "," ) reg_item } ;
+reg_item    = data_reg [ "-" data_reg ]
+            | addr_reg [ "-" addr_reg ] ;
 
 mnemonic    = ident ;
 ident       = letter { letter | digit | "_" } ;
