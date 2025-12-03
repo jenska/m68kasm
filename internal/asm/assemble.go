@@ -82,6 +82,7 @@ func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	kinds := make([]instructions.OperandKind, 0, 2)
+	haveTarget := false
 	if a.HasImmQuick {
 		kinds = append(kinds, instructions.OPK_ImmQuick)
 	} else if a.RegMaskSrc != 0 {
@@ -90,12 +91,17 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 		kinds = append(kinds, operandKindFromEA(a.Src))
 	} else if a.Target != "" {
 		kinds = append(kinds, instructions.OPK_DispRel)
+		haveTarget = true
 	}
 
 	if a.RegMaskDst != 0 {
 		kinds = append(kinds, instructions.OPK_RegList)
 	} else if a.Dst.Kind != instructions.EAkNone {
 		kinds = append(kinds, operandKindFromEA(a.Dst))
+	}
+
+	if a.Target != "" && !haveTarget {
+		kinds = append(kinds, instructions.OPK_DispRel)
 	}
 
 	return kinds

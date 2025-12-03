@@ -64,6 +64,8 @@ const (
 	condLE  cond = 0xF
 )
 
+const condF cond = condBSR
+
 const (
 	OPK_None OperandKind = iota
 	OPK_Imm
