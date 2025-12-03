@@ -3,10 +3,10 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefMOVEM)
+	registerInstrDef(&defMOVEM)
 }
 
-var DefMOVEM = InstrDef{
+var defMOVEM = InstrDef{
 	Mnemonic: "MOVEM",
 	Forms: []FormDef{
 		{

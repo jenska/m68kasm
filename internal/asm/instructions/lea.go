@@ -1,10 +1,10 @@
 package instructions
 
 func init() {
-	registerInstrDef(&DefLEA)
+	registerInstrDef(&defLEA)
 }
 
-var DefLEA = InstrDef{
+var defLEA = InstrDef{
 	Mnemonic: "LEA",
 	Forms: []FormDef{
 		{

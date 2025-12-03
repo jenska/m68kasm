@@ -3,21 +3,14 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefMULU)
-	registerInstrDef(&DefMULS)
-	registerInstrDef(&DefDIVU)
-	registerInstrDef(&DefDIVS)
+	registerInstrDef(newDivMulDef("MULU", 0xC0C0))
+	registerInstrDef(newDivMulDef("MULS", 0xC1C0))
+	registerInstrDef(newDivMulDef("DIVU", 0x80C0))
+	registerInstrDef(newDivMulDef("DIVS", 0x81C0))
 }
 
-var (
-	DefDIVU = newDivMulDef("DIVU", 0x80C0)
-	DefDIVS = newDivMulDef("DIVS", 0x81C0)
-	DefMULU = newDivMulDef("MULU", 0xC0C0)
-	DefMULS = newDivMulDef("MULS", 0xC1C0)
-)
-
-func newDivMulDef(name string, wordBits uint16) InstrDef {
-	return InstrDef{
+func newDivMulDef(name string, wordBits uint16) *InstrDef {
+	return &InstrDef{
 		Mnemonic: name,
 		Forms: []FormDef{
 			{

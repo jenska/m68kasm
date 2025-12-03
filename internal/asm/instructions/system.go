@@ -3,16 +3,16 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefNOP)
-	registerInstrDef(&DefRESET)
-	registerInstrDef(&DefTRAP)
-	registerInstrDef(&DefTRAPV)
-	registerInstrDef(&DefSTOP)
-	registerInstrDef(&DefRTS)
-	registerInstrDef(&DefRTE)
+	registerInstrDef(&defNOP)
+	registerInstrDef(&defRESET)
+	registerInstrDef(&defTRAP)
+	registerInstrDef(&defTRAPV)
+	registerInstrDef(&defSTOP)
+	registerInstrDef(&defRTS)
+	registerInstrDef(&defRTE)
 }
 
-var DefNOP = InstrDef{
+var defNOP = InstrDef{
 	Mnemonic: "NOP",
 	Forms: []FormDef{
 		{
@@ -27,7 +27,7 @@ var DefNOP = InstrDef{
 	},
 }
 
-var DefTRAPV = InstrDef{
+var defTRAPV = InstrDef{
 	Mnemonic: "TRAPV",
 	Forms: []FormDef{
 		{
@@ -42,7 +42,7 @@ var DefTRAPV = InstrDef{
 	},
 }
 
-var DefSTOP = InstrDef{
+var defSTOP = InstrDef{
 	Mnemonic: "STOP",
 	Forms: []FormDef{
 		{
@@ -58,7 +58,7 @@ var DefSTOP = InstrDef{
 	},
 }
 
-var DefRESET = InstrDef{
+var defRESET = InstrDef{
 	Mnemonic: "RESET",
 	Forms: []FormDef{
 		{
@@ -73,7 +73,7 @@ var DefRESET = InstrDef{
 	},
 }
 
-var DefRTS = InstrDef{
+var defRTS = InstrDef{
 	Mnemonic: "RTS",
 	Forms: []FormDef{
 		{
@@ -88,7 +88,7 @@ var DefRTS = InstrDef{
 	},
 }
 
-var DefRTE = InstrDef{
+var defRTE = InstrDef{
 	Mnemonic: "RTE",
 	Forms: []FormDef{
 		{
@@ -103,7 +103,7 @@ var DefRTE = InstrDef{
 	},
 }
 
-var DefTRAP = InstrDef{
+var defTRAP = InstrDef{
 	Mnemonic: "TRAP",
 	Forms: []FormDef{
 		{

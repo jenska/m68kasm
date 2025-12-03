@@ -1,11 +1,11 @@
 package instructions
 
 func init() {
-	registerInstrDef(&DefABCD)
-	registerInstrDef(&DefSBCD)
+	registerInstrDef(&defABCD)
+	registerInstrDef(&defSBCD)
 }
 
-var DefABCD = InstrDef{
+var defABCD = InstrDef{
 	Mnemonic: "ABCD",
 	Forms: []FormDef{
 		{
@@ -29,7 +29,7 @@ var DefABCD = InstrDef{
 	},
 }
 
-var DefSBCD = InstrDef{
+var defSBCD = InstrDef{
 	Mnemonic: "SBCD",
 	Forms: []FormDef{
 		{

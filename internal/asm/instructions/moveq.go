@@ -25,8 +25,5 @@ func validateMOVEQ(a *Args) error {
 	if a.Src.Kind != EAkImm {
 		return fmt.Errorf("MOVEQ needs immediate")
 	}
-	if a.Src.Imm < -128 || a.Src.Imm > 127 {
-		return fmt.Errorf("immediate out of range for MOVEQ: %d", a.Src.Imm)
-	}
-	return nil
+	return checkImmediateRange(a.Src.Imm, SZ_B)
 }
