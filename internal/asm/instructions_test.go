@@ -27,6 +27,8 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		src  string
 		want []byte
 	}{
+		{"DBRADefault", "loop:\nDBRA D0, loop\n", []byte{0x51, 0xC8, 0xFF, 0xFC}},
+		{"DBNEForward", "DBNE D1, target\nNOP\nNOP\ntarget:\n", []byte{0x56, 0xC9, 0x00, 0x04, 0x4E, 0x71, 0x4E, 0x71}},
 		{"ABCDDataRegs", "ABCD D1,D0\n", []byte{0xC1, 0x01}},
 		{"ABCDPredecrement", "ABCD -(A1),-(A0)\n", []byte{0xC1, 0x09}},
 		{"SBCDDataRegs", "SBCD D2,D3\n", []byte{0x87, 0x02}},
