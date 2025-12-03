@@ -113,7 +113,6 @@ func parserError(t Token, msg string) error {
 func (p *Parser) parseStmt() error {
 	t := p.peek()
 
-	// Instruction
 	if t.Kind == IDENT {
 		s := strings.ToUpper(t.Text)
 		if idx := strings.IndexRune(s, '.'); idx > 0 {
@@ -121,41 +120,44 @@ func (p *Parser) parseStmt() error {
 		}
 		if instrDef, ok := instructions.Instructions[s]; ok {
 			return p.parseInstruction(instrDef)
-		} else {
-			return parserError(t, "unknown mnemonic")
 		}
-
+		if kw := kwOf(t.Text); kw != KW_NONE {
+			p.next()
+			return p.parsePseudo(kw)
+		}
+		return parserError(t, "unknown mnemonic")
 	}
 
-	// Pseudo Op
-	if t.Kind == DOT || (t.Kind == IDENT && strings.HasPrefix(t.Text, ".")) {
-		name := t.Text
-		if t.Kind == DOT {
-			p.next()
-			id, err := p.want(IDENT)
-			if err != nil {
-				return err
-			}
-			name = "." + id.Text
-		} else {
-			p.next()
+	if t.Kind == DOT {
+		p.next()
+		id, err := p.want(IDENT)
+		if err != nil {
+			return err
 		}
-		switch kwOf(name) {
-		case KW_ORG:
-			return p.parseORG()
-		case KW_BYTE:
-			return p.parseBYTE()
-		case KW_WORD:
-			return p.parseWORD()
-		case KW_LONG:
-			return p.parseLONG()
-		case KW_ALIGN:
-			return p.parseALIGN()
-		default:
-			return parserError(t, "unknown pseudo op")
+		name := "." + id.Text
+		if kw := kwOf(name); kw != KW_NONE {
+			return p.parsePseudo(kw)
 		}
+		return parserError(t, "unknown pseudo op")
 	}
 	return parserError(t, "unexpected token")
+}
+
+func (p *Parser) parsePseudo(kw kw) error {
+	switch kw {
+	case KW_ORG:
+		return p.parseORG()
+	case KW_BYTE:
+		return p.parseBYTE()
+	case KW_WORD:
+		return p.parseWORD()
+	case KW_LONG:
+		return p.parseLONG()
+	case KW_ALIGN:
+		return p.parseALIGN()
+	default:
+		return fmt.Errorf("line %d: unknown pseudo op", p.line)
+	}
 }
 
 func (p *Parser) parseORG() error {

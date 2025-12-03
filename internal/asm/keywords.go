@@ -16,23 +16,23 @@ const (
 
 func kwOf(s string) kw {
 	s = strings.ToUpper(s)
+	if strings.HasPrefix(s, ".") {
+		s = s[1:]
+	}
 	if idx := strings.IndexRune(s, '.'); idx > 0 {
 		s = s[:idx]
 	}
-	switch s {
-	case ".ORG":
-		return KW_ORG
-	case ".BYTE":
-		return KW_BYTE
-	case ".WORD":
-		return KW_WORD
-	case ".LONG":
-		return KW_LONG
-	case ".ALIGN":
-		return KW_ALIGN
-	default:
-		return KW_NONE
-	}
+
+	return kwMap[s]
+}
+
+var kwMap = map[string]kw{
+	"":      KW_NONE,
+	"ORG":   KW_ORG,
+	"BYTE":  KW_BYTE,
+	"WORD":  KW_WORD,
+	"LONG":  KW_LONG,
+	"ALIGN": KW_ALIGN,
 }
 
 func isRegDn(s string) (bool, int) {
