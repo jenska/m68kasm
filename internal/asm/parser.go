@@ -628,25 +628,6 @@ func parseRegName(tok Token) (bool, int, error) {
 	return false, 0, fmt.Errorf("line %d: expected register in list", tok.Line)
 }
 
-func eaExtraWords(e instructions.EAExpr, sz instructions.Size, source bool) int {
-	switch e.Kind {
-	case instructions.EAkAddrDisp16, instructions.EAkPCDisp16, instructions.EAkIdxAnBrief, instructions.EAkIdxPCBrief, instructions.EAkAbsW:
-		return 1
-	case instructions.EAkAbsL:
-		return 2
-	case instructions.EAkImm:
-		if !source {
-			return 0
-		}
-		if sz == instructions.SZ_L {
-			return 2
-		}
-		return 1
-	default:
-		return 0
-	}
-}
-
 // ---------- EA parsing ----------
 func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	t := p.peek()
