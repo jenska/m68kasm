@@ -18,7 +18,7 @@ func main() {
 	}
 	prog, err := asm.ParseFile(*in)
 	if err != nil {
-		fmt.Println("parse error:", err)
+		fmt.Println("assemble error:", err)
 		os.Exit(2)
 	}
 	bytes, err := asm.Assemble(prog)
