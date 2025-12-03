@@ -14,6 +14,7 @@ const (
 	F_BranchLow8
 	F_MoveDestEA
 	F_MoveSize
+	F_QuickData
 	F_SrcDnReg
 	F_SrcAnReg
 	F_MovemSize
