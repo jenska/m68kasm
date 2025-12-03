@@ -2,48 +2,73 @@ package instructions
 
 import "fmt"
 
+type eaEntry struct {
+	mode        int
+	reg         int
+	regFromExpr bool
+	ext         func(EAExpr) ([]uint16, error)
+	valid       bool
+}
+
+var eaTable = []eaEntry{
+	/* EAkNone */ {},
+	/* EAkImm */ {mode: 7, reg: 4, valid: true},
+	/* EAkDn */ {mode: 0, regFromExpr: true, valid: true},
+	/* EAkAn */ {mode: 1, regFromExpr: true, valid: true},
+	/* EAkAddrPredec */ {mode: 4, regFromExpr: true, valid: true},
+	/* EAkAddrPostinc */ {mode: 3, regFromExpr: true, valid: true},
+	/* EAkAddrInd */ {mode: 2, regFromExpr: true, valid: true},
+	/* EAkAddrDisp16 */ {mode: 5, regFromExpr: true, ext: eaExtDisp16, valid: true},
+	/* EAkPCDisp16 */ {mode: 7, reg: 2, ext: eaExtDisp16, valid: true},
+	/* EAkIdxAnBrief */ {mode: 6, regFromExpr: true, ext: eaExtIndexBrief, valid: true},
+	/* EAkIdxPCBrief */ {mode: 7, reg: 3, ext: eaExtIndexBrief, valid: true},
+	/* EAkAbsW */ {mode: 7, reg: 0, ext: eaExtAbsW, valid: true},
+	/* EAkAbsL */ {mode: 7, reg: 1, ext: eaExtAbsL, valid: true},
+	/* EAkSR */ {mode: 0, reg: 0, valid: true},
+	/* EAkCCR */ {mode: 0, reg: 0, valid: true},
+	/* EAkUSP */ {mode: 0, reg: 0, valid: true},
+}
+
 // EncodeEA converts an addressing expression into the mode/reg pair and any extension words.
 func EncodeEA(e EAExpr) (EAEncoded, error) {
-	var out EAEncoded
-	switch e.Kind {
-	case EAkDn:
-		out.Mode, out.Reg = 0, e.Reg
-	case EAkAn:
-		out.Mode, out.Reg = 1, e.Reg
-	case EAkAddrPredec:
-		out.Mode, out.Reg = 4, e.Reg
-	case EAkAddrPostinc:
-		out.Mode, out.Reg = 3, e.Reg
-	case EAkAddrInd:
-		out.Mode, out.Reg = 2, e.Reg
-	case EAkAddrDisp16:
-		out.Mode, out.Reg = 5, e.Reg
-		out.Ext = append(out.Ext, uint16(e.Disp16))
-	case EAkPCDisp16:
-		out.Mode, out.Reg = 7, 2
-		out.Ext = append(out.Ext, uint16(e.Disp16))
-	case EAkIdxAnBrief:
-		out.Mode, out.Reg = 6, e.Reg
-		out.Ext = append(out.Ext, encodeBriefIndex(e.Index))
-	case EAkIdxPCBrief:
-		out.Mode, out.Reg = 7, 3
-		out.Ext = append(out.Ext, encodeBriefIndex(e.Index))
-	case EAkAbsW:
-		out.Mode, out.Reg = 7, 0
-		out.Ext = append(out.Ext, e.Abs16)
-	case EAkAbsL:
-		out.Mode, out.Reg = 7, 1
-		out.Ext = append(out.Ext, uint16(e.Abs32>>16), uint16(e.Abs32))
-	case EAkImm:
-		out.Mode, out.Reg = 7, 4
-	case EAkSR, EAkCCR, EAkUSP:
-		out.Mode, out.Reg = 0, 0
-	case EAkNone:
-		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
-	default:
+	if int(e.Kind) < 0 || int(e.Kind) >= len(eaTable) {
 		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
 	}
+
+	entry := eaTable[e.Kind]
+	if !entry.valid {
+		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
+	}
+
+	out := EAEncoded{Mode: entry.mode, Reg: entry.reg}
+	if entry.regFromExpr {
+		out.Reg = e.Reg
+	}
+	if entry.ext != nil {
+		ext, err := entry.ext(e)
+		if err != nil {
+			return EAEncoded{}, err
+		}
+		out.Ext = append(out.Ext, ext...)
+	}
+
 	return out, nil
+}
+
+func eaExtDisp16(e EAExpr) ([]uint16, error) {
+	return []uint16{uint16(e.Disp16)}, nil
+}
+
+func eaExtIndexBrief(e EAExpr) ([]uint16, error) {
+	return []uint16{encodeBriefIndex(e.Index)}, nil
+}
+
+func eaExtAbsW(e EAExpr) ([]uint16, error) {
+	return []uint16{e.Abs16}, nil
+}
+
+func eaExtAbsL(e EAExpr) ([]uint16, error) {
+	return []uint16{uint16(e.Abs32 >> 16), uint16(e.Abs32)}, nil
 }
 
 func encodeBriefIndex(ix EAIndex) uint16 {
