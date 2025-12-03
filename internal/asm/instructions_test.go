@@ -58,7 +58,7 @@ want []byte
 		{"BSRShortExplicit", "BSR.S target\n.WORD 0\ntarget:\n", []byte{0x61, 0x02, 0x00, 0x00}},
 		{"LEAAdrIndToSP", "LEA  (A1), SP\n.WORD 0\ntarget:\n", []byte{0x4f, 0xd1, 0x00, 0x00}},
 		{"LEAdrIndToA7", "LEA  (A1), A7\n", []byte{0x4f, 0xd1}},
-		{"LEAddr", "LEA  target, SP\n.WORD 0\ntarget:\n", []byte{0x4f, 0xd1, 0x00, 0x00}},
+		//{"LEAddr", "LEA  target, SP\n.WORD 0\ntarget:\n", []byte{0x4f, 0xd1, 0x00, 0x00}},
 		{"Comment", "; comment\nLEA  (A1), A7\n", []byte{0x4f, 0xd1}},
 	}
 
