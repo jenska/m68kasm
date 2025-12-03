@@ -54,6 +54,38 @@ func BenchmarkAssembleOnly(b *testing.B) {
 	}
 }
 
+func BenchmarkAssembleControlAndStack(b *testing.B) {
+	src := `.org 0
+start:
+    LINK A6,#-32
+    PEA (A1)
+    BTST #5,(A0)
+    BTST D2,(A3)
+    TST.W (A2)
+    NEGX.B D3
+    ADDX.W D1,D0
+    SUBX.L -(A2),-(A3)
+    JSR (8,PC)
+    UNLK A6
+    RTS
+`
+
+	prog, err := Parse(strings.NewReader(src))
+	if err != nil {
+		b.Fatalf("parse error: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(src)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := Assemble(prog); err != nil {
+			b.Fatalf("assemble error: %v", err)
+		}
+	}
+}
+
 func buildBenchmarkSource(blocks int) string {
 	var sb strings.Builder
 	// Roughly 60 bytes per block; helps avoid repeated allocations.

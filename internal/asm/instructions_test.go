@@ -78,6 +78,8 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"BitSetImmediateToDn", "BSET #1,D0\n", []byte{0x08, 0xC0, 0x00, 0x01}},
 		{"BitClearImmediateToMem", "BCLR #7,(A1)\n", []byte{0x08, 0x91, 0x00, 0x07}},
 		{"BitChangeRegisterSource", "BCHG D2,(A3)\n", []byte{0x05, 0x53}},
+		{"BitTestImmediate", "BTST #3,D1\n", []byte{0x08, 0x01, 0x00, 0x03}},
+		{"BitTestRegisterToMemory", "BTST D2,(A3)\n", []byte{0x05, 0x13}},
 		{"BranchAlwaysShort", "BRA target\n.WORD 0\ntarget:\n", []byte{0x60, 0x02, 0x00, 0x00}},
 		{"BranchConditionWord", "BNE.W target\n.WORD 0\n.WORD 0\ntarget:\n", []byte{0x66, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
 		{"BranchSynonymShort", "BHS target\n.WORD 0\ntarget:\n", []byte{0x64, 0x02, 0x00, 0x00}},
@@ -88,6 +90,17 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"Comment", "; comment\nLEA  (A1), A7\n", []byte{0x4f, 0xd1}},
 		{"MovepLoadWord", "MOVEP (6,A1),D0\n", []byte{0x01, 0x49, 0x00, 0x06}},
 		{"MovepStoreLong", "MOVEP.L D2,(8,A3)\n", []byte{0x05, 0x8b, 0x00, 0x08}},
+		{"TestDataLong", "TST.L D3\n", []byte{0x4A, 0x83}},
+		{"NegateWithExtend", "NEGX.L D3\n", []byte{0x40, 0x83}},
+		{"SubExtendWordRegisters", "SUBX.W D1,D0\n", []byte{0x91, 0x41}},
+		{"SubExtendLongPredec", "SUBX.L -(A2),-(A3)\n", []byte{0x97, 0x8A}},
+		{"AddExtendByteRegisters", "ADDX.B D4,D5\n", []byte{0xDB, 0x04}},
+		{"AddExtendLongPredec", "ADDX.L -(A6),-(A7)\n", []byte{0xDF, 0x8E}},
+		{"JumpToSubroutine", "JSR (A2)\n", []byte{0x4E, 0x92}},
+		{"JumpToSubroutinePCDisp", "JSR (12,PC)\n", []byte{0x4E, 0xBA, 0x00, 0x0C}},
+		{"PushEffectiveAddress", "PEA (A1)\n", []byte{0x48, 0x51}},
+		{"LinkFrame", "LINK A6,#-4\n", []byte{0x4E, 0x56, 0xFF, 0xFC}},
+		{"UnlinkFrame", "UNLK A6\n", []byte{0x4E, 0x5E}},
 	}
 
 	for _, tt := range tests {
@@ -131,6 +144,36 @@ func TestAddSubQuickAndMoveQValidation(t *testing.T) {
 		{"MoveQImmediateRange", "MOVEQ #200,D0\n", "immediate out of range"},
 		{"AndAddressRegisterSource", "AND.W A0,D1\n", "address register source"},
 		{"NotAddressRegisterDestination", "NOT.W A0\n", "address register destination"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prog, err := asm.Parse(strings.NewReader(tt.src))
+			if err != nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			if _, err := asm.Assemble(prog); err == nil {
+				t.Fatalf("expected error but assembly succeeded")
+			} else if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestNewInstructionValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     string
+		wantErr string
+	}{
+		{"NegxAddressRegister", "NEGX.W A0\n", "address register"},
+		{"NegxImmediate", "NEGX #1\n", "data alterable EA"},
+		{"TstImmediate", "TST #1\n", "immediate"},
+		{"TstAddressRegister", "TST.L A1\n", "address register"},
+		{"JsrRequiresControlEA", "JSR D0\n", "control addressing mode"},
+		{"PeaRequiresControlEA", "PEA D0\n", "control addressing mode"},
+		{"LinkImmediateRange", "LINK A6,#70000\n", "out of range"},
 	}
 
 	for _, tt := range tests {
