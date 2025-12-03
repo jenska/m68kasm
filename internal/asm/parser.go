@@ -3,6 +3,7 @@ package asm
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -116,6 +117,15 @@ func (p *Parser) parseStmt() error {
 	t := p.peek()
 
 	if t.Kind == IDENT {
+		if p.peekN(2).Kind == EQUAL {
+			return p.parseConstDefinition(t)
+		}
+		if p.peekN(2).Kind == DOT {
+			if eq := p.peekN(3); eq.Kind == IDENT && strings.EqualFold(eq.Text, "equ") {
+				return p.parseConstDefinition(t)
+			}
+		}
+
 		s := strings.ToUpper(t.Text)
 		if idx := strings.IndexRune(s, '.'); idx > 0 {
 			s = s[:idx]
@@ -139,6 +149,36 @@ func (p *Parser) parseStmt() error {
 		return parserError(t, "unknown pseudo op")
 	}
 	return parserError(t, "unexpected token")
+}
+
+func (p *Parser) parseConstDefinition(nameTok Token) error {
+	_ = p.next() // consume name
+
+	if p.peek().Kind == DOT {
+		p.next()
+		eqTok, err := p.want(IDENT)
+		if err != nil {
+			return err
+		}
+		if !strings.EqualFold(eqTok.Text, "equ") {
+			return parserError(eqTok, "expected EQU")
+		}
+	} else {
+		if _, err := p.want(EQUAL); err != nil {
+			return err
+		}
+	}
+
+	val, err := p.parseExpr()
+	if err != nil {
+		return err
+	}
+	if val < 0 || val > math.MaxUint32 {
+		return fmt.Errorf("line %d: constant out of 32-bit range: %d", nameTok.Line, val)
+	}
+
+	p.labels[nameTok.Text] = uint32(val)
+	return nil
 }
 
 func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {

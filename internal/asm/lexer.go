@@ -18,6 +18,7 @@ const (
 	STRING
 	COMMA
 	COLON
+	EQUAL
 	HASH
 	LPAREN
 	RPAREN
@@ -105,6 +106,8 @@ func (lx *Lexer) next() Token {
 			return lx.tok(COMMA, ",", 0)
 		case ':':
 			return lx.tok(COLON, ":", 0)
+		case '=':
+			return lx.tok(EQUAL, "=", 0)
 		case '#':
 			return lx.tok(HASH, "#", 0)
 		case '(':
