@@ -14,7 +14,15 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
-- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`/`SUB` (register, memory, and address forms), `MULS`/`MULU`, `DIVS`/`DIVU`, `CMP`, `LEA`, branch family (`BRA`/`BSR`/`Bcc`), BCD ops (`ABCD`/`SBCD`), `MOVEM`, `NOP`, `RESET`, `TRAP`, `RTS`, `RTE`
+- Implemented instructions (selected):
+  - Data movement and addressing: `MOVE`, `MOVEQ`, `MOVEM`, `MOVEP`, `LEA`, `PEA`
+  - Control transfer: `JMP`, `JSR`
+  - Arithmetic: `ADD`, `SUB`, `ADDQ`, `SUBQ`, `ADDX`, `SUBX`, `NEGX`, `ABCD`, `SBCD`, `MULS`, `MULU`, `DIVS`, `DIVU`
+  - Logical and bit operations: `AND`, `OR`, `EOR`, `NOT`, `ORI`/`ANDI`/`EORI` to `CCR` and `SR`, `BSET`, `BCLR`, `BCHG`, `BTST`
+  - Comparison and tests: `CMP`, `TST`
+  - Stack framing: `LINK`, `UNLK`
+  - Branching: `BRA`, `BSR`, all `Bcc` conditions, loop counters (`DBcc` family)
+  - System and traps: `NOP`, `RESET`, `STOP`, `TRAP`, `TRAPV`, `RTS`, `RTE`
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
