@@ -322,6 +322,36 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 			eaExpr.Kind = instructions.EAkAn
 			eaExpr.Reg = an
 
+		case instructions.OPK_SR:
+			tok, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			if !strings.EqualFold(tok.Text, "SR") {
+				return args, fmt.Errorf("line %d: expected SR", tok.Line)
+			}
+			eaExpr.Kind = instructions.EAkSR
+
+		case instructions.OPK_CCR:
+			tok, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			if !strings.EqualFold(tok.Text, "CCR") {
+				return args, fmt.Errorf("line %d: expected CCR", tok.Line)
+			}
+			eaExpr.Kind = instructions.EAkCCR
+
+		case instructions.OPK_USP:
+			tok, err := p.want(IDENT)
+			if err != nil {
+				return args, err
+			}
+			if !strings.EqualFold(tok.Text, "USP") {
+				return args, fmt.Errorf("line %d: expected USP", tok.Line)
+			}
+			eaExpr.Kind = instructions.EAkUSP
+
 		case instructions.OPK_EA:
 			ea, err := p.parseEA()
 			if err != nil {
@@ -570,6 +600,18 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			p.next()
 			return instructions.EAExpr{Kind: instructions.EAkAn, Reg: an}, nil
 		}
+		if strings.EqualFold(t.Text, "SR") {
+			p.next()
+			return instructions.EAExpr{Kind: instructions.EAkSR}, nil
+		}
+		if strings.EqualFold(t.Text, "CCR") {
+			p.next()
+			return instructions.EAExpr{Kind: instructions.EAkCCR}, nil
+		}
+		if strings.EqualFold(t.Text, "USP") {
+			p.next()
+			return instructions.EAExpr{Kind: instructions.EAkUSP}, nil
+		}
 		// treat bare identifiers as absolute addresses (default long)
 		v, err := p.parseExprUntil(DOT, COMMA, NEWLINE, EOF)
 		if err != nil {
@@ -746,7 +788,10 @@ func isRegAn(s string) (bool, int) {
 			return true, r
 		}
 	}
-	return strings.EqualFold(s, "SP"), 7
+	if strings.EqualFold(s, "SP") || strings.EqualFold(s, "SSP") {
+		return true, 7
+	}
+	return false, 0
 }
 
 func isPC(s string) bool {

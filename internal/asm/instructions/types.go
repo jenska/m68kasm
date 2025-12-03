@@ -20,6 +20,7 @@ const (
 	F_MovemSize
 	F_AddaSize
 	F_SrcDnRegHi
+	F_DstRegLow
 )
 
 type TrailerItem int
@@ -73,6 +74,9 @@ const (
 	OPK_ImmQuick
 	OPK_Dn
 	OPK_An
+	OPK_SR
+	OPK_CCR
+	OPK_USP
 	OPK_PredecAn
 	OPK_RegList
 	OPK_EA
@@ -133,6 +137,9 @@ const (
 	EAkIdxPCBrief
 	EAkAbsW
 	EAkAbsL
+	EAkSR
+	EAkCCR
+	EAkUSP
 )
 
 type EAExpr struct {
