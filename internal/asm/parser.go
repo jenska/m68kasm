@@ -9,6 +9,11 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
+// maxProgramSize limits the amount of padding bytes we emit to protect against
+// malicious inputs that would otherwise force enormous allocations (e.g. via
+// huge .org/.align directives).
+const maxProgramSize uint32 = 64 * 1024 * 1024 // 64 MiB
+
 type lexer interface {
 	Next() Token
 }
@@ -160,6 +165,10 @@ func (p *Parser) parseORG() error {
 	}
 	newPC := uint32(val)
 
+	if newPC > maxProgramSize {
+		return fmt.Errorf("line %d: .org would exceed maximum program size of %d bytes", p.line, maxProgramSize)
+	}
+
 	if !p.hasOrg && p.pc == 0 {
 		p.origin = newPC
 		p.hasOrg = true
@@ -176,10 +185,9 @@ func (p *Parser) parseORG() error {
 	}
 
 	if newPC > p.pc {
-		gap := int(newPC - p.pc)
-		zeros := make([]byte, gap)
-		p.items = append(p.items, &DataBytes{Bytes: zeros, PC: p.pc, Line: p.line})
-		p.pc = newPC
+		if err := p.emitPaddingBytes(newPC-p.pc, 0x00); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -490,6 +498,28 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	}
 
 	return args, nil
+}
+
+// emitPaddingBytes centralizes emitting zero/filled padding while keeping the
+// generated output within a safe upper bound. Without this guard, a crafted
+// .org/.align could request gigabytes of padding and exhaust memory.
+func (p *Parser) emitPaddingBytes(count uint32, fill byte) error {
+	if count == 0 {
+		return nil
+	}
+	if count > maxProgramSize || p.pc > maxProgramSize-count {
+		return fmt.Errorf("line %d: padding would exceed maximum program size of %d bytes", p.line, maxProgramSize)
+	}
+
+	buf := make([]byte, int(count))
+	if fill != 0 {
+		for i := range buf {
+			buf[i] = fill
+		}
+	}
+	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line})
+	p.pc += count
+	return nil
 }
 
 func sizeAllowedList(sz instructions.Size, allowed []instructions.Size) bool {
@@ -814,18 +844,10 @@ func (p *Parser) parseALIGN() error {
 	if m == 0 {
 		return nil // already aligned, emit nothing
 	}
-	pad := int(align - m)
+	pad := align - m
 
 	// emit pad bytes of 'fill'
-	buf := make([]byte, pad)
-	if fill != 0 {
-		for i := range buf {
-			buf[i] = fill
-		}
-	}
-	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line})
-	p.pc += uint32(pad)
-	return nil
+	return p.emitPaddingBytes(pad, fill)
 }
 
 // Lookahead helpers
