@@ -18,15 +18,12 @@ func Test_Assemble_Hello(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	src := filepath.Join(repoRoot, "testdata", "hello.s")
-	if _, err := os.Stat(src); err != nil {
-		t.Skipf("testdata/hello.s not found (%v) – skipping E2E success test", err)
-	}
+	src := filepath.Join(repoRoot, "tests", "e2e", "testdata", "hello.s")
 
 	outDir := t.TempDir()
 	out := filepath.Join(outDir, "out.bin")
 
-	cmd := exec.Command("go", "run", "./cmd/m68kasm", "-o", out, src)
+	cmd := exec.Command("go", "run", "./cmd/m68kasm", "-i", src, "-o", out)
 	cmd.Dir = repoRoot
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	outBytes, err := cmd.CombinedOutput()
