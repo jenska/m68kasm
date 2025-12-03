@@ -3,40 +3,35 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefMUL)
-	registerInstrDef(&DefDIV)
+	registerInstrDef(&DefMULU)
+	registerInstrDef(&DefMULS)
+	registerInstrDef(&DefDIVU)
+	registerInstrDef(&DefDIVS)
 }
 
-var DefDIV = InstrDef{
-	Mnemonic: "DIV",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateDivMul("DIV", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x80C0, Fields: []FieldRef{F_DnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt}},
-			},
-		},
-	},
-}
+var (
+	DefDIVU = newDivMulDef("DIVU", 0x80C0)
+	DefDIVS = newDivMulDef("DIVS", 0x81C0)
+	DefMULU = newDivMulDef("MULU", 0xC0C0)
+	DefMULS = newDivMulDef("MULS", 0xC1C0)
+)
 
-var DefMUL = InstrDef{
-	Mnemonic: "MUL",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateDivMul("MUL", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xC1C0, Fields: []FieldRef{F_DnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt}},
+func newDivMulDef(name string, wordBits uint16) InstrDef {
+	return InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: SZ_W,
+				Sizes:       []Size{SZ_W},
+				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+				Validate:    func(a *Args) error { return validateDivMul(name, a) },
+				Steps: []EmitStep{
+					{WordBits: wordBits, Fields: []FieldRef{F_DnReg, F_SrcEA}},
+					{Trailer: []TrailerItem{T_SrcEAExt}},
+				},
 			},
 		},
-	},
+	}
 }
 
 func validateDivMul(name string, a *Args) error {

@@ -13,8 +13,8 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 ## 🚀 Features (as of v0.1)
 
 - Two-pass assembler with deterministic binary output  
-- Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)  
-- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`/`SUB` (register, memory, and address forms), `MUL`, `DIV`, `CMP`, `LEA`, branch family (`BRA`/`BSR`/`Bcc`), BCD ops (`ABCD`/`SBCD`), `MOVEM`, `NOP`, `RESET`, `TRAP`, `RTS`, `RTE`
+- Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
+- Implemented instructions: `MOVEQ`, `MOVE`, `ADD`/`SUB` (register, memory, and address forms), `MULS`/`MULU`, `DIVS`/`DIVU`, `CMP`, `LEA`, branch family (`BRA`/`BSR`/`Bcc`), BCD ops (`ABCD`/`SBCD`), `MOVEM`, `NOP`, `RESET`, `TRAP`, `RTS`, `RTE`
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
