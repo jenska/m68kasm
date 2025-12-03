@@ -50,6 +50,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"MoveQuickSigned", "MOVEQ #-1,D0\n", []byte{0x70, 0xFF}},
 		{"AddWord", "ADD.W D1,D0\n", []byte{0xD0, 0x41}},
 		{"AddImmediate", "ADD.W #1,D0\n", []byte{0xD0, 0x7C, 0x00, 0x01}},
+		{"AddImmediateMnemonic", "ADDI.B #1,D0\n", []byte{0x06, 0x00, 0x00, 0x01}},
 		{"AddQuickByte", "ADDQ.B #1,D0\n", []byte{0x52, 0x00}},
 		{"AddQuickLongPredec", "ADDQ.L #8,-(A7)\n", []byte{0x50, 0xA7}},
 		{"AndWord", "AND.W D1,D0\n", []byte{0xC0, 0x41}},
@@ -58,7 +59,13 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"NotWordPostIncrement", "NOT.W (A0)+\n", []byte{0x46, 0x58}},
 		{"SubLong", "SUB.L (A1),D3\n", []byte{0x96, 0x91}},
 		{"SubQuickWordToAn", "SUBQ.W #3,A1\n", []byte{0x57, 0x49}},
+		{"SubImmediateMnemonic", "SUBI.W #1,(A1)\n", []byte{0x04, 0x51, 0x00, 0x01}},
 		{"CmpByte", "CMP.B (16,A0),D2\n", []byte{0xB4, 0x28, 0x00, 0x10}},
+		{"AddAddressMnemonic", "ADDA.L D1,A0\n", []byte{0xD1, 0xC1}},
+		{"SubAddressMnemonic", "SUBA.W (A1),A2\n", []byte{0x94, 0xD1}},
+		{"CheckBounds", "CHK (A0),D1\n", []byte{0x43, 0x90}},
+		{"Negate", "NEG.W D2\n", []byte{0x44, 0x42}},
+		{"NbcdPredecrement", "NBCD -(A3)\n", []byte{0x48, 0x23}},
 		{"MultiplyWordUnsigned", "MULU (A1),D0\n", []byte{0xC0, 0xD1}},
 		{"MultiplyWordSigned", "MULS (A1),D0\n", []byte{0xC1, 0xD1}},
 		{"DivideWordUnsigned", "DIVU (A2),D1\n", []byte{0x82, 0xD2}},
@@ -174,6 +181,9 @@ func TestNewInstructionValidation(t *testing.T) {
 		{"JsrRequiresControlEA", "JSR D0\n", "control addressing mode"},
 		{"PeaRequiresControlEA", "PEA D0\n", "control addressing mode"},
 		{"LinkImmediateRange", "LINK A6,#70000\n", "out of range"},
+		{"AddImmediateAddressRegister", "ADDI.B #1,A0\n", "data alterable"},
+		{"ChkImmediateInvalid", "CHK #1,D0\n", "immediate source"},
+		{"NbcdDestinationRequired", "NBCD (A0)\n", "predecrement address"},
 	}
 
 	for _, tt := range tests {
