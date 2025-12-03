@@ -35,7 +35,9 @@ type (
 		line   int
 		col    int
 
-		buf []Token // N-Token Lookahead
+		buf          []Token // N-Token Lookahead
+		tokenScratch []Token // reusable buffer for operand collection
+		formScratch  []Token // reusable buffer for form parsing
 	}
 
 	sliceLexer struct {
@@ -286,6 +288,7 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 	}
 
 	operandTokens := p.consumeUntilEOL()
+	defer p.releaseTokens(operandTokens)
 	var lastErr error
 	for _, form := range instrDef.Forms {
 		args, err := p.tryParseForm(mn, &form, operandTokens)
@@ -364,7 +367,10 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 }
 
 func (p *Parser) consumeUntilEOL() []Token {
-	tokens := make([]Token, 0, len(p.buf))
+	tokens := p.tokenScratch[:0]
+	if cap(tokens) == 0 {
+		tokens = make([]Token, 0, 8)
+	}
 	for {
 		t := p.peek()
 		if t.Kind == NEWLINE || t.Kind == EOF {
@@ -375,17 +381,22 @@ func (p *Parser) consumeUntilEOL() []Token {
 	return tokens
 }
 
+func (p *Parser) releaseTokens(tokens []Token) {
+	p.tokenScratch = tokens[:0]
+}
+
 func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Token) (instructions.Args, error) {
 	args := instructions.Args{}
 	origLX, origBuf, origLine, origCol := p.lx, p.buf, p.line, p.col
 	defer func() {
 		p.lx, p.buf, p.line, p.col = origLX, origBuf, origLine, origCol
+		p.formScratch = p.formScratch[:0]
 	}()
 
 	// isolate parsing to the captured tokens
-	tmp := make([]Token, 0, len(tokens)+1)
-	tmp = append(tmp, tokens...)
+	tmp := append(p.formScratch[:0], tokens...)
 	tmp = append(tmp, Token{Kind: EOF, Line: mn.Line})
+	p.formScratch = tmp
 	p.lx = &sliceLexer{tokens: tmp}
 	p.buf = nil
 
