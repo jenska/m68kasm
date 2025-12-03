@@ -44,9 +44,13 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"MoveRegisterByte", "MOVE.B D1,D0\n", []byte{0x10, 0x01}},
 		{"MoveImmediateLong", "MOVE.L #$12345678,D1\n", []byte{0x22, 0x3C, 0x12, 0x34, 0x56, 0x78}},
 		{"MoveImmediateByteToMem", "MOVE.B #$12,(A0)\n", []byte{0x10, 0xBC, 0x00, 0x12}},
+		{"MoveQuickSigned", "MOVEQ #-1,D0\n", []byte{0x70, 0xFF}},
 		{"AddWord", "ADD.W D1,D0\n", []byte{0xD0, 0x41}},
 		{"AddImmediate", "ADD.W #1,D0\n", []byte{0xD0, 0x7C, 0x00, 0x01}},
+		{"AddQuickByte", "ADDQ.B #1,D0\n", []byte{0x52, 0x00}},
+		{"AddQuickLongPredec", "ADDQ.L #8,-(A7)\n", []byte{0x50, 0xA7}},
 		{"SubLong", "SUB.L (A1),D3\n", []byte{0x96, 0x91}},
+		{"SubQuickWordToAn", "SUBQ.W #3,A1\n", []byte{0x57, 0x49}},
 		{"CmpByte", "CMP.B (16,A0),D2\n", []byte{0xB4, 0x28, 0x00, 0x10}},
 		{"MultiplyWord", "MUL (A1),D0\n", []byte{0xC1, 0xD1}},
 		{"DivideWord", "DIV (A2),D1\n", []byte{0x82, 0xD2}},
@@ -88,6 +92,32 @@ func TestBranchPCIncludesExtensionWords(t *testing.T) {
 
 	if _, err := asm.Assemble(prog); err != nil {
 		t.Fatalf("assemble failed: %v", err)
+	}
+}
+
+func TestAddSubQuickAndMoveQValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     string
+		wantErr string
+	}{
+		{"AddQuickImmediateRange", "ADDQ #9,D0\n", "immediate out of range"},
+		{"SubQuickByteToAn", "SUBQ.B #1,A0\n", "not allowed"},
+		{"MoveQImmediateRange", "MOVEQ #200,D0\n", "immediate out of range"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prog, err := asm.Parse(strings.NewReader(tt.src))
+			if err != nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			if _, err := asm.Assemble(prog); err == nil {
+				t.Fatalf("expected error but assembly succeeded")
+			} else if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 

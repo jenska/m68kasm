@@ -82,6 +82,12 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		default:
 			return wordVal
 		}
+	case instructions.F_QuickData:
+		quick := uint16(p.Imm)
+		if quick == 8 {
+			quick = 0
+		}
+		return wordVal | (quick&7)<<9
 	case instructions.F_SrcDnReg:
 		return wordVal | uint16(p.SrcReg&7)
 	case instructions.F_SrcAnReg:
