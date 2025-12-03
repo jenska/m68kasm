@@ -3,87 +3,37 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&defORIImm)
-	registerInstrDef(&defANDIImm)
-	registerInstrDef(&defEORIImm)
+	registerInstrDef(newStatusDef("ORI", 0x003c, 0x007c))
+	registerInstrDef(newStatusDef("ANDI", 0x023C, 0x027C))
+	registerInstrDef(newStatusDef("EORI", 0x0A3C, 0x0A7C))
 }
 
-var defORIImm = InstrDef{
-	Mnemonic: "ORI",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
-			Validate:    validateCCRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x003C},
-				{Trailer: []TrailerItem{T_ImmSized}},
+func newStatusDef(name string, wordb, wordw uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: SZ_B,
+				Sizes:       []Size{SZ_B},
+				OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
+				Validate:    validateCCRImmediate,
+				Steps: []EmitStep{
+					{WordBits: wordb},
+					{Trailer: []TrailerItem{T_ImmSized}},
+				},
+			},
+			{
+				DefaultSize: SZ_W,
+				Sizes:       []Size{SZ_W},
+				OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
+				Validate:    validateSRImmediate,
+				Steps: []EmitStep{
+					{WordBits: wordw},
+					{Trailer: []TrailerItem{T_ImmSized}},
+				},
 			},
 		},
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
-			Validate:    validateSRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x007C},
-				{Trailer: []TrailerItem{T_ImmSized}},
-			},
-		},
-	},
-}
-
-var defANDIImm = InstrDef{
-	Mnemonic: "ANDI",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
-			Validate:    validateCCRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x023C},
-				{Trailer: []TrailerItem{T_ImmSized}},
-			},
-		},
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
-			Validate:    validateSRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x027C},
-				{Trailer: []TrailerItem{T_ImmSized}},
-			},
-		},
-	},
-}
-
-var defEORIImm = InstrDef{
-	Mnemonic: "EORI",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
-			Validate:    validateCCRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x0A3C},
-				{Trailer: []TrailerItem{T_ImmSized}},
-			},
-		},
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
-			Validate:    validateSRImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0x0A7C},
-				{Trailer: []TrailerItem{T_ImmSized}},
-			},
-		},
-	},
+	}
 }
 
 func validateSRImmediate(a *Args) error {
