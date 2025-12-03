@@ -15,7 +15,7 @@ This document describes the **source language** accepted by `m68kasm`. It follow
   MOVEQ #7, D3   ; set D3 to 7
   ```
 - **Identifiers (labels/symbols):** `[A-Za-z_][A-Za-z0-9_]*`
-- **Keywords reserved (non‑exhaustive):** all mnemonics, directive names, and register names `D0..D7 A0..A7 PC SR USP`.
+- **Keywords reserved (non‑exhaustive):** all mnemonics, directive names, and register names `D0..D7 A0..A7 PC SR CCR USP SSP`.
 
 ---
 

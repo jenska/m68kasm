@@ -125,6 +125,12 @@ func operandKindFromEA(e instructions.EAExpr) instructions.OperandKind {
 		return instructions.OPK_PredecAn
 	case instructions.EAkImm:
 		return instructions.OPK_Imm
+	case instructions.EAkSR:
+		return instructions.OPK_SR
+	case instructions.EAkCCR:
+		return instructions.OPK_CCR
+	case instructions.EAkUSP:
+		return instructions.OPK_USP
 	case instructions.EAkNone:
 		return instructions.OPK_None
 	default:

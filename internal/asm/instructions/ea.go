@@ -36,6 +36,8 @@ func EncodeEA(e EAExpr) (EAEncoded, error) {
 		out.Ext = append(out.Ext, uint16(e.Abs32>>16), uint16(e.Abs32))
 	case EAkImm:
 		out.Mode, out.Reg = 7, 4
+	case EAkSR, EAkCCR, EAkUSP:
+		out.Mode, out.Reg = 0, 0
 	case EAkNone:
 		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
 	default:

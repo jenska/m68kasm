@@ -92,6 +92,8 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | uint16(p.SrcReg&7)
 	case instructions.F_SrcAnReg:
 		return wordVal | uint16(p.SrcReg&7)
+	case instructions.F_DstRegLow:
+		return wordVal | uint16(p.DstReg&7)
 	case instructions.F_MovemSize:
 		if p.Size == instructions.SZ_L {
 			return wordVal | 0x0040
