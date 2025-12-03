@@ -267,128 +267,17 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	args.Size = sz
 
 	for i, operandKind := range form.OperKinds {
-		var eaExpr instructions.EAExpr
 		if i == 1 {
 			if _, err := p.want(COMMA); err != nil {
 				return args, err
 			}
 		}
 
-		switch operandKind {
-		case instructions.OPK_Imm:
-			if _, err := p.want(HASH); err != nil {
-				return args, err
-			}
-			imm, err := p.parseExpr()
-			if err != nil {
-				return args, err
-			}
-			eaExpr.Kind = instructions.EAkImm
-			eaExpr.Imm = imm
-
-		case instructions.OPK_ImmQuick:
-			if _, err := p.want(HASH); err != nil {
-				return args, err
-			}
-			imm, err := p.parseExpr()
-			if err != nil {
-				return args, err
-			}
-			eaExpr.Kind = instructions.EAkNone
-			eaExpr.Imm = imm
-			args.HasImmQuick = true
-
-		case instructions.OPK_Dn:
-			dreg, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			ok, dn := isRegDn(dreg.Text)
-			if !ok {
-				return args, fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
-			}
-			eaExpr.Kind = instructions.EAkDn
-			eaExpr.Reg = dn
-
-		case instructions.OPK_An:
-			areg, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			ok, an := isRegAn(areg.Text)
-			if !ok {
-				return args, fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
-			}
-			eaExpr.Kind = instructions.EAkAn
-			eaExpr.Reg = an
-
-		case instructions.OPK_SR:
-			tok, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			if !strings.EqualFold(tok.Text, "SR") {
-				return args, fmt.Errorf("line %d: expected SR", tok.Line)
-			}
-			eaExpr.Kind = instructions.EAkSR
-
-		case instructions.OPK_CCR:
-			tok, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			if !strings.EqualFold(tok.Text, "CCR") {
-				return args, fmt.Errorf("line %d: expected CCR", tok.Line)
-			}
-			eaExpr.Kind = instructions.EAkCCR
-
-		case instructions.OPK_USP:
-			tok, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			if !strings.EqualFold(tok.Text, "USP") {
-				return args, fmt.Errorf("line %d: expected USP", tok.Line)
-			}
-			eaExpr.Kind = instructions.EAkUSP
-
-		case instructions.OPK_EA:
-			ea, err := p.parseEA()
-			if err != nil {
-				return args, err
-			}
-			eaExpr = ea
-		case instructions.OPK_PredecAn:
-			ea, err := p.parseEA()
-			if err != nil {
-				return args, err
-			}
-			if ea.Kind != instructions.EAkAddrPredec {
-				return args, fmt.Errorf("line %d: expected -(An)", mn.Line)
-			}
-			eaExpr = ea
-		case instructions.OPK_RegList:
-			mask, err := p.parseRegList()
-			if err != nil {
-				return args, err
-			}
-			eaExpr.Kind = instructions.EAkNone
-			if i == 0 {
-				args.RegMaskSrc = mask
-			} else {
-				args.RegMaskDst = mask
-			}
-
-		case instructions.OPK_DispRel:
-			lbl, err := p.want(IDENT)
-			if err != nil {
-				return args, err
-			}
-			args.Target = lbl.Text
-
-		default:
-			return args, fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
+		eaExpr, err := p.parseOperand(operandKind, mn, &args, i)
+		if err != nil {
+			return args, err
 		}
+
 		if i == 0 {
 			args.Src = eaExpr
 		} else {
@@ -401,6 +290,130 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	}
 
 	return args, nil
+}
+
+func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *instructions.Args, position int) (instructions.EAExpr, error) {
+	var eaExpr instructions.EAExpr
+
+	switch kind {
+	case instructions.OPK_Imm:
+		if _, err := p.want(HASH); err != nil {
+			return eaExpr, err
+		}
+		imm, err := p.parseExpr()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr.Kind = instructions.EAkImm
+		eaExpr.Imm = imm
+
+	case instructions.OPK_ImmQuick:
+		if _, err := p.want(HASH); err != nil {
+			return eaExpr, err
+		}
+		imm, err := p.parseExpr()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr.Kind = instructions.EAkNone
+		eaExpr.Imm = imm
+		args.HasImmQuick = true
+
+	case instructions.OPK_Dn:
+		dreg, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		ok, dn := isRegDn(dreg.Text)
+		if !ok {
+			return eaExpr, fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
+		}
+		eaExpr.Kind = instructions.EAkDn
+		eaExpr.Reg = dn
+
+	case instructions.OPK_An:
+		areg, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		ok, an := isRegAn(areg.Text)
+		if !ok {
+			return eaExpr, fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
+		}
+		eaExpr.Kind = instructions.EAkAn
+		eaExpr.Reg = an
+
+	case instructions.OPK_SR:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		if !strings.EqualFold(tok.Text, "SR") {
+			return eaExpr, fmt.Errorf("line %d: expected SR", tok.Line)
+		}
+		eaExpr.Kind = instructions.EAkSR
+
+	case instructions.OPK_CCR:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		if !strings.EqualFold(tok.Text, "CCR") {
+			return eaExpr, fmt.Errorf("line %d: expected CCR", tok.Line)
+		}
+		eaExpr.Kind = instructions.EAkCCR
+
+	case instructions.OPK_USP:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		if !strings.EqualFold(tok.Text, "USP") {
+			return eaExpr, fmt.Errorf("line %d: expected USP", tok.Line)
+		}
+		eaExpr.Kind = instructions.EAkUSP
+
+	case instructions.OPK_EA:
+		ea, err := p.parseEA()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = ea
+
+	case instructions.OPK_PredecAn:
+		ea, err := p.parseEA()
+		if err != nil {
+			return eaExpr, err
+		}
+		if ea.Kind != instructions.EAkAddrPredec {
+			return eaExpr, fmt.Errorf("line %d: expected -(An)", mn.Line)
+		}
+		eaExpr = ea
+
+	case instructions.OPK_RegList:
+		mask, err := p.parseRegList()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr.Kind = instructions.EAkNone
+		if position == 0 {
+			args.RegMaskSrc = mask
+		} else {
+			args.RegMaskDst = mask
+		}
+
+	case instructions.OPK_DispRel:
+		lbl, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		args.Target = lbl.Text
+
+	default:
+		return eaExpr, fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
+	}
+
+	return eaExpr, nil
 }
 
 // emitPaddingBytes centralizes emitting zero/filled padding while keeping the
