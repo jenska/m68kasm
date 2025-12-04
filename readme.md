@@ -89,6 +89,33 @@ m68kasm -o hello.bin tests/e2e/testdata/hello.s
 hexdump -C hello.bin
 ```
 
+### Programmatic use (Go API)
+
+The assembler can also be embedded directly into Go programs via the public API
+provided by the root module:
+
+```go
+package main
+
+import "github.com/jenska/m68kasm"
+
+func main() {
+        // Assemble source that comes from a string and keep listing metadata.
+        bin, listing, err := m68kasm.AssembleStringWithListing(".byte 0x12\nMOVEQ #1,D0\n")
+        _ = listing // listing contains per-line PCs and bytes
+        _ = err
+
+        // Emit Motorola S-record text directly from the same source.
+        srec, _ := m68kasm.AssembleStringSRecord(".org 0x1000\n.byte 0x12,0x34\n")
+        _ = bin
+        _ = srec
+}
+```
+
+Additional helpers support assembling from `[]byte`, `io.Reader`, or file paths
+with or without listings, and can append results into an existing destination
+buffer.
+
 ### Quick start: assemble and run the sample program
 
 If you want to see the assembler in action immediately, clone the repository and build the CLI, then assemble the bundled
