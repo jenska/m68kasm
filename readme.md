@@ -30,11 +30,10 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
 - Optional source listings to pair machine code with source lines
-- Motorola S-record (S0/S3/S7) output with consistent chunking
+- Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
 
 ### Planned for Upcoming Releases
-- Support all mnemonics 0f 68000 CPU
-- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)
+- Support all mnemonics of 68000 CPU
 - Automated tests and regression validation
 
 ---
@@ -77,7 +76,7 @@ m68kasm [options] <source-files>
 | Option | Description |
 |---------|--------------|
 | `-o <file>` | Write binary output (default: `a.out`) |
-| `--format <bin|srec>` | Select output format (binary or Motorola S-record) |
+| `--format <bin|srec|elf>` | Select output format (binary, Motorola S-record, or ELF32) |
 | `-I <path>` | *(planned)* Add include search path |
 | `-D name=val` | *(planned)* Define symbol |
 | `--list <file>` | Generate a source listing (use `-` for stdout) |
@@ -108,8 +107,11 @@ func main() {
 
         // Emit Motorola S-record text directly from the same source.
         srec, _ := m68kasm.AssembleStringSRecord(".org 0x1000\n.byte 0x12,0x34\n")
+        // Produce a minimal ELF image with the origin as the entry point.
+        elf, _ := m68kasm.AssembleStringELF(".org 0x2000\n.byte 0x12\n")
         _ = bin
         _ = srec
+        _ = elf
 }
 ```
 

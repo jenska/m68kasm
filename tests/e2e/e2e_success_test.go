@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"os"
 	"os/exec"
@@ -105,5 +106,35 @@ func Test_Assemble_SRecord_Output(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("s-record output missing %q\n%s", want, text)
 		}
+	}
+}
+
+// Test_Assemble_ELF_Output ensures the CLI can emit an ELF32 image for m68k.
+func Test_Assemble_ELF_Output(t *testing.T) {
+	root := repoRoot(t)
+	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+
+	outDir := t.TempDir()
+	out := filepath.Join(outDir, "out.elf")
+
+	cmd := exec.Command("go", "run", "./cmd/m68kasm", "-i", src, "-o", out, "--format", "elf")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if outBytes, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("CLI failed: %v\nOUTPUT:\n%s", err, string(outBytes))
+	}
+
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("cannot read elf file: %v", err)
+	}
+
+	if string(data[:4]) != "\x7fELF" {
+		t.Fatalf("missing ELF magic: %x", data[:4])
+	}
+	// Entry point should match the .org in hello.s (0x10)
+	entry := binary.BigEndian.Uint32(data[24:28])
+	if entry != 0x10 {
+		t.Fatalf("unexpected entry point: 0x%X", entry)
 	}
 }

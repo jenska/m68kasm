@@ -15,7 +15,7 @@ func main() {
 	in := flag.String("i", "", "input assembly file")
 	out := flag.String("o", "out.bin", "output binary file")
 	list := flag.String("list", "", "write listing output (use '-' for stdout)")
-	format := flag.String("format", "bin", "output format: bin or srec")
+	format := flag.String("format", "bin", "output format: bin, srec, or elf")
 	showVersion := flag.Bool("version", false, "print assembler version and exit")
 	flag.Parse()
 
@@ -25,12 +25,12 @@ func main() {
 	}
 
 	fmtFormat := strings.ToLower(*format)
-	if fmtFormat != "bin" && fmtFormat != "srec" {
+	if fmtFormat != "bin" && fmtFormat != "srec" && fmtFormat != "elf" {
 		fmt.Println("unknown format:", *format)
 		os.Exit(1)
 	}
 	if *in == "" {
-		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst] [--format bin|srec]")
+		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst] [--format bin|srec|elf]")
 		os.Exit(1)
 	}
 	prog, err := asm.ParseFile(*in)
@@ -60,6 +60,13 @@ func main() {
 			os.Exit(4)
 		}
 		fmt.Printf("assembled %d bytes into S-record %s\n", len(bytes), *out)
+	} else if fmtFormat == "elf" {
+		elfBytes := asm.FormatELF(bytes, prog.Origin)
+		if err := os.WriteFile(*out, elfBytes, 0644); err != nil {
+			fmt.Println("write error:", err)
+			os.Exit(4)
+		}
+		fmt.Printf("assembled %d bytes into ELF %s\n", len(bytes), *out)
 	} else {
 		if err := os.WriteFile(*out, bytes, 0644); err != nil {
 			fmt.Println("write error:", err)

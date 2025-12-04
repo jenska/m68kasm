@@ -128,6 +128,40 @@ func AssembleFileWithListingInto(dst []byte, path string) ([]byte, []ListingEntr
 	return internal.AssembleWithListingInto(dst, prog)
 }
 
+// AssembleELF parses Motorola 68k assembly source from r and returns an ELF32
+// executable image targeting the m68k architecture. The program origin is used
+// as the entry point and load address.
+func AssembleELF(r io.Reader) ([]byte, error) {
+	prog, err := internal.Parse(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return internal.AssembleELF(prog)
+}
+
+// AssembleBytesELF assembles Motorola 68k source provided as a byte slice and
+// returns an ELF32 executable image targeting the m68k architecture.
+func AssembleBytesELF(src []byte) ([]byte, error) {
+	return AssembleELF(bytes.NewReader(src))
+}
+
+// AssembleStringELF assembles Motorola 68k source provided as a string and
+// returns an ELF32 executable image targeting the m68k architecture.
+func AssembleStringELF(src string) ([]byte, error) {
+	return AssembleELF(strings.NewReader(src))
+}
+
+// AssembleFileELF assembles a Motorola 68k source file specified by path and
+// returns an ELF32 executable image targeting the m68k architecture.
+func AssembleFileELF(path string) ([]byte, error) {
+	prog, err := internal.ParseFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return internal.AssembleELF(prog)
+}
+
 // AssembleSRecord parses Motorola 68k assembly source from r and returns a
 // Motorola S-record representation using the current assembler version as the
 // header.
