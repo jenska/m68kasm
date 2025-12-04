@@ -6,6 +6,7 @@ func init() {
 	registerInstrDef(&defCMP)
 	registerInstrDef(&defCMPM)
 	registerInstrDef(&defCMPI)
+	registerInstrDef(&defCMPA)
 }
 
 var defCMP = InstrDef{
@@ -55,6 +56,22 @@ var defCMPI = InstrDef{
 	},
 }
 
+var defCMPA = InstrDef{
+	Mnemonic: "CMPA",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize, LongSize},
+			OperKinds:   []OperandKind{OpkEA, OpkAn},
+			Validate:    validateCMPA,
+			Steps: []EmitStep{
+				{WordBits: 0xB0C0, Fields: []FieldRef{FAddaSize, FAnReg, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
+			},
+		},
+	},
+}
+
 func validateCMP(a *Args) error {
 	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
 		return fmt.Errorf("CMP requires Dn destination")
@@ -89,4 +106,17 @@ func validateCMPI(a *Args) error {
 	default:
 		return fmt.Errorf("CMPI destination must be data alterable EA")
 	}
+}
+
+func validateCMPA(a *Args) error {
+	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkAn {
+		return fmt.Errorf("CMPA requires An destination and source")
+	}
+	if a.Size == ByteSize {
+		return fmt.Errorf("CMPA does not support byte size")
+	}
+	if a.Src.Kind == EAkImm {
+		return checkImmediateRange(a.Src.Imm, a.Size)
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ func init() {
 	registerInstrDef(&defTRAPV)
 	registerInstrDef(&defSTOP)
 	registerInstrDef(&defRTS)
+	registerInstrDef(&defRTR)
 	registerInstrDef(&defRTE)
 }
 
@@ -83,6 +84,21 @@ var defRTS = InstrDef{
 			Validate:    nil,
 			Steps: []EmitStep{
 				{WordBits: 0x4E75},
+			},
+		},
+	},
+}
+
+var defRTR = InstrDef{
+	Mnemonic: "RTR",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
+			OperKinds:   []OperandKind{},
+			Validate:    nil,
+			Steps: []EmitStep{
+				{WordBits: 0x4E77},
 			},
 		},
 	},
