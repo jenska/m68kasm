@@ -20,10 +20,11 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
   - Data movement and addressing: `MOVE`, `MOVEQ`, `MOVEM`, `MOVEP`, `LEA`, `PEA`
   - Control transfer: `JMP`, `JSR`
   - Arithmetic: `ADD`, `SUB`, `ADDQ`, `SUBQ`, `ADDX`, `SUBX`, `NEGX`, `ABCD`, `SBCD`, `MULS`, `MULU`, `DIVS`, `DIVU`
-  - Logical and bit operations: `AND`, `OR`, `EOR`, `NOT`, `ORI`/`ANDI`/`EORI` to `CCR` and `SR`, `BSET`, `BCLR`, `BCHG`, `BTST`
-  - Comparison and tests: `CMP`, `TST`
+  - Logical and bit operations: `AND`, `OR`, `EOR`, `NOT`, `ORI`/`ANDI`/`EORI` to `CCR` and `SR`, `BSET`, `BCLR`, `BCHG`, `BTST`, `TAS`
+  - Comparison and tests: `CMP`, `CMPI`, `CHK`, `TST`
   - Stack framing: `LINK`, `UNLK`
   - Branching: `BRA`, `BSR`, all `Bcc` conditions, loop counters (`DBcc` family)
+  - Condition code setting: all `Scc` conditions (`ST`, `SF`, `SNE`, etc.)
   - System and traps: `NOP`, `RESET`, `STOP`, `TRAP`, `TRAPV`, `RTS`, `RTE`
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
