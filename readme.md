@@ -26,11 +26,11 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
+- Optional source listings to pair machine code with source lines
 
 ### Planned for Upcoming Releases
 - Support all mnemonics 0f 68000 CPU
-- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)  
-- Source listing output  
+- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)
 - Automated tests and regression validation
 
 ---
@@ -75,7 +75,7 @@ m68kasm [options] <source-files>
 | `-o <file>` | Write binary output (default: `a.out`) |
 | `-I <path>` | *(planned)* Add include search path |
 | `-D name=val` | *(planned)* Define symbol |
-| `--list` | *(planned)* Generate listing output |
+| `--list <file>` | Generate a source listing (use `-` for stdout) |
 | `-v` | Verbose logging |
 
 **Example:**
