@@ -6,11 +6,13 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
+**Current version:** v0.4.0
+
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v0.1)
+## 🚀 Features (as of v0.4)
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
@@ -27,6 +29,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
 - Optional source listings to pair machine code with source lines
+- Motorola S-record (S0/S3/S7) output with consistent chunking
 
 ### Planned for Upcoming Releases
 - Support all mnemonics 0f 68000 CPU
@@ -73,9 +76,11 @@ m68kasm [options] <source-files>
 | Option | Description |
 |---------|--------------|
 | `-o <file>` | Write binary output (default: `a.out`) |
+| `--format <bin|srec>` | Select output format (binary or Motorola S-record) |
 | `-I <path>` | *(planned)* Add include search path |
 | `-D name=val` | *(planned)* Define symbol |
 | `--list <file>` | Generate a source listing (use `-` for stdout) |
+| `--version` | Print assembler version and exit |
 | `-v` | Verbose logging |
 
 **Example:**
@@ -175,7 +180,7 @@ Make sure the CI passes before submitting.
 |------------|--------------|
 | **v0.2** | Expand core instruction set (`MOVE`, `ADD`, `SUB`, `CMP`) |
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
-| **v0.4** | Introduce listing and S-record output |
+| **v0.4 (current)** | Introduce listing and S-record output |
 | **v0.5** | Add ELF format and richer symbol handling |
 | **v1.0** | Full assembler with macros, expressions, and rich error reporting |
 
