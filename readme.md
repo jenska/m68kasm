@@ -28,9 +28,9 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Simple and fast command-line tool
 
 ### Planned for Upcoming Releases
-- Support all mnemonics 0f 68000 CPU
-- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)  
-- Source listing output  
+- Support all mnemonics of the 68000 CPU
+- Output formats: Motorola S-Record, ELF (for cross-tool compatibility)
+- Source listing output
 - Automated tests and regression validation
 
 ---
@@ -47,7 +47,7 @@ The assembler is designed to demonstrate and implement core principles of assemb
 
 ## 🛠️ Installation
 
-You can install the CLI directly from GitHub using Go:
+You can install the CLI directly from GitHub using Go 1.22+:
 
 ```bash
 go install github.com/jenska/m68kasm/cmd/m68kasm@latest
@@ -110,7 +110,13 @@ internal/asm/             # Assembler pipeline (lexer, parser, evaluation, encod
 internal/asm/instructions # Declarative instruction tables and helpers
 tests/e2e/                # End-to-end tests for the CLI
 tests/e2e/testdata/       # Sample assembly sources and expected binaries used by the tests
+docs/                     # Reference material including grammar and opcode tables
 ```
+
+### Further documentation
+- [`docs/syntax.md`](docs/syntax.md) documents the accepted assembly syntax and directives.
+- [`docs/grammar.ebnf`](docs/grammar.ebnf) provides the EBNF grammar used by the parser.
+- [`docs/M68kOpcodes.pdf`](docs/M68kOpcodes.pdf) is a handy opcode reference while extending the instruction tables.
 
 ---
 
