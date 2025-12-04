@@ -2,6 +2,9 @@ package m68kasm
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -99,6 +102,76 @@ func TestAssembleStringWithListing(t *testing.T) {
 	}
 }
 
+func TestAssembleBytesWithListing(t *testing.T) {
+	src := []byte(".byte 0xAA\nMOVEQ #1,D0\n")
+
+	encoded, listing, err := AssembleBytesWithListing(src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := []byte{0xAA, 0x70, 0x01}
+	if !bytes.Equal(encoded, want) {
+		t.Fatalf("unexpected encoding: got %x want %x", encoded, want)
+	}
+
+	if len(listing) != 2 {
+		t.Fatalf("expected listing for 2 lines, got %d", len(listing))
+	}
+
+	if listing[0].PC != 0x0 || !bytes.Equal(listing[0].Bytes, []byte{0xAA}) {
+		t.Fatalf("unexpected first listing entry: %+v", listing[0])
+	}
+}
+
+func TestAssembleBytesWithListingInto(t *testing.T) {
+	src := []byte(".byte 0xBB\nMOVEQ #2,D0\n")
+	dst := make([]byte, 1, 8)
+	dst[0] = 0xFF
+
+	encoded, listing, err := AssembleBytesWithListingInto(dst, src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := []byte{0xFF, 0xBB, 0x70, 0x02}
+	if !bytes.Equal(encoded, want) {
+		t.Fatalf("unexpected encoding: got %x want %x", encoded, want)
+	}
+
+	if &encoded[0] != &dst[0] {
+		t.Fatalf("expected output to reuse destination slice")
+	}
+
+	if len(listing) != 2 || listing[0].PC != 0 || len(listing[1].Bytes) != 2 {
+		t.Fatalf("unexpected listing entries: %+v", listing)
+	}
+}
+
+func TestAssembleStringWithListingInto(t *testing.T) {
+	src := ".byte 0xCC\nMOVEQ #3,D0\n"
+	dst := make([]byte, 1, 8)
+	dst[0] = 0xEE
+
+	encoded, listing, err := AssembleStringWithListingInto(dst, src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := []byte{0xEE, 0xCC, 0x70, 0x03}
+	if !bytes.Equal(encoded, want) {
+		t.Fatalf("unexpected encoding: got %x want %x", encoded, want)
+	}
+
+	if &encoded[0] != &dst[0] {
+		t.Fatalf("expected output to reuse destination slice")
+	}
+
+	if len(listing) != 2 || listing[1].PC != 1 {
+		t.Fatalf("unexpected listing entries: %+v", listing)
+	}
+}
+
 func TestAssembleStringSRecord(t *testing.T) {
 	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
 
@@ -110,5 +183,74 @@ func TestAssembleStringSRecord(t *testing.T) {
 	want := "S01100006D36386B61736D2076302E342E30E1\nS3080000100011223381\nS70500001000EA\n"
 	if string(got) != want {
 		t.Fatalf("unexpected S-record output:\n%s\nwant:\n%s", string(got), want)
+	}
+}
+
+func TestAssembleSRecordVariants(t *testing.T) {
+	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
+
+	stringSrec, err := AssembleStringSRecord(src)
+	if err != nil {
+		t.Fatalf("assemble string failed: %v", err)
+	}
+
+	bytesSrec, err := AssembleBytesSRecord([]byte(src))
+	if err != nil {
+		t.Fatalf("assemble bytes failed: %v", err)
+	}
+
+	readerSrec, err := AssembleSRecord(strings.NewReader(src))
+	if err != nil {
+		t.Fatalf("assemble reader failed: %v", err)
+	}
+
+	tempFile := filepath.Join(t.TempDir(), "sample.s")
+	if err := os.WriteFile(tempFile, []byte(src), 0o644); err != nil {
+		t.Fatalf("write temp source: %v", err)
+	}
+
+	fileSrec, err := AssembleFileSRecord(tempFile)
+	if err != nil {
+		t.Fatalf("assemble file failed: %v", err)
+	}
+
+	for name, got := range map[string][]byte{
+		"bytes":  bytesSrec,
+		"reader": readerSrec,
+		"file":   fileSrec,
+	} {
+		if string(got) != string(stringSrec) {
+			t.Fatalf("%s s-record mismatch:\n%s\nwant:\n%s", name, string(got), string(stringSrec))
+		}
+	}
+}
+
+func TestAssembleFileVariants(t *testing.T) {
+	path := filepath.Join("tests", "testdata", "api_sample.s")
+
+	bytesOut, err := AssembleFile(path)
+	if err != nil {
+		t.Fatalf("assemble file failed: %v", err)
+	}
+
+	if want := []byte{0x12, 0x34, 0x70, 0x01}; !bytes.Equal(bytesOut, want) {
+		t.Fatalf("unexpected encoding: got %x want %x", bytesOut, want)
+	}
+
+	withListing, listing, err := AssembleFileWithListing(path)
+	if err != nil {
+		t.Fatalf("assemble file with listing failed: %v", err)
+	}
+
+	if !bytes.Equal(withListing, bytesOut) {
+		t.Fatalf("expected bytes with listing to match AssembleFile output")
+	}
+
+	if len(listing) != 2 {
+		t.Fatalf("expected listing entries for two lines, got %d", len(listing))
+	}
+
+	if listing[0].PC != 0x1000 || listing[1].PC != 0x1002 {
+		t.Fatalf("unexpected listing PCs: %+v", listing)
 	}
 }
