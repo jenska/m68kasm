@@ -60,23 +60,26 @@ func assemble(dst []byte, p *Program, wantListing bool) ([]byte, []ListingEntry,
 		start := len(out)
 		switch x := it.(type) {
 		case *Instr:
+			ins := *x
+			ins.Args = x.Args
+
 			def := x.Def
 			if def == nil {
 				return nil, nil, fmt.Errorf("no definition for opcode on line %d", x.Line)
 			}
-			actualKinds := operandKinds(&x.Args)
-			form, err := selectForm(def, x, actualKinds)
+			actualKinds := operandKinds(&ins.Args)
+			form, err := selectForm(def, &ins, actualKinds)
 			if err != nil {
 				return nil, nil, fmt.Errorf("line %d: %v", x.Line, err)
 			}
 
 			if form.Validate != nil {
-				if err := form.Validate(&x.Args); err != nil {
+				if err := form.Validate(&ins.Args); err != nil {
 					return nil, nil, fmt.Errorf("line %d: %v", x.Line, err)
 				}
 			}
 
-			bytes, err := Encode(def, form, x, p.Labels)
+			bytes, err := Encode(def, form, &ins, p.Labels)
 			if err != nil {
 				return nil, nil, fmt.Errorf("line %d: %v", x.Line, err)
 			}
