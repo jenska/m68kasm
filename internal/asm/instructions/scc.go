@@ -39,11 +39,11 @@ func newSccDef(name string, cond uint16) *InstrDef {
 			{
 				DefaultSize: ByteSize,
 				Sizes:       []Size{ByteSize},
-				OperKinds:   []OperandKind{OPK_EA},
+				OperKinds:   []OperandKind{OpkEA},
 				Validate:    validateDataAlterable(name),
 				Steps: []EmitStep{
-					{WordBits: 0x50C0 | (cond << 8), Fields: []FieldRef{F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: 0x50C0 | (cond << 8), Fields: []FieldRef{FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},

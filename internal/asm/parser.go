@@ -238,13 +238,13 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 		}
 		for _, tr := range step.Trailer {
 			switch tr {
-			case instructions.T_SrcEAExt:
+			case instructions.TSrcEAExt:
 				words += len(srcEA.Ext)
-			case instructions.T_DstEAExt:
+			case instructions.TDstEAExt:
 				words += len(dstEA.Ext)
-			case instructions.T_ImmSized:
+			case instructions.TImmSized:
 				words++
-			case instructions.T_SrcImm:
+			case instructions.TSrcImm:
 				if args.Src.Kind == instructions.EAkImm {
 					switch args.Size {
 					case instructions.LongSize:
@@ -253,11 +253,11 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 						words++
 					}
 				}
-			case instructions.T_BranchWordIfNeeded:
+			case instructions.TBranchWordIfNeeded:
 				if args.Size == instructions.WordSize {
 					words++
 				}
-			case instructions.T_SrcRegMask, instructions.T_DstRegMask:
+			case instructions.TSrcRegMask, instructions.TDstRegMask:
 				words++
 			}
 		}
@@ -336,7 +336,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 	var eaExpr instructions.EAExpr
 
 	switch kind {
-	case instructions.OPK_Imm:
+	case instructions.OpkImm:
 		if _, err := p.want(HASH); err != nil {
 			return eaExpr, err
 		}
@@ -347,7 +347,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr.Kind = instructions.EAkImm
 		eaExpr.Imm = imm
 
-	case instructions.OPK_ImmQuick:
+	case instructions.OpkImmQuick:
 		if _, err := p.want(HASH); err != nil {
 			return eaExpr, err
 		}
@@ -359,7 +359,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr.Imm = imm
 		args.HasImmQuick = true
 
-	case instructions.OPK_Dn:
+	case instructions.OpkDn:
 		dreg, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err
@@ -371,7 +371,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr.Kind = instructions.EAkDn
 		eaExpr.Reg = dn
 
-	case instructions.OPK_An:
+	case instructions.OpkAn:
 		areg, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err
@@ -383,7 +383,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr.Kind = instructions.EAkAn
 		eaExpr.Reg = an
 
-	case instructions.OPK_SR:
+	case instructions.OpkSR:
 		tok, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err
@@ -393,7 +393,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr.Kind = instructions.EAkSR
 
-	case instructions.OPK_CCR:
+	case instructions.OpkCCR:
 		tok, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err
@@ -403,7 +403,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr.Kind = instructions.EAkCCR
 
-	case instructions.OPK_USP:
+	case instructions.OpkUSP:
 		tok, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err
@@ -413,14 +413,14 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr.Kind = instructions.EAkUSP
 
-	case instructions.OPK_EA:
+	case instructions.OpkEA:
 		ea, err := p.parseEA()
 		if err != nil {
 			return eaExpr, err
 		}
 		eaExpr = ea
 
-	case instructions.OPK_PredecAn:
+	case instructions.OpkPredecAn:
 		ea, err := p.parseEA()
 		if err != nil {
 			return eaExpr, err
@@ -430,7 +430,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = ea
 
-	case instructions.OPK_RegList:
+	case instructions.OpkRegList:
 		mask, err := p.parseRegList()
 		if err != nil {
 			return eaExpr, err
@@ -442,7 +442,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			args.RegMaskDst = mask
 		}
 
-	case instructions.OPK_DispRel:
+	case instructions.OpkDispRel:
 		lbl, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err

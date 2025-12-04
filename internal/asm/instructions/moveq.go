@@ -12,10 +12,10 @@ var defMOVEQ = InstrDef{
 		{
 			DefaultSize: LongSize,
 			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_Dn},
+			OperKinds:   []OperandKind{OpkImm, OpkDn},
 			Validate:    validateMOVEQ,
 			Steps: []EmitStep{
-				{WordBits: 0x7000, Fields: []FieldRef{F_DnReg, F_ImmLow8}},
+				{WordBits: 0x7000, Fields: []FieldRef{FDnReg, FImmLow8}},
 			},
 		},
 	},

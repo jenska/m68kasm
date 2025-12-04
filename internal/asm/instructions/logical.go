@@ -16,21 +16,21 @@ func newLogicDef(name string, toDnBits, dnToMemBits uint16) *InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+				OperKinds:   []OperandKind{OpkEA, OpkDn},
 				Validate:    func(a *Args) error { return validateLogicToDn(name, a) },
 				Steps: []EmitStep{
-					{WordBits: toDnBits, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-					{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+					{WordBits: toDnBits, Fields: []FieldRef{FDnReg, FSizeBits, FSrcEA}},
+					{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 				},
 			},
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				OperKinds:   []OperandKind{OpkDn, OpkEA},
 				Validate:    func(a *Args) error { return validateLogicDnToMemory(name, a) },
 				Steps: []EmitStep{
-					{WordBits: dnToMemBits, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: dnToMemBits, Fields: []FieldRef{FSrcDnRegHi, FSizeBits, FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},
@@ -44,11 +44,11 @@ func newLogicEorDef() *InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				OperKinds:   []OperandKind{OpkDn, OpkEA},
 				Validate:    validateEor,
 				Steps: []EmitStep{
-					{WordBits: 0xB100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: 0xB100, Fields: []FieldRef{FSrcDnRegHi, FSizeBits, FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},
@@ -62,11 +62,11 @@ func newLogicNotDef() *InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_EA},
+				OperKinds:   []OperandKind{OpkEA},
 				Validate:    validateNot,
 				Steps: []EmitStep{
-					{WordBits: 0x4600, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: 0x4600, Fields: []FieldRef{FSizeBits, FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},

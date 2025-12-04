@@ -134,22 +134,22 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	n := 0
 	haveTarget := false
 	if a.HasImmQuick {
-		kinds[n] = instructions.OPK_ImmQuick
+		kinds[n] = instructions.OpkImmQuick
 		n++
 	} else if a.RegMaskSrc != 0 {
-		kinds[n] = instructions.OPK_RegList
+		kinds[n] = instructions.OpkRegList
 		n++
 	} else if a.Src.Kind != instructions.EAkNone {
 		kinds[n] = operandKindFromEA(a.Src)
 		n++
 	} else if a.Target != "" {
-		kinds[n] = instructions.OPK_DispRel
+		kinds[n] = instructions.OpkDispRel
 		n++
 		haveTarget = true
 	}
 
 	if a.RegMaskDst != 0 {
-		kinds[n] = instructions.OPK_RegList
+		kinds[n] = instructions.OpkRegList
 		n++
 	} else if a.Dst.Kind != instructions.EAkNone {
 		kinds[n] = operandKindFromEA(a.Dst)
@@ -157,7 +157,7 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	}
 
 	if a.Target != "" && !haveTarget {
-		kinds[n] = instructions.OPK_DispRel
+		kinds[n] = instructions.OpkDispRel
 		n++
 	}
 
@@ -165,23 +165,23 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 }
 
 var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
-	instructions.EAkNone:       instructions.OPK_None,
-	instructions.EAkImm:        instructions.OPK_Imm,
-	instructions.EAkDn:         instructions.OPK_Dn,
-	instructions.EAkAn:         instructions.OPK_An,
-	instructions.EAkAddrPredec: instructions.OPK_PredecAn,
-	instructions.EAkSR:         instructions.OPK_SR,
-	instructions.EAkCCR:        instructions.OPK_CCR,
-	instructions.EAkUSP:        instructions.OPK_USP,
+	instructions.EAkNone:       instructions.OpkNone,
+	instructions.EAkImm:        instructions.OpkImm,
+	instructions.EAkDn:         instructions.OpkDn,
+	instructions.EAkAn:         instructions.OpkAn,
+	instructions.EAkAddrPredec: instructions.OpkPredecAn,
+	instructions.EAkSR:         instructions.OpkSR,
+	instructions.EAkCCR:        instructions.OpkCCR,
+	instructions.EAkUSP:        instructions.OpkUSP,
 }
 
 // operandKindFromEA classifies an EA expression into the broader operand kind categories
-// used by instruction form matching, defaulting to OPK_EA for generic addressing modes.
+// used by instruction form matching, defaulting to OpkEA for generic addressing modes.
 func operandKindFromEA(e instructions.EAExpr) instructions.OperandKind {
 	if kind, ok := operandKindByEA[e.Kind]; ok {
 		return kind
 	}
-	return instructions.OPK_EA
+	return instructions.OpkEA
 }
 
 func operKindsMatch(expected, actual []instructions.OperandKind) bool {
@@ -201,9 +201,9 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 		return true
 	}
 	switch expect {
-	case instructions.OPK_EA:
+	case instructions.OpkEA:
 		switch actual {
-		case instructions.OPK_EA, instructions.OPK_Dn, instructions.OPK_An, instructions.OPK_Imm, instructions.OPK_PredecAn:
+		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn:
 			return true
 		}
 	}

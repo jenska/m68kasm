@@ -5,34 +5,34 @@ import "fmt"
 type FieldRef uint16
 
 const (
-	F_SrcEA FieldRef = iota
-	F_DstEA
-	F_SizeBits
-	F_AnReg
-	F_DnReg
-	F_ImmLow8
-	F_BranchLow8
-	F_MoveDestEA
-	F_MoveSize
-	F_QuickData
-	F_SrcDnReg
-	F_SrcAnReg
-	F_MovemSize
-	F_AddaSize
-	F_SrcDnRegHi
-	F_DstRegLow
+	FSrcEA FieldRef = iota
+	FDstEA
+	FSizeBits
+	FAnReg
+	FDnReg
+	FImmLow8
+	FBranchLow8
+	FMoveDestEA
+	FMoveSize
+	FQuickData
+	FSrcDnReg
+	FSrcAnReg
+	FMovemSize
+	FAddaSize
+	FSrcDnRegHi
+	FDstRegLow
 )
 
 type TrailerItem uint16
 
 const (
-	T_SrcEAExt TrailerItem = iota
-	T_DstEAExt
-	T_ImmSized
-	T_SrcImm
-	T_BranchWordIfNeeded
-	T_SrcRegMask
-	T_DstRegMask
+	TSrcEAExt TrailerItem = iota
+	TDstEAExt
+	TImmSized
+	TSrcImm
+	TBranchWordIfNeeded
+	TSrcRegMask
+	TDstRegMask
 )
 
 type Size uint16
@@ -46,18 +46,18 @@ const (
 type OperandKind uint16
 
 const (
-	OPK_None OperandKind = iota
-	OPK_Imm
-	OPK_ImmQuick
-	OPK_Dn
-	OPK_An
-	OPK_SR
-	OPK_CCR
-	OPK_USP
-	OPK_PredecAn
-	OPK_RegList
-	OPK_EA
-	OPK_DispRel
+	OpkNone OperandKind = iota
+	OpkImm
+	OpkImmQuick
+	OpkDn
+	OpkAn
+	OpkSR
+	OpkCCR
+	OpkUSP
+	OpkPredecAn
+	OpkRegList
+	OpkEA
+	OpkDispRel
 )
 
 type InstrDef struct {

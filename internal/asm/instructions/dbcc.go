@@ -13,11 +13,11 @@ func init() {
 				{
 					DefaultSize: WordSize,
 					Sizes:       []Size{WordSize},
-					OperKinds:   []OperandKind{OPK_Dn, OPK_DispRel},
+					OperKinds:   []OperandKind{OpkDn, OpkDispRel},
 					Validate:    nil,
 					Steps: []EmitStep{
-						{WordBits: 0x50C8 | uint16(c)<<8, Fields: []FieldRef{F_SrcDnReg}},
-						{Trailer: []TrailerItem{T_BranchWordIfNeeded}},
+						{WordBits: 0x50C8 | uint16(c)<<8, Fields: []FieldRef{FSrcDnReg}},
+						{Trailer: []TrailerItem{TBranchWordIfNeeded}},
 					},
 				},
 			},

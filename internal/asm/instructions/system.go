@@ -48,11 +48,11 @@ var defSTOP = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_Imm},
+			OperKinds:   []OperandKind{OpkImm},
 			Validate:    validateSTOP,
 			Steps: []EmitStep{
 				{WordBits: 0x4E72},
-				{Trailer: []TrailerItem{T_ImmSized}},
+				{Trailer: []TrailerItem{TImmSized}},
 			},
 		},
 	},
@@ -109,10 +109,10 @@ var defTRAP = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick},
+			OperKinds:   []OperandKind{OpkImmQuick},
 			Validate:    validateTRAP,
 			Steps: []EmitStep{
-				{WordBits: 0x4E40, Fields: []FieldRef{F_ImmLow8}},
+				{WordBits: 0x4E40, Fields: []FieldRef{FImmLow8}},
 			},
 		},
 	},

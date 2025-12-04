@@ -12,31 +12,31 @@ var defMOVE = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_SR},
+			OperKinds:   []OperandKind{OpkEA, OpkSR},
 			Validate:    validateMoveToSR,
 			Steps: []EmitStep{
-				{WordBits: 0x46C0, Fields: []FieldRef{F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				{WordBits: 0x46C0, Fields: []FieldRef{FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_SR, OPK_EA},
+			OperKinds:   []OperandKind{OpkSR, OpkEA},
 			Validate:    validateMoveFromSR,
 			Steps: []EmitStep{
-				{WordBits: 0x40C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x40C0, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_EA},
+			OperKinds:   []OperandKind{OpkEA, OpkEA},
 			Validate:    validateMOVE,
 			Steps: []EmitStep{
-				{WordBits: 0x0000, Fields: []FieldRef{F_MoveSize, F_MoveDestEA, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm, T_DstEAExt}},
+				{WordBits: 0x0000, Fields: []FieldRef{FMoveSize, FMoveDestEA, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm, TDstEAExt}},
 			},
 		},
 	}...),
@@ -114,16 +114,16 @@ func newMoveUSPForms() []FormDef {
 		{
 			DefaultSize: LongSize,
 			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_USP, OPK_An},
+			OperKinds:   []OperandKind{OpkUSP, OpkAn},
 			Validate:    validateMoveUSP,
-			Steps:       []EmitStep{{WordBits: 0x4E68, Fields: []FieldRef{F_DstRegLow}}},
+			Steps:       []EmitStep{{WordBits: 0x4E68, Fields: []FieldRef{FDstRegLow}}},
 		},
 		{
 			DefaultSize: LongSize,
 			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_An, OPK_USP},
+			OperKinds:   []OperandKind{OpkAn, OpkUSP},
 			Validate:    validateMoveUSP,
-			Steps:       []EmitStep{{WordBits: 0x4E60, Fields: []FieldRef{F_SrcAnReg}}},
+			Steps:       []EmitStep{{WordBits: 0x4E60, Fields: []FieldRef{FSrcAnReg}}},
 		},
 	}
 }

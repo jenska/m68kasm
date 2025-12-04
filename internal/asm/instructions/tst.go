@@ -12,11 +12,11 @@ var defTST = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate:    validateTst,
 			Steps: []EmitStep{
-				{WordBits: 0x4A00, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4A00, Fields: []FieldRef{FSizeBits, FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},

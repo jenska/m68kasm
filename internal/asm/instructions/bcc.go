@@ -17,11 +17,11 @@ func init() {
 				{
 					DefaultSize: sz,
 					Sizes:       []Size{ByteSize, WordSize},
-					OperKinds:   []OperandKind{OPK_DispRel},
+					OperKinds:   []OperandKind{OpkDispRel},
 					Validate:    nil,
 					Steps: []EmitStep{
-						{WordBits: 0x6000 | uint16(c)<<8, Fields: []FieldRef{F_BranchLow8}},
-						{Trailer: []TrailerItem{T_BranchWordIfNeeded}},
+						{WordBits: 0x6000 | uint16(c)<<8, Fields: []FieldRef{FBranchLow8}},
+						{Trailer: []TrailerItem{TBranchWordIfNeeded}},
 					},
 				},
 			},

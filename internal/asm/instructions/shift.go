@@ -20,29 +20,29 @@ func newShiftDef(name string, immBits, regBits, memBits uint16) *InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
+				OperKinds:   []OperandKind{OpkImmQuick, OpkDn},
 				Validate:    validateShiftImmediate,
 				Steps: []EmitStep{
-					{WordBits: immBits, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
+					{WordBits: immBits, Fields: []FieldRef{FQuickData, FSizeBits, FDstRegLow}},
 				},
 			},
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
+				OperKinds:   []OperandKind{OpkDn, OpkDn},
 				Validate:    validateShiftRegister,
 				Steps: []EmitStep{
-					{WordBits: regBits, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
+					{WordBits: regBits, Fields: []FieldRef{FSrcDnRegHi, FSizeBits, FDstRegLow}},
 				},
 			},
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{WordSize},
-				OperKinds:   []OperandKind{OPK_EA},
+				OperKinds:   []OperandKind{OpkEA},
 				Validate:    validateShiftMemory,
 				Steps: []EmitStep{
-					{WordBits: memBits, Fields: []FieldRef{F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: memBits, Fields: []FieldRef{FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},

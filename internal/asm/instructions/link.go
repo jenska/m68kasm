@@ -13,11 +13,11 @@ var defLINK = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_An, OPK_Imm},
+			OperKinds:   []OperandKind{OpkAn, OpkImm},
 			Validate:    validateLINK,
 			Steps: []EmitStep{
-				{WordBits: 0x4E50, Fields: []FieldRef{F_DstRegLow}},
-				{Trailer: []TrailerItem{T_ImmSized}},
+				{WordBits: 0x4E50, Fields: []FieldRef{FDstRegLow}},
+				{Trailer: []TrailerItem{TImmSized}},
 			},
 		},
 	},
@@ -29,10 +29,10 @@ var defUNLK = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_An},
+			OperKinds:   []OperandKind{OpkAn},
 			Validate:    validateUNLK,
 			Steps: []EmitStep{
-				{WordBits: 0x4E58, Fields: []FieldRef{F_DstRegLow}},
+				{WordBits: 0x4E58, Fields: []FieldRef{FDstRegLow}},
 			},
 		},
 	},

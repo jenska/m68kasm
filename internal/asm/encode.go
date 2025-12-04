@@ -52,26 +52,26 @@ type prepared struct {
 
 func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	switch f {
-	case instructions.F_SizeBits:
+	case instructions.FSizeBits:
 		return wordVal | p.SizeBits
-	case instructions.F_SrcEA:
+	case instructions.FSrcEA:
 		return wordVal | (uint16(p.SrcEA.Mode&7) << 3) | uint16(p.SrcEA.Reg&7)
-	case instructions.F_DstEA:
+	case instructions.FDstEA:
 		return wordVal | (uint16(p.DstEA.Mode&7) << 3) | uint16(p.DstEA.Reg&7)
-	case instructions.F_DnReg:
+	case instructions.FDnReg:
 		return wordVal | (uint16(p.DstReg&7) << 9)
-	case instructions.F_AnReg:
+	case instructions.FAnReg:
 		return wordVal | (uint16(p.DstReg&7) << 9)
-	case instructions.F_ImmLow8:
+	case instructions.FImmLow8:
 		return wordVal | uint16(uint8(p.Imm))
-	case instructions.F_BranchLow8:
+	case instructions.FBranchLow8:
 		if !p.BrUseWord {
 			return wordVal | uint16(uint8(p.BrDisp8))
 		}
 		return wordVal
-	case instructions.F_MoveDestEA:
+	case instructions.FMoveDestEA:
 		return wordVal | (uint16(p.DstEA.Mode&7) << 6) | (uint16(p.DstEA.Reg&7) << 9)
-	case instructions.F_MoveSize:
+	case instructions.FMoveSize:
 		switch p.Size {
 		case instructions.ByteSize:
 			return wordVal | 0x1000
@@ -82,29 +82,29 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		default:
 			return wordVal
 		}
-	case instructions.F_QuickData:
+	case instructions.FQuickData:
 		quick := uint16(p.Imm)
 		if quick == 8 {
 			quick = 0
 		}
 		return wordVal | (quick&7)<<9
-	case instructions.F_SrcDnReg:
+	case instructions.FSrcDnReg:
 		return wordVal | uint16(p.SrcReg&7)
-	case instructions.F_SrcAnReg:
+	case instructions.FSrcAnReg:
 		return wordVal | uint16(p.SrcReg&7)
-	case instructions.F_DstRegLow:
+	case instructions.FDstRegLow:
 		return wordVal | uint16(p.DstReg&7)
-	case instructions.F_MovemSize:
+	case instructions.FMovemSize:
 		if p.Size == instructions.LongSize {
 			return wordVal | 0x0040
 		}
 		return wordVal
-	case instructions.F_AddaSize:
+	case instructions.FAddaSize:
 		if p.Size == instructions.LongSize {
 			return wordVal | 0x0100
 		}
 		return wordVal
-	case instructions.F_SrcDnRegHi:
+	case instructions.FSrcDnRegHi:
 		return wordVal | (uint16(p.SrcReg&7) << 9)
 	default:
 		return wordVal
@@ -113,7 +113,7 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 
 func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, error) {
 	switch t {
-	case instructions.T_SrcEAExt:
+	case instructions.TSrcEAExt:
 		if len(p.SrcEA.Ext) == 0 {
 			return out, nil
 		}
@@ -121,7 +121,7 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 			out = appendWord(out, w)
 		}
 		return out, nil
-	case instructions.T_DstEAExt:
+	case instructions.TDstEAExt:
 		if len(p.DstEA.Ext) == 0 {
 			return out, nil
 		}
@@ -129,9 +129,9 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 			out = appendWord(out, w)
 		}
 		return out, nil
-	case instructions.T_ImmSized:
+	case instructions.TImmSized:
 		return appendWord(out, uint16(int16(p.Imm))), nil
-	case instructions.T_SrcImm:
+	case instructions.TSrcImm:
 		if p.SrcEA.Mode == 7 && p.SrcEA.Reg == 4 {
 			switch p.Size {
 			case instructions.ByteSize:
@@ -148,18 +148,18 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 			}
 		}
 		return out, nil
-	case instructions.T_BranchWordIfNeeded:
+	case instructions.TBranchWordIfNeeded:
 		if p.BrUseWord {
 			return appendWord(out, uint16(p.BrDisp16)), nil
 		}
 		return out, nil
-	case instructions.T_SrcRegMask:
+	case instructions.TSrcRegMask:
 		mask := p.SrcRegMask
 		if p.DstEA.Mode == 4 {
 			mask = reverse16(mask)
 		}
 		return appendWord(out, mask), nil
-	case instructions.T_DstRegMask:
+	case instructions.TDstRegMask:
 		return appendWord(out, p.DstRegMask), nil
 	}
 	return out, nil
