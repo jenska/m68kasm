@@ -11,8 +11,8 @@ var defLINK = InstrDef{
 	Mnemonic: "LINK",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_An, OPK_Imm},
 			Validate:    validateLINK,
 			Steps: []EmitStep{
@@ -27,8 +27,8 @@ var defUNLK = InstrDef{
 	Mnemonic: "UNLK",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_An},
 			Validate:    validateUNLK,
 			Steps: []EmitStep{
@@ -45,7 +45,7 @@ func validateLINK(a *Args) error {
 	if a.Src.Kind != EAkImm || a.Dst.Kind != EAkAn {
 		return fmt.Errorf("LINK requires address register and immediate displacement")
 	}
-	return checkImmediateRange(a.Src.Imm, SZ_W)
+	return checkImmediateRange(a.Src.Imm, WordSize)
 }
 
 func validateUNLK(a *Args) error {

@@ -3,15 +3,15 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&DefMOVEQ)
+	registerInstrDef(&defMOVEQ)
 }
 
-var DefMOVEQ = InstrDef{
+var defMOVEQ = InstrDef{
 	Mnemonic: "MOVEQ",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_Imm, OPK_Dn},
 			Validate:    validateMOVEQ,
 			Steps: []EmitStep{
@@ -25,5 +25,5 @@ func validateMOVEQ(a *Args) error {
 	if a.Src.Kind != EAkImm {
 		return fmt.Errorf("MOVEQ needs immediate")
 	}
-	return checkImmediateRange(a.Src.Imm, SZ_B)
+	return checkImmediateRange(a.Src.Imm, ByteSize)
 }

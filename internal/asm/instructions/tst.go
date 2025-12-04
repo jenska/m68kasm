@@ -10,8 +10,8 @@ var defTST = InstrDef{
 	Mnemonic: "TST",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateTst,
 			Steps: []EmitStep{

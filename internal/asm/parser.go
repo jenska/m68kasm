@@ -247,14 +247,14 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 			case instructions.T_SrcImm:
 				if args.Src.Kind == instructions.EAkImm {
 					switch args.Size {
-					case instructions.SZ_L:
+					case instructions.LongSize:
 						words += 2
 					default:
 						words++
 					}
 				}
 			case instructions.T_BranchWordIfNeeded:
-				if args.Size == instructions.SZ_W {
+				if args.Size == instructions.WordSize {
 					words++
 				}
 			case instructions.T_SrcRegMask, instructions.T_DstRegMask:
@@ -534,13 +534,13 @@ func (p *Parser) parseSizeSuffix(def instructions.Size, allowed []instructions.S
 func sizeFromIdent(s string) (instructions.Size, bool) {
 	switch strings.ToLower(s) {
 	case "b":
-		return instructions.SZ_B, true
+		return instructions.ByteSize, true
 	case "s":
-		return instructions.SZ_B, true
+		return instructions.ByteSize, true
 	case "w":
-		return instructions.SZ_W, true
+		return instructions.WordSize, true
 	case "l":
-		return instructions.SZ_L, true
+		return instructions.LongSize, true
 	default:
 		return 0, false
 	}

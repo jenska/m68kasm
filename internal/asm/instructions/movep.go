@@ -10,8 +10,8 @@ var defMOVEP = InstrDef{
 	Mnemonic: "MOVEP",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
 			Validate:    validateMOVEPFromMem,
 			Steps: []EmitStep{
@@ -20,8 +20,8 @@ var defMOVEP = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
 			Validate:    validateMOVEPFromMem,
 			Steps: []EmitStep{
@@ -30,8 +30,8 @@ var defMOVEP = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    validateMOVEPToMem,
 			Steps: []EmitStep{
@@ -40,8 +40,8 @@ var defMOVEP = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    validateMOVEPToMem,
 			Steps: []EmitStep{

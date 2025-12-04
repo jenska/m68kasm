@@ -4,18 +4,44 @@ import "fmt"
 
 func init() {
 	registerInstrDef(&defCLR)
-	registerInstrDef(&defCMPM)
+	registerInstrDef(&defCHK)
 	registerInstrDef(&defEXG)
 	registerInstrDef(&defEXT)
 	registerInstrDef(&defILLEGAL)
+}
+
+var defCHK = InstrDef{
+	Mnemonic: "CHK",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
+			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+			Validate:    validateCHK,
+			Steps: []EmitStep{
+				{WordBits: 0x4180, Fields: []FieldRef{F_DnReg, F_SrcEA}},
+				{Trailer: []TrailerItem{T_SrcEAExt}},
+			},
+		},
+	},
+}
+
+func validateCHK(a *Args) error {
+	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
+		return fmt.Errorf("CHK requires Dn destination and source")
+	}
+	if a.Src.Kind == EAkImm {
+		return fmt.Errorf("CHK does not allow immediate source")
+	}
+	return nil
 }
 
 var defCLR = InstrDef{
 	Mnemonic: "CLR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateDataAlterable("CLR"),
 			Steps: []EmitStep{
@@ -26,27 +52,12 @@ var defCLR = InstrDef{
 	},
 }
 
-var defCMPM = InstrDef{
-	Mnemonic: "CMPM",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
-			OperKinds:   []OperandKind{OPK_EA, OPK_EA},
-			Validate:    validateCMPM,
-			Steps: []EmitStep{
-				{WordBits: 0xB108, Fields: []FieldRef{F_AnReg, F_SizeBits, F_SrcAnReg}},
-			},
-		},
-	},
-}
-
 var defEXG = InstrDef{
 	Mnemonic: "EXG",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateEXGData,
 			Steps: []EmitStep{
@@ -54,8 +65,8 @@ var defEXG = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_An, OPK_An},
 			Validate:    validateEXGAddr,
 			Steps: []EmitStep{
@@ -63,8 +74,8 @@ var defEXG = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_An},
 			Validate:    validateEXGMixed,
 			Steps: []EmitStep{
@@ -78,8 +89,8 @@ var defEXT = InstrDef{
 	Mnemonic: "EXT",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn},
 			Validate:    validateEXT,
 			Steps: []EmitStep{
@@ -93,8 +104,8 @@ var defILLEGAL = InstrDef{
 	Mnemonic: "ILLEGAL",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps:       []EmitStep{{WordBits: 0x4AFC}},
@@ -118,13 +129,6 @@ func validateDataAlterable(name string) func(*Args) error {
 			return nil
 		}
 	}
-}
-
-func validateCMPM(a *Args) error {
-	if a.Src.Kind != EAkAddrPostinc || a.Dst.Kind != EAkAddrPostinc {
-		return fmt.Errorf("CMPM requires post-increment address operands")
-	}
-	return nil
 }
 
 func validateEXGData(a *Args) error {
@@ -156,7 +160,7 @@ func validateEXT(a *Args) error {
 	if a.Dst.Kind != EAkDn {
 		return fmt.Errorf("EXT requires Dn destination")
 	}
-	if a.Size == SZ_B {
+	if a.Size == ByteSize {
 		return fmt.Errorf("EXT does not support byte size")
 	}
 	return nil

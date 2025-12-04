@@ -10,8 +10,8 @@ var defMOVE = InstrDef{
 	Mnemonic: "MOVE",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_USP, OPK_An},
 			Validate:    validateMoveUSP,
 			Steps: []EmitStep{
@@ -19,8 +19,8 @@ var defMOVE = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_An, OPK_USP},
 			Validate:    validateMoveUSP,
 			Steps: []EmitStep{
@@ -28,8 +28,8 @@ var defMOVE = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_SR},
 			Validate:    validateMoveToSR,
 			Steps: []EmitStep{
@@ -38,8 +38,8 @@ var defMOVE = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_SR, OPK_EA},
 			Validate:    validateMoveFromSR,
 			Steps: []EmitStep{
@@ -48,8 +48,8 @@ var defMOVE = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_EA},
 			Validate:    validateMOVE,
 			Steps: []EmitStep{
@@ -73,7 +73,7 @@ func validateMOVE(a *Args) error {
 	if isPCRelativeKind(a.Dst.Kind) {
 		return fmt.Errorf("MOVE destination cannot be PC-relative")
 	}
-	if a.Size == SZ_B {
+	if a.Size == ByteSize {
 		if a.Src.Kind == EAkAn {
 			return fmt.Errorf("MOVE.B cannot read from address register")
 		}
@@ -96,7 +96,7 @@ func validateMoveToSR(a *Args) error {
 	switch a.Src.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkPCDisp16, EAkIdxPCBrief, EAkAbsW, EAkAbsL, EAkImm:
 		if a.Src.Kind == EAkImm {
-			return checkImmediateRange(a.Src.Imm, SZ_W)
+			return checkImmediateRange(a.Src.Imm, WordSize)
 		}
 		return nil
 	case EAkNone:

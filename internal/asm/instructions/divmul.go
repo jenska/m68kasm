@@ -14,8 +14,8 @@ func newDivMulDef(name string, wordBits uint16) *InstrDef {
 		Mnemonic: name,
 		Forms: []FormDef{
 			{
-				DefaultSize: SZ_W,
-				Sizes:       []Size{SZ_W},
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
 				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
 				Validate:    func(a *Args) error { return validateDivMul(name, a) },
 				Steps: []EmitStep{
@@ -31,7 +31,7 @@ func validateDivMul(name string, a *Args) error {
 	if a.Dst.Kind != EAkDn {
 		return fmt.Errorf("%s destination must be data register", name)
 	}
-	if a.Size != SZ_W {
+	if a.Size != WordSize {
 		return fmt.Errorf("%s operates on word size", name)
 	}
 	if a.Src.Kind == EAkImm {

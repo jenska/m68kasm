@@ -13,8 +13,8 @@ func newStatusDef(name string, wordb, wordw uint16) *InstrDef {
 		Mnemonic: name,
 		Forms: []FormDef{
 			{
-				DefaultSize: SZ_B,
-				Sizes:       []Size{SZ_B},
+				DefaultSize: ByteSize,
+				Sizes:       []Size{ByteSize},
 				OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
 				Validate:    validateCCRImmediate,
 				Steps: []EmitStep{
@@ -23,8 +23,8 @@ func newStatusDef(name string, wordb, wordw uint16) *InstrDef {
 				},
 			},
 			{
-				DefaultSize: SZ_W,
-				Sizes:       []Size{SZ_W},
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
 				OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
 				Validate:    validateSRImmediate,
 				Steps: []EmitStep{
@@ -40,12 +40,12 @@ func validateSRImmediate(a *Args) error {
 	if a.Dst.Kind != EAkSR {
 		return fmt.Errorf("requires SR destination")
 	}
-	return checkImmediateRange(a.Src.Imm, SZ_W)
+	return checkImmediateRange(a.Src.Imm, WordSize)
 }
 
 func validateCCRImmediate(a *Args) error {
 	if a.Dst.Kind != EAkCCR {
 		return fmt.Errorf("requires CCR destination")
 	}
-	return checkImmediateRange(a.Src.Imm, SZ_B)
+	return checkImmediateRange(a.Src.Imm, ByteSize)
 }

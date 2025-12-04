@@ -10,8 +10,8 @@ var defMOVEM = InstrDef{
 	Mnemonic: "MOVEM",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_RegList},
 			Validate:    validateMovemLoad,
 			Steps: []EmitStep{
@@ -20,8 +20,8 @@ var defMOVEM = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_RegList, OPK_EA},
 			Validate:    validateMovemStore,
 			Steps: []EmitStep{

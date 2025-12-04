@@ -2,6 +2,7 @@ package instructions
 
 import "fmt"
 
+// TODO remove redundant code
 func init() {
 	registerInstrDef(&defAND)
 	registerInstrDef(&defOR)
@@ -13,8 +14,8 @@ var defAND = InstrDef{
 	Mnemonic: "AND",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
 			Validate:    func(a *Args) error { return validateLogicToDn("AND", a) },
 			Steps: []EmitStep{
@@ -23,8 +24,8 @@ var defAND = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    func(a *Args) error { return validateLogicDnToMemory("AND", a) },
 			Steps: []EmitStep{
@@ -39,8 +40,8 @@ var defOR = InstrDef{
 	Mnemonic: "OR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
 			Validate:    func(a *Args) error { return validateLogicToDn("OR", a) },
 			Steps: []EmitStep{
@@ -49,8 +50,8 @@ var defOR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    func(a *Args) error { return validateLogicDnToMemory("OR", a) },
 			Steps: []EmitStep{
@@ -65,8 +66,8 @@ var defEOR = InstrDef{
 	Mnemonic: "EOR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    validateEor,
 			Steps: []EmitStep{
@@ -81,8 +82,8 @@ var defNOT = InstrDef{
 	Mnemonic: "NOT",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateNot,
 			Steps: []EmitStep{

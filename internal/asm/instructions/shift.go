@@ -2,6 +2,7 @@ package instructions
 
 import "fmt"
 
+// TODO remove redundant code
 func init() {
 	registerInstrDef(&defASR)
 	registerInstrDef(&defASL)
@@ -17,8 +18,8 @@ var defASR = InstrDef{
 	Mnemonic: "ASR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -26,8 +27,8 @@ var defASR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -35,8 +36,8 @@ var defASR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -51,8 +52,8 @@ var defASL = InstrDef{
 	Mnemonic: "ASL",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -60,8 +61,8 @@ var defASL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -69,8 +70,8 @@ var defASL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -85,8 +86,8 @@ var defLSR = InstrDef{
 	Mnemonic: "LSR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -94,8 +95,8 @@ var defLSR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -103,8 +104,8 @@ var defLSR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -119,8 +120,8 @@ var defLSL = InstrDef{
 	Mnemonic: "LSL",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -128,8 +129,8 @@ var defLSL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -137,8 +138,8 @@ var defLSL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -153,8 +154,8 @@ var defROXR = InstrDef{
 	Mnemonic: "ROXR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -162,8 +163,8 @@ var defROXR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -171,8 +172,8 @@ var defROXR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -187,8 +188,8 @@ var defROXL = InstrDef{
 	Mnemonic: "ROXL",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -196,8 +197,8 @@ var defROXL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -205,8 +206,8 @@ var defROXL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -221,8 +222,8 @@ var defROR = InstrDef{
 	Mnemonic: "ROR",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -230,8 +231,8 @@ var defROR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -239,8 +240,8 @@ var defROR = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{
@@ -255,8 +256,8 @@ var defROL = InstrDef{
 	Mnemonic: "ROL",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
 			Validate:    validateShiftImmediate,
 			Steps: []EmitStep{
@@ -264,8 +265,8 @@ var defROL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_B, SZ_W, SZ_L},
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
 			Validate:    validateShiftRegister,
 			Steps: []EmitStep{
@@ -273,8 +274,8 @@ var defROL = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_EA},
 			Validate:    validateShiftMemory,
 			Steps: []EmitStep{

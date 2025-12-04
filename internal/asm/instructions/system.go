@@ -16,8 +16,8 @@ var defNOP = InstrDef{
 	Mnemonic: "NOP",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps: []EmitStep{
@@ -31,8 +31,8 @@ var defTRAPV = InstrDef{
 	Mnemonic: "TRAPV",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps: []EmitStep{
@@ -46,8 +46,8 @@ var defSTOP = InstrDef{
 	Mnemonic: "STOP",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_Imm},
 			Validate:    validateSTOP,
 			Steps: []EmitStep{
@@ -62,8 +62,8 @@ var defRESET = InstrDef{
 	Mnemonic: "RESET",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps: []EmitStep{
@@ -77,8 +77,8 @@ var defRTS = InstrDef{
 	Mnemonic: "RTS",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps: []EmitStep{
@@ -92,8 +92,8 @@ var defRTE = InstrDef{
 	Mnemonic: "RTE",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{},
 			Validate:    nil,
 			Steps: []EmitStep{
@@ -107,8 +107,8 @@ var defTRAP = InstrDef{
 	Mnemonic: "TRAP",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_W,
-			Sizes:       []Size{SZ_W},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OPK_ImmQuick},
 			Validate:    validateTRAP,
 			Steps: []EmitStep{
@@ -129,5 +129,5 @@ func validateSTOP(a *Args) error {
 	if a.Src.Kind != EAkImm {
 		return fmt.Errorf("STOP requires immediate operand")
 	}
-	return checkImmediateRange(a.Src.Imm, SZ_W)
+	return checkImmediateRange(a.Src.Imm, WordSize)
 }

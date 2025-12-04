@@ -15,11 +15,11 @@ type Instr struct {
 
 func sizeToBits(sz instructions.Size) uint16 {
 	switch sz {
-	case instructions.SZ_B:
+	case instructions.ByteSize:
 		return 0x0000
-	case instructions.SZ_W:
+	case instructions.WordSize:
 		return 0x0040
-	case instructions.SZ_L:
+	case instructions.LongSize:
 		return 0x0080
 	default:
 		return 0
@@ -73,11 +73,11 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | (uint16(p.DstEA.Mode&7) << 6) | (uint16(p.DstEA.Reg&7) << 9)
 	case instructions.F_MoveSize:
 		switch p.Size {
-		case instructions.SZ_B:
+		case instructions.ByteSize:
 			return wordVal | 0x1000
-		case instructions.SZ_W:
+		case instructions.WordSize:
 			return wordVal | 0x3000
-		case instructions.SZ_L:
+		case instructions.LongSize:
 			return wordVal | 0x2000
 		default:
 			return wordVal
@@ -95,12 +95,12 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	case instructions.F_DstRegLow:
 		return wordVal | uint16(p.DstReg&7)
 	case instructions.F_MovemSize:
-		if p.Size == instructions.SZ_L {
+		if p.Size == instructions.LongSize {
 			return wordVal | 0x0040
 		}
 		return wordVal
 	case instructions.F_AddaSize:
-		if p.Size == instructions.SZ_L {
+		if p.Size == instructions.LongSize {
 			return wordVal | 0x0100
 		}
 		return wordVal
@@ -134,11 +134,11 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 	case instructions.T_SrcImm:
 		if p.SrcEA.Mode == 7 && p.SrcEA.Reg == 4 {
 			switch p.Size {
-			case instructions.SZ_B:
+			case instructions.ByteSize:
 				return appendWord(out, uint16(uint8(p.Imm))), nil
-			case instructions.SZ_W:
+			case instructions.WordSize:
 				return appendWord(out, uint16(uint16(p.Imm))), nil
-			case instructions.SZ_L:
+			case instructions.LongSize:
 				u := uint32(int32(p.Imm))
 				out = appendWord(out, uint16(u>>16))
 				out = appendWord(out, uint16(u))
@@ -192,14 +192,14 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		p.TargetPC = addr
 		basePC := p.PC + 2
 		switch ins.Args.Size {
-		case instructions.SZ_B:
+		case instructions.ByteSize:
 			d8 := int32(addr) - int32(basePC)
 			if d8 < -128 || d8 > 127 {
 				return nil, fmt.Errorf("branch displacement out of range for .S")
 			}
 			p.BrUseWord = false
 			p.BrDisp8 = int8(d8)
-		case instructions.SZ_W:
+		case instructions.WordSize:
 			basePC += 2
 			d16 := int32(addr) - int32(basePC)
 			if d16 < -32768 || d16 > 32767 {

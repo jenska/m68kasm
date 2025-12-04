@@ -1,38 +1,22 @@
 package instructions
 
-var branchCondMap = map[string]cond{
-	"BRA": condT,
-	"BSR": condBSR,
-	"BHI": condHI,
-	"BLS": condLS,
-	"BCC": condCC,
-	"BHS": condCC,
-	"BCS": condCS,
-	"BLO": condCS,
-	"BNE": condNE,
-	"BEQ": condEQ,
-	"BVC": condVC,
-	"BVS": condVS,
-	"BPL": condPL,
-	"BMI": condMI,
-	"BGE": condGE,
-	"BLT": condLT,
-	"BGT": condGT,
-	"BLE": condLE,
+var branchConditions = []string{
+	"BRA", "BSR", "BHI", "BLS", "BHS", "BLO", "BNE", "BEQ",
+	"BVC", "BVS", "BPL", "BMI", "BGE", "BLT", "BGT", "BLE",
 }
 
 func init() {
-	for b, c := range branchCondMap {
-		sz := SZ_B
+	for c, b := range branchConditions {
+		sz := ByteSize
 		if b == "BSR" {
-			sz = SZ_W
+			sz = WordSize
 		}
 		registerInstrDef(&InstrDef{
 			Mnemonic: b,
 			Forms: []FormDef{
 				{
 					DefaultSize: sz,
-					Sizes:       []Size{SZ_B, SZ_W},
+					Sizes:       []Size{ByteSize, WordSize},
 					OperKinds:   []OperandKind{OPK_DispRel},
 					Validate:    nil,
 					Steps: []EmitStep{

@@ -1,35 +1,18 @@
 package instructions
 
-var dbCondMap = map[string]cond{
-	"DBT":  condT,
-	"DBRA": condF,
-	"DBF":  condF,
-	"DBHI": condHI,
-	"DBLS": condLS,
-	"DBCC": condCC,
-	"DBHS": condCC,
-	"DBCS": condCS,
-	"DBLO": condCS,
-	"DBNE": condNE,
-	"DBEQ": condEQ,
-	"DBVC": condVC,
-	"DBVS": condVS,
-	"DBPL": condPL,
-	"DBMI": condMI,
-	"DBGE": condGE,
-	"DBLT": condLT,
-	"DBGT": condGT,
-	"DBLE": condLE,
+var dbConditions = []string{
+	"DBT", "DBRA", "DBHI", "DBLS", "DBHS", "DBLO", "DBNE", "DBEQ",
+	"DBVC", "DBVS", "DBPL", "DBMI", "DBGE", "DBLT", "DBGT", "DBLE",
 }
 
 func init() {
-	for m, c := range dbCondMap {
+	for c, m := range dbConditions {
 		registerInstrDef(&InstrDef{
 			Mnemonic: m,
 			Forms: []FormDef{
 				{
-					DefaultSize: SZ_W,
-					Sizes:       []Size{SZ_W},
+					DefaultSize: WordSize,
+					Sizes:       []Size{WordSize},
 					OperKinds:   []OperandKind{OPK_Dn, OPK_DispRel},
 					Validate:    nil,
 					Steps: []EmitStep{

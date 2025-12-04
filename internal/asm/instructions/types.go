@@ -2,7 +2,7 @@ package instructions
 
 import "fmt"
 
-type FieldRef int
+type FieldRef uint16
 
 const (
 	F_SrcEA FieldRef = iota
@@ -23,7 +23,7 @@ const (
 	F_DstRegLow
 )
 
-type TrailerItem int
+type TrailerItem uint16
 
 const (
 	T_SrcEAExt TrailerItem = iota
@@ -35,38 +35,15 @@ const (
 	T_DstRegMask
 )
 
-type Size int
+type Size uint16
 
 const (
-	SZ_B Size = 0
-	SZ_W Size = 4
-	SZ_L Size = 8
+	ByteSize Size = iota
+	WordSize
+	LongSize
 )
 
-type OperandKind int
-
-type cond uint8
-
-const (
-	condT   cond = 0x0
-	condBSR cond = 0x1
-	condHI  cond = 0x2
-	condLS  cond = 0x3
-	condCC  cond = 0x4
-	condCS  cond = 0x5
-	condNE  cond = 0x6
-	condEQ  cond = 0x7
-	condVC  cond = 0x8
-	condVS  cond = 0x9
-	condPL  cond = 0xA
-	condMI  cond = 0xB
-	condGE  cond = 0xC
-	condLT  cond = 0xD
-	condGT  cond = 0xE
-	condLE  cond = 0xF
-)
-
-const condF cond = condBSR
+type OperandKind uint16
 
 const (
 	OPK_None OperandKind = iota
@@ -121,7 +98,7 @@ type Args struct {
 	RegMaskDst  uint16
 }
 
-type EAExprKind int
+type EAExprKind uint16
 
 const (
 	EAkNone EAExprKind = iota

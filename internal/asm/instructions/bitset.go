@@ -3,96 +3,47 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&defBSET)
-	registerInstrDef(&defBCLR)
-	registerInstrDef(&defBCHG)
+	registerInstrDef(newBitSetDef("BSET", 0x01C0, 0x08C0))
+	registerInstrDef(newBitSetDef("BCLR", 0x0180, 0x0880))
+	registerInstrDef(newBitSetDef("BCHG", 0x0140, 0x0840))
 	registerInstrDef(&defBTST)
 }
 
-var defBSET = InstrDef{
-	Mnemonic: "BSET",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitReg("BSET", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x01C0, Fields: []FieldRef{F_SrcDnRegHi, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+func newBitSetDef(name string, op1, op2 uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: LongSize,
+				Sizes:       []Size{LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				Validate:    func(a *Args) error { return validateBitReg(name, a) },
+				Steps: []EmitStep{
+					{WordBits: op1, Fields: []FieldRef{F_SrcDnRegHi, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
+			},
+			{
+				DefaultSize: ByteSize,
+				Sizes:       []Size{ByteSize},
+				OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
+				Validate:    func(a *Args) error { return validateBitImm(name, a) },
+				Steps: []EmitStep{
+					{WordBits: op2, Fields: []FieldRef{F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
+				},
 			},
 		},
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitImm("BSET", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x08C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
+	}
 
-var defBCLR = InstrDef{
-	Mnemonic: "BCLR",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitReg("BCLR", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0180, Fields: []FieldRef{F_SrcDnRegHi, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitImm("BCLR", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0880, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
-
-var defBCHG = InstrDef{
-	Mnemonic: "BCHG",
-	Forms: []FormDef{
-		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitReg("BCHG", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0140, Fields: []FieldRef{F_SrcDnRegHi, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
-			Validate:    func(a *Args) error { return validateBitImm("BCHG", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0840, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
-			},
-		},
-	},
 }
 
 var defBTST = InstrDef{
 	Mnemonic: "BTST",
 	Forms: []FormDef{
 		{
-			DefaultSize: SZ_L,
-			Sizes:       []Size{SZ_L},
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
 			Validate:    validateBitTestReg,
 			Steps: []EmitStep{
@@ -101,8 +52,8 @@ var defBTST = InstrDef{
 			},
 		},
 		{
-			DefaultSize: SZ_B,
-			Sizes:       []Size{SZ_B},
+			DefaultSize: ByteSize,
+			Sizes:       []Size{ByteSize},
 			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
 			Validate:    validateBitTestImm,
 			Steps: []EmitStep{
@@ -131,7 +82,7 @@ func validateBitImm(name string, a *Args) error {
 	if a.Src.Kind != EAkImm {
 		return fmt.Errorf("%s requires immediate source", name)
 	}
-	if err := checkImmediateRange(a.Src.Imm, SZ_B); err != nil {
+	if err := checkImmediateRange(a.Src.Imm, ByteSize); err != nil {
 		return err
 	}
 	switch a.Dst.Kind {
@@ -162,7 +113,7 @@ func validateBitTestImm(a *Args) error {
 	if a.Src.Kind != EAkImm {
 		return fmt.Errorf("BTST requires immediate source")
 	}
-	if err := checkImmediateRange(a.Src.Imm, SZ_B); err != nil {
+	if err := checkImmediateRange(a.Src.Imm, ByteSize); err != nil {
 		return err
 	}
 	switch a.Dst.Kind {
