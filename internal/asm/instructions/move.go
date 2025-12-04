@@ -4,6 +4,7 @@ import "fmt"
 
 func init() {
 	registerInstrDef(&defMOVE)
+	registerInstrDef(&defMOVEA)
 }
 
 var defMOVE = InstrDef{
@@ -40,6 +41,22 @@ var defMOVE = InstrDef{
 			},
 		},
 	}...),
+}
+
+var defMOVEA = InstrDef{
+	Mnemonic: "MOVEA",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize, LongSize},
+			OperKinds:   []OperandKind{OpkEA, OpkAn},
+			Validate:    validateMOVEA,
+			Steps: []EmitStep{
+				{WordBits: 0x0040, Fields: []FieldRef{FMoveSize, FMoveDestEA, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
+			},
+		},
+	},
 }
 
 func validateMOVE(a *Args) error {
@@ -107,6 +124,19 @@ func validateMoveUSP(a *Args) error {
 		return nil
 	}
 	return fmt.Errorf("MOVE USP requires USP and An operands")
+}
+
+func validateMOVEA(a *Args) error {
+	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkAn {
+		return fmt.Errorf("MOVEA requires An destination and source")
+	}
+	if a.Size == ByteSize {
+		return fmt.Errorf("MOVEA does not support byte size")
+	}
+	if a.Src.Kind == EAkImm {
+		return checkImmediateRange(a.Src.Imm, a.Size)
+	}
+	return nil
 }
 
 func newMoveUSPForms() []FormDef {

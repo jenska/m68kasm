@@ -7,6 +7,7 @@ func init() {
 	registerInstrDef(&defCHK)
 	registerInstrDef(&defEXG)
 	registerInstrDef(&defEXT)
+	registerInstrDef(&defSWAP)
 	registerInstrDef(&defILLEGAL)
 }
 
@@ -64,6 +65,21 @@ var defEXT = InstrDef{
 			Validate:    validateEXT,
 			Steps: []EmitStep{
 				{WordBits: 0x4800, Fields: []FieldRef{FSizeBits, FDstRegLow}},
+			},
+		},
+	},
+}
+
+var defSWAP = InstrDef{
+	Mnemonic: "SWAP",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
+			OperKinds:   []OperandKind{OpkDn},
+			Validate:    validateSWAP,
+			Steps: []EmitStep{
+				{WordBits: 0x4880, Fields: []FieldRef{FDstRegLow}},
 			},
 		},
 	},
@@ -157,6 +173,17 @@ func validateEXT(a *Args) error {
 	}
 	if a.Size == ByteSize {
 		return fmt.Errorf("EXT does not support byte size")
+	}
+	return nil
+}
+
+func validateSWAP(a *Args) error {
+	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
+		a.Dst = a.Src
+		a.Src = EAExpr{}
+	}
+	if a.Dst.Kind != EAkDn {
+		return fmt.Errorf("SWAP requires Dn destination")
 	}
 	return nil
 }
