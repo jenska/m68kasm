@@ -15,21 +15,21 @@ func newStatusDef(name string, wordb, wordw uint16) *InstrDef {
 			{
 				DefaultSize: ByteSize,
 				Sizes:       []Size{ByteSize},
-				OperKinds:   []OperandKind{OPK_Imm, OPK_CCR},
+				OperKinds:   []OperandKind{OpkImm, OpkCCR},
 				Validate:    validateCCRImmediate,
 				Steps: []EmitStep{
 					{WordBits: wordb},
-					{Trailer: []TrailerItem{T_ImmSized}},
+					{Trailer: []TrailerItem{TImmSized}},
 				},
 			},
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{WordSize},
-				OperKinds:   []OperandKind{OPK_Imm, OPK_SR},
+				OperKinds:   []OperandKind{OpkImm, OpkSR},
 				Validate:    validateSRImmediate,
 				Steps: []EmitStep{
 					{WordBits: wordw},
-					{Trailer: []TrailerItem{T_ImmSized}},
+					{Trailer: []TrailerItem{TImmSized}},
 				},
 			},
 		},

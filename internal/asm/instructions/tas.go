@@ -10,11 +10,11 @@ var defTAS = InstrDef{
 		{
 			DefaultSize: ByteSize,
 			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate:    validateDataAlterable("TAS"),
 			Steps: []EmitStep{
-				{WordBits: 0x4AC0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4AC0, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},

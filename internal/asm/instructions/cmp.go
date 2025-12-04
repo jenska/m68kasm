@@ -14,11 +14,11 @@ var defCMP = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+			OperKinds:   []OperandKind{OpkEA, OpkDn},
 			Validate:    validateCMP,
 			Steps: []EmitStep{
-				{WordBits: 0xB000, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				{WordBits: 0xB000, Fields: []FieldRef{FDnReg, FSizeBits, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 	},
@@ -30,10 +30,10 @@ var defCMPM = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_EA},
+			OperKinds:   []OperandKind{OpkEA, OpkEA},
 			Validate:    validateCMPM,
 			Steps: []EmitStep{
-				{WordBits: 0xB108, Fields: []FieldRef{F_AnReg, F_SizeBits, F_SrcAnReg}},
+				{WordBits: 0xB108, Fields: []FieldRef{FAnReg, FSizeBits, FSrcAnReg}},
 			},
 		},
 	},
@@ -45,11 +45,11 @@ var defCMPI = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
+			OperKinds:   []OperandKind{OpkImm, OpkEA},
 			Validate:    validateCMPI,
 			Steps: []EmitStep{
-				{WordBits: 0x0C00, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
+				{WordBits: 0x0C00, Fields: []FieldRef{FSizeBits, FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
 			},
 		},
 	},

@@ -16,11 +16,11 @@ var defCHK = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+			OperKinds:   []OperandKind{OpkEA, OpkDn},
 			Validate:    validateCHK,
 			Steps: []EmitStep{
-				{WordBits: 0x4180, Fields: []FieldRef{F_DnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt}},
+				{WordBits: 0x4180, Fields: []FieldRef{FDnReg, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt}},
 			},
 		},
 	},
@@ -42,11 +42,11 @@ var defCLR = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate:    validateDataAlterable("CLR"),
 			Steps: []EmitStep{
-				{WordBits: 0x4200, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4200, Fields: []FieldRef{FSizeBits, FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},
@@ -60,10 +60,10 @@ var defEXT = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn},
+			OperKinds:   []OperandKind{OpkDn},
 			Validate:    validateEXT,
 			Steps: []EmitStep{
-				{WordBits: 0x4800, Fields: []FieldRef{F_SizeBits, F_DstRegLow}},
+				{WordBits: 0x4800, Fields: []FieldRef{FSizeBits, FDstRegLow}},
 			},
 		},
 	},
@@ -107,9 +107,9 @@ func newEXGForms() []FormDef {
 		wordBits  uint16
 		fields    []FieldRef
 	}{
-		{[]OperandKind{OPK_Dn, OPK_Dn}, validateEXGData, 0xC140, []FieldRef{F_DnReg, F_SrcDnReg}},
-		{[]OperandKind{OPK_An, OPK_An}, validateEXGAddr, 0xC148, []FieldRef{F_AnReg, F_SrcAnReg}},
-		{[]OperandKind{OPK_Dn, OPK_An}, validateEXGMixed, 0xC188, []FieldRef{F_SrcDnRegHi, F_DstRegLow}},
+		{[]OperandKind{OpkDn, OpkDn}, validateEXGData, 0xC140, []FieldRef{FDnReg, FSrcDnReg}},
+		{[]OperandKind{OpkAn, OpkAn}, validateEXGAddr, 0xC148, []FieldRef{FAnReg, FSrcAnReg}},
+		{[]OperandKind{OpkDn, OpkAn}, validateEXGMixed, 0xC188, []FieldRef{FSrcDnRegHi, FDstRegLow}},
 	}
 
 	formDefs := make([]FormDef, 0, len(forms))

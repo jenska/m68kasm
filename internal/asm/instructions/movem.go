@@ -12,21 +12,21 @@ var defMOVEM = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_RegList},
+			OperKinds:   []OperandKind{OpkEA, OpkRegList},
 			Validate:    validateMovemLoad,
 			Steps: []EmitStep{
-				{WordBits: 0x4C80, Fields: []FieldRef{F_MovemSize, F_SrcEA}},
-				{Trailer: []TrailerItem{T_DstRegMask, T_SrcEAExt}},
+				{WordBits: 0x4C80, Fields: []FieldRef{FMovemSize, FSrcEA}},
+				{Trailer: []TrailerItem{TDstRegMask, TSrcEAExt}},
 			},
 		},
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_RegList, OPK_EA},
+			OperKinds:   []OperandKind{OpkRegList, OpkEA},
 			Validate:    validateMovemStore,
 			Steps: []EmitStep{
-				{WordBits: 0x4880, Fields: []FieldRef{F_MovemSize, F_DstEA}},
-				{Trailer: []TrailerItem{T_SrcRegMask, T_DstEAExt}},
+				{WordBits: 0x4880, Fields: []FieldRef{FMovemSize, FDstEA}},
+				{Trailer: []TrailerItem{TSrcRegMask, TDstEAExt}},
 			},
 		},
 	},

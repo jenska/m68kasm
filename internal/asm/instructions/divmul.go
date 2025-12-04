@@ -16,11 +16,11 @@ func newDivMulDef(name string, wordBits uint16) *InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{WordSize},
-				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+				OperKinds:   []OperandKind{OpkEA, OpkDn},
 				Validate:    func(a *Args) error { return validateDivMul(name, a) },
 				Steps: []EmitStep{
-					{WordBits: wordBits, Fields: []FieldRef{F_DnReg, F_SrcEA}},
-					{Trailer: []TrailerItem{T_SrcEAExt}},
+					{WordBits: wordBits, Fields: []FieldRef{FDnReg, FSrcEA}},
+					{Trailer: []TrailerItem{TSrcEAExt}},
 				},
 			},
 		},

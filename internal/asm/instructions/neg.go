@@ -17,11 +17,11 @@ func newNegLikeDef(name string, wordBits uint16) InstrDef {
 			{
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
-				OperKinds:   []OperandKind{OPK_EA},
+				OperKinds:   []OperandKind{OpkEA},
 				Validate:    validateNegLike(name),
 				Steps: []EmitStep{
-					{WordBits: wordBits, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-					{Trailer: []TrailerItem{T_DstEAExt}},
+					{WordBits: wordBits, Fields: []FieldRef{FSizeBits, FDstEA}},
+					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
 		},

@@ -12,13 +12,13 @@ var defJMP = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate: func(a *Args) error {
 				return validateControlEA("JMP", a)
 			},
 			Steps: []EmitStep{
-				{WordBits: 0x4EC0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4EC0, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},
@@ -30,11 +30,11 @@ var defJSR = InstrDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate:    func(a *Args) error { return validateControlEA("JSR", a) },
 			Steps: []EmitStep{
-				{WordBits: 0x4E80, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4E80, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},

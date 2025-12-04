@@ -15,17 +15,17 @@ func newBcdDef(name string, regBits, memBits uint16) *InstrDef {
 			{
 				DefaultSize: ByteSize,
 				Sizes:       []Size{ByteSize},
-				OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
+				OperKinds:   []OperandKind{OpkDn, OpkDn},
 				Steps: []EmitStep{
-					{WordBits: regBits, Fields: []FieldRef{F_DnReg, F_SrcDnReg}},
+					{WordBits: regBits, Fields: []FieldRef{FDnReg, FSrcDnReg}},
 				},
 			},
 			{
 				DefaultSize: ByteSize,
 				Sizes:       []Size{ByteSize},
-				OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
+				OperKinds:   []OperandKind{OpkPredecAn, OpkPredecAn},
 				Steps: []EmitStep{
-					{WordBits: memBits, Fields: []FieldRef{F_AnReg, F_SrcAnReg}},
+					{WordBits: memBits, Fields: []FieldRef{FAnReg, FSrcAnReg}},
 				},
 			},
 		},
@@ -38,11 +38,11 @@ var defNBCD = InstrDef{
 		{
 			DefaultSize: ByteSize,
 			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_EA},
+			OperKinds:   []OperandKind{OpkEA},
 			Validate:    validateNbcd,
 			Steps: []EmitStep{
-				{WordBits: 0x4800, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+				{WordBits: 0x4800, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
 	},
