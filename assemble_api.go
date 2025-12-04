@@ -3,6 +3,7 @@ package m68kasm
 import (
 	"bytes"
 	"io"
+	"strings"
 
 	internal "github.com/jenska/m68kasm/internal/asm"
 )
@@ -125,4 +126,42 @@ func AssembleFileWithListingInto(dst []byte, path string) ([]byte, []ListingEntr
 		return nil, nil, err
 	}
 	return internal.AssembleWithListingInto(dst, prog)
+}
+
+// AssembleSRecord parses Motorola 68k assembly source from r and returns a
+// Motorola S-record representation using the current assembler version as the
+// header.
+func AssembleSRecord(r io.Reader) ([]byte, error) {
+	prog, err := internal.Parse(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return internal.AssembleSRecord(prog, srecHeader())
+}
+
+// AssembleBytesSRecord assembles Motorola 68k source provided as a byte slice
+// and returns a Motorola S-record representation.
+func AssembleBytesSRecord(src []byte) ([]byte, error) {
+	return AssembleSRecord(bytes.NewReader(src))
+}
+
+// AssembleStringSRecord assembles Motorola 68k source provided as a string and
+// returns a Motorola S-record representation.
+func AssembleStringSRecord(src string) ([]byte, error) {
+	return AssembleSRecord(strings.NewReader(src))
+}
+
+// AssembleFileSRecord assembles a Motorola 68k source file specified by path
+// and returns a Motorola S-record representation.
+func AssembleFileSRecord(path string) ([]byte, error) {
+	prog, err := internal.ParseFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return internal.AssembleSRecord(prog, srecHeader())
+}
+
+func srecHeader() string {
+	return "m68kasm v" + Version
 }

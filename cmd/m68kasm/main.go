@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jenska/m68kasm"
 	"github.com/jenska/m68kasm/internal/asm"
 )
 
@@ -14,9 +15,22 @@ func main() {
 	in := flag.String("i", "", "input assembly file")
 	out := flag.String("o", "out.bin", "output binary file")
 	list := flag.String("list", "", "write listing output (use '-' for stdout)")
+	format := flag.String("format", "bin", "output format: bin or srec")
+	showVersion := flag.Bool("version", false, "print assembler version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("m68kasm v%s\n", m68kasm.Version)
+		return
+	}
+
+	fmtFormat := strings.ToLower(*format)
+	if fmtFormat != "bin" && fmtFormat != "srec" {
+		fmt.Println("unknown format:", *format)
+		os.Exit(1)
+	}
 	if *in == "" {
-		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst]")
+		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst] [--format bin|srec]")
 		os.Exit(1)
 	}
 	prog, err := asm.ParseFile(*in)
@@ -28,7 +42,8 @@ func main() {
 		listing []asm.ListingEntry
 		bytes   []byte
 	)
-	if *list != "" {
+	wantListing := *list != "" || fmtFormat == "srec"
+	if wantListing {
 		bytes, listing, err = asm.AssembleWithListing(prog)
 	} else {
 		bytes, err = asm.Assemble(prog)
@@ -37,9 +52,20 @@ func main() {
 		fmt.Println("assemble error:", err)
 		os.Exit(3)
 	}
-	if err := os.WriteFile(*out, bytes, 0644); err != nil {
-		fmt.Println("write error:", err)
-		os.Exit(4)
+	if fmtFormat == "srec" {
+		header := fmt.Sprintf("m68kasm v%s", m68kasm.Version)
+		srec := asm.FormatSRecords(listing, prog.Origin, header)
+		if err := os.WriteFile(*out, srec, 0644); err != nil {
+			fmt.Println("write error:", err)
+			os.Exit(4)
+		}
+		fmt.Printf("assembled %d bytes into S-record %s\n", len(bytes), *out)
+	} else {
+		if err := os.WriteFile(*out, bytes, 0644); err != nil {
+			fmt.Println("write error:", err)
+			os.Exit(4)
+		}
+		fmt.Printf("wrote %d bytes to %s\n", len(bytes), *out)
 	}
 	if *list != "" {
 		if err := writeListing(*list, listing, *in); err != nil {
@@ -47,7 +73,6 @@ func main() {
 			os.Exit(5)
 		}
 	}
-	fmt.Printf("wrote %d bytes to %s\n", len(bytes), *out)
 }
 
 func writeListing(path string, entries []asm.ListingEntry, srcPath string) error {

@@ -79,3 +79,31 @@ func Test_Assemble_Hello_Listing(t *testing.T) {
 		}
 	}
 }
+
+// Test_Assemble_SRecord_Output ensures the CLI can emit Motorola S-record text.
+func Test_Assemble_SRecord_Output(t *testing.T) {
+	root := repoRoot(t)
+	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+
+	outDir := t.TempDir()
+	out := filepath.Join(outDir, "out.srec")
+
+	cmd := exec.Command("go", "run", "./cmd/m68kasm", "-i", src, "-o", out, "--format", "srec")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if outBytes, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("CLI failed: %v\nOUTPUT:\n%s", err, string(outBytes))
+	}
+
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("cannot read s-record file: %v", err)
+	}
+
+	text := string(data)
+	for _, want := range []string{"S0", "S3", "S7", "00000010", "6D36386B61736D"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("s-record output missing %q\n%s", want, text)
+		}
+	}
+}

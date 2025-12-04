@@ -98,3 +98,17 @@ func TestAssembleStringWithListing(t *testing.T) {
 		t.Fatalf("unexpected second listing entry: %+v", listing[1])
 	}
 }
+
+func TestAssembleStringSRecord(t *testing.T) {
+	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
+
+	got, err := AssembleStringSRecord(src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := "S01100006D36386B61736D2076302E342E30E1\nS3080000100011223381\nS70500001000EA\n"
+	if string(got) != want {
+		t.Fatalf("unexpected S-record output:\n%s\nwant:\n%s", string(got), want)
+	}
+}
