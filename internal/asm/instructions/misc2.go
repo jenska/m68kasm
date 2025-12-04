@@ -52,38 +52,7 @@ var defCLR = InstrDef{
 	},
 }
 
-var defEXG = InstrDef{
-	Mnemonic: "EXG",
-	Forms: []FormDef{
-		{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateEXGData,
-			Steps: []EmitStep{
-				{WordBits: 0xC140, Fields: []FieldRef{F_DnReg, F_SrcDnReg}},
-			},
-		},
-		{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_An, OPK_An},
-			Validate:    validateEXGAddr,
-			Steps: []EmitStep{
-				{WordBits: 0xC148, Fields: []FieldRef{F_AnReg, F_SrcAnReg}},
-			},
-		},
-		{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_An},
-			Validate:    validateEXGMixed,
-			Steps: []EmitStep{
-				{WordBits: 0xC188, Fields: []FieldRef{F_SrcDnRegHi, F_DstRegLow}},
-			},
-		},
-	},
-}
+var defEXG = InstrDef{Mnemonic: "EXG", Forms: newEXGForms()}
 
 var defEXT = InstrDef{
 	Mnemonic: "EXT",
@@ -129,6 +98,32 @@ func validateDataAlterable(name string) func(*Args) error {
 			return nil
 		}
 	}
+}
+
+func newEXGForms() []FormDef {
+	forms := []struct {
+		operKinds []OperandKind
+		validate  func(*Args) error
+		wordBits  uint16
+		fields    []FieldRef
+	}{
+		{[]OperandKind{OPK_Dn, OPK_Dn}, validateEXGData, 0xC140, []FieldRef{F_DnReg, F_SrcDnReg}},
+		{[]OperandKind{OPK_An, OPK_An}, validateEXGAddr, 0xC148, []FieldRef{F_AnReg, F_SrcAnReg}},
+		{[]OperandKind{OPK_Dn, OPK_An}, validateEXGMixed, 0xC188, []FieldRef{F_SrcDnRegHi, F_DstRegLow}},
+	}
+
+	formDefs := make([]FormDef, 0, len(forms))
+	for _, f := range forms {
+		formDefs = append(formDefs, FormDef{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   f.operKinds,
+			Validate:    f.validate,
+			Steps:       []EmitStep{{WordBits: f.wordBits, Fields: f.fields}},
+		})
+	}
+
+	return formDefs
 }
 
 func validateEXGData(a *Args) error {

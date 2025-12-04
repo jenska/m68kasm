@@ -3,57 +3,33 @@ package instructions
 import "fmt"
 
 func init() {
-	registerInstrDef(&defABCD)
-	registerInstrDef(&defSBCD)
+	registerInstrDef(newBcdDef("ABCD", 0xC100, 0xC108))
+	registerInstrDef(newBcdDef("SBCD", 0x8100, 0x8108))
 	registerInstrDef(&defNBCD)
 }
 
-var defABCD = InstrDef{
-	Mnemonic: "ABCD",
-	Forms: []FormDef{
-		{
-			DefaultSize: ByteSize,
-			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    nil,
-			Steps: []EmitStep{
-				{WordBits: 0xC100, Fields: []FieldRef{F_DnReg, F_SrcDnReg}},
+func newBcdDef(name string, regBits, memBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: ByteSize,
+				Sizes:       []Size{ByteSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
+				Steps: []EmitStep{
+					{WordBits: regBits, Fields: []FieldRef{F_DnReg, F_SrcDnReg}},
+				},
+			},
+			{
+				DefaultSize: ByteSize,
+				Sizes:       []Size{ByteSize},
+				OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
+				Steps: []EmitStep{
+					{WordBits: memBits, Fields: []FieldRef{F_AnReg, F_SrcAnReg}},
+				},
 			},
 		},
-		{
-			DefaultSize: ByteSize,
-			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
-			Validate:    nil,
-			Steps: []EmitStep{
-				{WordBits: 0xC108, Fields: []FieldRef{F_AnReg, F_SrcAnReg}},
-			},
-		},
-	},
-}
-
-var defSBCD = InstrDef{
-	Mnemonic: "SBCD",
-	Forms: []FormDef{
-		{
-			DefaultSize: ByteSize,
-			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    nil,
-			Steps: []EmitStep{
-				{WordBits: 0x8100, Fields: []FieldRef{F_DnReg, F_SrcDnReg}},
-			},
-		},
-		{
-			DefaultSize: ByteSize,
-			Sizes:       []Size{ByteSize},
-			OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
-			Validate:    nil,
-			Steps: []EmitStep{
-				{WordBits: 0x8108, Fields: []FieldRef{F_AnReg, F_SrcAnReg}},
-			},
-		},
-	},
+	}
 }
 
 var defNBCD = InstrDef{
