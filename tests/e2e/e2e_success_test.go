@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -41,4 +42,40 @@ func Test_Assemble_Hello(t *testing.T) {
 	}
 	sum := sha256.Sum256(data)
 	t.Logf("out.bin bytes=%d sha256=%s", len(data), hex.EncodeToString(sum[:]))
+}
+
+// Test_Assemble_Hello_Listing ensures the CLI can emit a source listing file
+// alongside the assembled binary.
+func Test_Assemble_Hello_Listing(t *testing.T) {
+	root := repoRoot(t)
+	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+
+	outDir := t.TempDir()
+	out := filepath.Join(outDir, "out.bin")
+	listFile := filepath.Join(outDir, "out.lst")
+
+	cmd := exec.Command("go", "run", "./cmd/m68kasm", "-i", src, "-o", out, "--list", listFile)
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if outBytes, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("CLI failed: %v\nOUTPUT:\n%s", err, string(outBytes))
+	}
+
+	data, err := os.ReadFile(listFile)
+	if err != nil {
+		t.Fatalf("cannot read listing file: %v", err)
+	}
+
+	listing := string(data)
+	for _, want := range []string{
+		"Line  Address",
+		"0x00000010",
+		"76 07",
+		"0x00000028",
+		"11 22 33 44",
+	} {
+		if !strings.Contains(listing, want) {
+			t.Fatalf("listing missing %q\n%s", want, listing)
+		}
+	}
 }

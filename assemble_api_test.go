@@ -72,3 +72,29 @@ func TestAssembleStringInto(t *testing.T) {
 		t.Fatalf("expected output to reuse destination slice")
 	}
 }
+
+func TestAssembleStringWithListing(t *testing.T) {
+	src := "label:\n.WORD 0\nMOVE.B label,D0\n"
+
+	got, listing, err := AssembleStringWithListing(src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	wanted := []byte{0x00, 0x00, 0x10, 0x39, 0x00, 0x00, 0x00, 0x00}
+	if !bytes.Equal(got, wanted) {
+		t.Fatalf("unexpected encoding: got %x want %x", got, wanted)
+	}
+
+	if len(listing) != 2 {
+		t.Fatalf("expected 2 listing entries, got %d", len(listing))
+	}
+
+	if listing[0].Line != 2 || listing[0].PC != 0 || !bytes.Equal(listing[0].Bytes, []byte{0x00, 0x00}) {
+		t.Fatalf("unexpected first listing entry: %+v", listing[0])
+	}
+
+	if listing[1].Line != 3 || listing[1].PC != 2 || !bytes.Equal(listing[1].Bytes, []byte{0x10, 0x39, 0x00, 0x00, 0x00, 0x00}) {
+		t.Fatalf("unexpected second listing entry: %+v", listing[1])
+	}
+}
