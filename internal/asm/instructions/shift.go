@@ -2,288 +2,51 @@ package instructions
 
 import "fmt"
 
-// TODO remove redundant code
 func init() {
-	registerInstrDef(&defASR)
-	registerInstrDef(&defASL)
-	registerInstrDef(&defLSR)
-	registerInstrDef(&defLSL)
-	registerInstrDef(&defROXR)
-	registerInstrDef(&defROXL)
-	registerInstrDef(&defROR)
-	registerInstrDef(&defROL)
+	registerInstrDef(newShiftDef("ASR", 0xE000, 0xE020, 0xE0C0))
+	registerInstrDef(newShiftDef("ASL", 0xE100, 0xE120, 0xE1C0))
+	registerInstrDef(newShiftDef("LSR", 0xE008, 0xE028, 0xE2C0))
+	registerInstrDef(newShiftDef("LSL", 0xE108, 0xE128, 0xE3C0))
+	registerInstrDef(newShiftDef("ROXR", 0xE010, 0xE030, 0xE4C0))
+	registerInstrDef(newShiftDef("ROXL", 0xE110, 0xE130, 0xE5C0))
+	registerInstrDef(newShiftDef("ROR", 0xE018, 0xE038, 0xE6C0))
+	registerInstrDef(newShiftDef("ROL", 0xE118, 0xE138, 0xE7C0))
 }
 
-var defASR = InstrDef{
-	Mnemonic: "ASR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE000, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
+func newShiftDef(name string, immBits, regBits, memBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
+				Validate:    validateShiftImmediate,
+				Steps: []EmitStep{
+					{WordBits: immBits, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
+				Validate:    validateShiftRegister,
+				Steps: []EmitStep{
+					{WordBits: regBits, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
+				OperKinds:   []OperandKind{OPK_EA},
+				Validate:    validateShiftMemory,
+				Steps: []EmitStep{
+					{WordBits: memBits, Fields: []FieldRef{F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE020, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE0C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defASL = InstrDef{
-	Mnemonic: "ASL",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE100, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE120, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE1C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defLSR = InstrDef{
-	Mnemonic: "LSR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE008, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE028, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE2C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defLSL = InstrDef{
-	Mnemonic: "LSL",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE108, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE128, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE3C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defROXR = InstrDef{
-	Mnemonic: "ROXR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE010, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE030, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE4C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defROXL = InstrDef{
-	Mnemonic: "ROXL",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE110, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE130, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE5C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defROR = InstrDef{
-	Mnemonic: "ROR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE018, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE038, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE6C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defROL = InstrDef{
-	Mnemonic: "ROL",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_Dn},
-			Validate:    validateShiftImmediate,
-			Steps: []EmitStep{
-				{WordBits: 0xE118, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    validateShiftRegister,
-			Steps: []EmitStep{
-				{WordBits: 0xE138, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateShiftMemory,
-			Steps: []EmitStep{
-				{WordBits: 0xE7C0, Fields: []FieldRef{F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
+	}
 }
 
 func validateShiftImmediate(a *Args) error {

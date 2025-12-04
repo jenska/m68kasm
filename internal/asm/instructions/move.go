@@ -8,25 +8,7 @@ func init() {
 
 var defMOVE = InstrDef{
 	Mnemonic: "MOVE",
-	Forms: []FormDef{
-		{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_USP, OPK_An},
-			Validate:    validateMoveUSP,
-			Steps: []EmitStep{
-				{WordBits: 0x4E68, Fields: []FieldRef{F_DstRegLow}},
-			},
-		},
-		{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   []OperandKind{OPK_An, OPK_USP},
-			Validate:    validateMoveUSP,
-			Steps: []EmitStep{
-				{WordBits: 0x4E60, Fields: []FieldRef{F_SrcAnReg}},
-			},
-		},
+	Forms: append(newMoveUSPForms(), []FormDef{
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
@@ -57,7 +39,7 @@ var defMOVE = InstrDef{
 				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm, T_DstEAExt}},
 			},
 		},
-	},
+	}...),
 }
 
 func validateMOVE(a *Args) error {
@@ -125,4 +107,23 @@ func validateMoveUSP(a *Args) error {
 		return nil
 	}
 	return fmt.Errorf("MOVE USP requires USP and An operands")
+}
+
+func newMoveUSPForms() []FormDef {
+	return []FormDef{
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OPK_USP, OPK_An},
+			Validate:    validateMoveUSP,
+			Steps:       []EmitStep{{WordBits: 0x4E68, Fields: []FieldRef{F_DstRegLow}}},
+		},
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OPK_An, OPK_USP},
+			Validate:    validateMoveUSP,
+			Steps:       []EmitStep{{WordBits: 0x4E60, Fields: []FieldRef{F_SrcAnReg}}},
+		},
+	}
 }

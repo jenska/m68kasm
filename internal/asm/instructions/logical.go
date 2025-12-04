@@ -2,96 +2,75 @@ package instructions
 
 import "fmt"
 
-// TODO remove redundant code
 func init() {
-	registerInstrDef(&defAND)
-	registerInstrDef(&defOR)
-	registerInstrDef(&defEOR)
-	registerInstrDef(&defNOT)
+	registerInstrDef(newLogicDef("AND", 0xC000, 0xC100))
+	registerInstrDef(newLogicDef("OR", 0x8000, 0x8100))
+	registerInstrDef(newLogicEorDef())
+	registerInstrDef(newLogicNotDef())
 }
 
-var defAND = InstrDef{
-	Mnemonic: "AND",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateLogicToDn("AND", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xC000, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+func newLogicDef(name string, toDnBits, dnToMemBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+				Validate:    func(a *Args) error { return validateLogicToDn(name, a) },
+				Steps: []EmitStep{
+					{WordBits: toDnBits, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
+					{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				Validate:    func(a *Args) error { return validateLogicDnToMemory(name, a) },
+				Steps: []EmitStep{
+					{WordBits: dnToMemBits, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateLogicDnToMemory("AND", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xC100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
+	}
 }
 
-var defOR = InstrDef{
-	Mnemonic: "OR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateLogicToDn("OR", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x8000, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+func newLogicEorDef() *InstrDef {
+	return &InstrDef{
+		Mnemonic: "EOR",
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				Validate:    validateEor,
+				Steps: []EmitStep{
+					{WordBits: 0xB100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateLogicDnToMemory("OR", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x8100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
+	}
 }
 
-var defEOR = InstrDef{
-	Mnemonic: "EOR",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    validateEor,
-			Steps: []EmitStep{
-				{WordBits: 0xB100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+func newLogicNotDef() *InstrDef {
+	return &InstrDef{
+		Mnemonic: "NOT",
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_EA},
+				Validate:    validateNot,
+				Steps: []EmitStep{
+					{WordBits: 0x4600, Fields: []FieldRef{F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
 			},
 		},
-	},
-}
-
-var defNOT = InstrDef{
-	Mnemonic: "NOT",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA},
-			Validate:    validateNot,
-			Steps: []EmitStep{
-				{WordBits: 0x4600, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
+	}
 }
 
 func validateLogicToDn(name string, a *Args) error {

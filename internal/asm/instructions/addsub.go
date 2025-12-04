@@ -2,90 +2,135 @@ package instructions
 
 import "fmt"
 
-// TODO remove redundant code
 func init() {
-	registerInstrDef(&defADD)
-	registerInstrDef(&defSUB)
-	registerInstrDef(&defADDQ)
-	registerInstrDef(&defSUBQ)
-	registerInstrDef(&defADDI)
-	registerInstrDef(&defSUBI)
-	registerInstrDef(&defADDA)
-	registerInstrDef(&defSUBA)
-	registerInstrDef(&defSUBX)
-	registerInstrDef(&defADDX)
+	registerInstrDef(newAddSubDef("ADD", 0xD000, 0xD100, 0xD0C0))
+	registerInstrDef(newAddSubDef("SUB", 0x9000, 0x9100, 0x90C0))
+	registerInstrDef(newAddSubQuickDef("ADDQ", 0x5000))
+	registerInstrDef(newAddSubQuickDef("SUBQ", 0x5100))
+	registerInstrDef(newAddSubImmDef("ADDI", 0x0600))
+	registerInstrDef(newAddSubImmDef("SUBI", 0x0400))
+	registerInstrDef(newAddSubAddrDef("ADDA", 0xD0C0))
+	registerInstrDef(newAddSubAddrDef("SUBA", 0x90C0))
+	registerInstrDef(newAddSubXDef("SUBX", 0x9100, 0x9108))
+	registerInstrDef(newAddSubXDef("ADDX", 0xD100, 0xD108))
 }
 
-var defADD = InstrDef{
-	Mnemonic: "ADD",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateAddSubToDn("ADD", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xD000, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+func newAddSubDef(name string, toDnBits, dnToEABits, addrBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
+				Validate:    func(a *Args) error { return validateAddSubToDn(name, a) },
+				Steps: []EmitStep{
+					{WordBits: toDnBits, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
+					{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
+				Validate:    func(a *Args) error { return validateAddSubDnToEA(name, a) },
+				Steps: []EmitStep{
+					{WordBits: dnToEABits, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_EA, OPK_An},
+				Validate:    func(a *Args) error { return validateAddSubAddr(name, a) },
+				Steps: []EmitStep{
+					{WordBits: addrBits, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
+					{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubDnToEA("ADD", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xD100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_An},
-			Validate:    func(a *Args) error { return validateAddSubAddr("ADD", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xD0C0, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
-			},
-		},
-	},
+	}
 }
 
-var defSUB = InstrDef{
-	Mnemonic: "SUB",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_Dn},
-			Validate:    func(a *Args) error { return validateAddSubToDn("SUB", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x9000, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+func newAddSubQuickDef(name string, wordBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_ImmQuick, OPK_EA},
+				Validate:    func(a *Args) error { return validateAddSubQuick(name, a) },
+				Steps: []EmitStep{
+					{WordBits: wordBits, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubDnToEA("SUB", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x9100, Fields: []FieldRef{F_SrcDnRegHi, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
+	}
+}
+
+func newAddSubImmDef(name string, wordBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
+				Validate:    func(a *Args) error { return validateAddSubImm(name, a) },
+				Steps: []EmitStep{
+					{WordBits: wordBits, Fields: []FieldRef{F_SizeBits, F_DstEA}},
+					{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
+				},
 			},
 		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_An},
-			Validate:    func(a *Args) error { return validateAddSubAddr("SUB", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x90C0, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+	}
+}
+
+func newAddSubAddrDef(name string, wordBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_EA, OPK_An},
+				Validate:    func(a *Args) error { return validateAddSubAddr(name, a) },
+				Steps: []EmitStep{
+					{WordBits: wordBits, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
+					{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
+				},
 			},
 		},
-	},
+	}
+}
+
+func newAddSubXDef(name string, regBits, predecBits uint16) *InstrDef {
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
+				Validate:    func(a *Args) error { return validateAddSubX(name, a, false) },
+				Steps: []EmitStep{
+					{WordBits: regBits, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcDnReg}},
+				},
+			},
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{ByteSize, WordSize, LongSize},
+				OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
+				Validate:    func(a *Args) error { return validateAddSubX(name, a, true) },
+				Steps: []EmitStep{
+					{WordBits: predecBits, Fields: []FieldRef{F_AnReg, F_SizeBits, F_SrcAnReg}},
+				},
+			},
+		},
+	}
 }
 
 func validateAddSubToDn(name string, a *Args) error {
@@ -130,102 +175,6 @@ func validateAddSubAddr(name string, a *Args) error {
 	return nil
 }
 
-var defADDQ = InstrDef{
-	Mnemonic: "ADDQ",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubQuick("ADDQ", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x5000, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defSUBQ = InstrDef{
-	Mnemonic: "SUBQ",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_ImmQuick, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubQuick("SUBQ", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x5100, Fields: []FieldRef{F_QuickData, F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt}},
-			},
-		},
-	},
-}
-
-var defADDI = InstrDef{
-	Mnemonic: "ADDI",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubImm("ADDI", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0600, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
-
-var defSUBI = InstrDef{
-	Mnemonic: "SUBI",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
-			Validate:    func(a *Args) error { return validateAddSubImm("SUBI", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x0400, Fields: []FieldRef{F_SizeBits, F_DstEA}},
-				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
-
-var defADDA = InstrDef{
-	Mnemonic: "ADDA",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_An},
-			Validate:    func(a *Args) error { return validateAddSubAddr("ADDA", a) },
-			Steps: []EmitStep{
-				{WordBits: 0xD0C0, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
-
-var defSUBA = InstrDef{
-	Mnemonic: "SUBA",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_EA, OPK_An},
-			Validate:    func(a *Args) error { return validateAddSubAddr("SUBA", a) },
-			Steps: []EmitStep{
-				{WordBits: 0x90C0, Fields: []FieldRef{F_AddaSize, F_AnReg, F_SrcEA}},
-				{Trailer: []TrailerItem{T_SrcEAExt, T_SrcImm}},
-			},
-		},
-	},
-}
-
 func validateAddSubQuick(name string, a *Args) error {
 	if a.Src.Imm < 1 || a.Src.Imm > 8 {
 		return fmt.Errorf("%s immediate out of range: %d", name, a.Src.Imm)
@@ -240,54 +189,6 @@ func validateAddSubQuick(name string, a *Args) error {
 		return fmt.Errorf("%s.B not allowed for address register", name)
 	}
 	return nil
-}
-
-var defSUBX = InstrDef{
-	Mnemonic: "SUBX",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    func(a *Args) error { return validateAddSubX("SUBX", a, false) },
-			Steps: []EmitStep{
-				{WordBits: 0x9100, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcDnReg}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
-			Validate:    func(a *Args) error { return validateAddSubX("SUBX", a, true) },
-			Steps: []EmitStep{
-				{WordBits: 0x9108, Fields: []FieldRef{F_AnReg, F_SizeBits, F_SrcAnReg}},
-			},
-		},
-	},
-}
-
-var defADDX = InstrDef{
-	Mnemonic: "ADDX",
-	Forms: []FormDef{
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_Dn, OPK_Dn},
-			Validate:    func(a *Args) error { return validateAddSubX("ADDX", a, false) },
-			Steps: []EmitStep{
-				{WordBits: 0xD100, Fields: []FieldRef{F_DnReg, F_SizeBits, F_SrcDnReg}},
-			},
-		},
-		{
-			DefaultSize: WordSize,
-			Sizes:       []Size{ByteSize, WordSize, LongSize},
-			OperKinds:   []OperandKind{OPK_PredecAn, OPK_PredecAn},
-			Validate:    func(a *Args) error { return validateAddSubX("ADDX", a, true) },
-			Steps: []EmitStep{
-				{WordBits: 0xD108, Fields: []FieldRef{F_AnReg, F_SizeBits, F_SrcAnReg}},
-			},
-		},
-	},
 }
 
 func validateAddSubX(name string, a *Args, predec bool) error {
