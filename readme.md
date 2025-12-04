@@ -16,16 +16,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass assembler with deterministic binary output  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
-- Implemented instructions (selected):
-  - Data movement and addressing: `MOVE`, `MOVEQ`, `MOVEM`, `MOVEP`, `LEA`, `PEA`
-  - Control transfer: `JMP`, `JSR`
-  - Arithmetic: `ADD`, `SUB`, `ADDQ`, `SUBQ`, `ADDX`, `SUBX`, `NEGX`, `ABCD`, `SBCD`, `MULS`, `MULU`, `DIVS`, `DIVU`
-  - Logical and bit operations: `AND`, `OR`, `EOR`, `NOT`, `ORI`/`ANDI`/`EORI` to `CCR` and `SR`, `BSET`, `BCLR`, `BCHG`, `BTST`, `TAS`
-  - Comparison and tests: `CMP`, `CMPI`, `CHK`, `TST`
-  - Stack framing: `LINK`, `UNLK`
-  - Branching: `BRA`, `BSR`, all `Bcc` conditions, loop counters (`DBcc` family)
-  - Condition code setting: all `Scc` conditions (`ST`, `SF`, `SNE`, etc.)
-  - System and traps: `NOP`, `RESET`, `STOP`, `TRAP`, `TRAPV`, `RTS`, `RTE`
+- Supports all mnemonics of 68000 CPU
 - Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
@@ -33,7 +24,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
 
 ### Planned for Upcoming Releases
-- Support all mnemonics of 68000 CPU
+- Supports all mnemonics of 68000 CPU
 - Automated tests and regression validation
 
 ---
