@@ -5,6 +5,7 @@ import "fmt"
 func init() {
 	registerInstrDef(&defCMP)
 	registerInstrDef(&defCMPM)
+	registerInstrDef(&defCMPI)
 }
 
 var defCMP = InstrDef{
@@ -38,6 +39,22 @@ var defCMPM = InstrDef{
 	},
 }
 
+var defCMPI = InstrDef{
+	Mnemonic: "CMPI",
+	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
+			OperKinds:   []OperandKind{OPK_Imm, OPK_EA},
+			Validate:    validateCMPI,
+			Steps: []EmitStep{
+				{WordBits: 0x0C00, Fields: []FieldRef{F_SizeBits, F_DstEA}},
+				{Trailer: []TrailerItem{T_DstEAExt, T_SrcImm}},
+			},
+		},
+	},
+}
+
 func validateCMP(a *Args) error {
 	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
 		return fmt.Errorf("CMP requires Dn destination")
@@ -55,4 +72,21 @@ func validateCMPM(a *Args) error {
 		return fmt.Errorf("CMPM requires post-increment address operands")
 	}
 	return nil
+}
+
+func validateCMPI(a *Args) error {
+	if a.Src.Kind != EAkImm {
+		return fmt.Errorf("CMPI requires immediate source")
+	}
+	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
+		return err
+	}
+	switch a.Dst.Kind {
+	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
+		return nil
+	case EAkNone:
+		return fmt.Errorf("CMPI requires destination")
+	default:
+		return fmt.Errorf("CMPI destination must be data alterable EA")
+	}
 }

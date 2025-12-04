@@ -66,6 +66,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"CheckBounds", "CHK (A0),D1\n", []byte{0x43, 0x90}},
 		{"Negate", "NEG.W D2\n", []byte{0x44, 0x42}},
 		{"NbcdPredecrement", "NBCD -(A3)\n", []byte{0x48, 0x23}},
+		{"TestAndSetByte", "TAS D0\n", []byte{0x4A, 0xC0}},
 		{"MultiplyWordUnsigned", "MULU (A1),D0\n", []byte{0xC0, 0xD1}},
 		{"MultiplyWordSigned", "MULS (A1),D0\n", []byte{0xC1, 0xD1}},
 		{"DivideWordUnsigned", "DIVU (A2),D1\n", []byte{0x82, 0xD2}},
@@ -87,6 +88,8 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"BitChangeRegisterSource", "BCHG D2,(A3)\n", []byte{0x05, 0x53}},
 		{"BitTestImmediate", "BTST #3,D1\n", []byte{0x08, 0x01, 0x00, 0x03}},
 		{"BitTestRegisterToMemory", "BTST D2,(A3)\n", []byte{0x05, 0x13}},
+		{"CompareImmediateByte", "CMPI.B #1,D2\n", []byte{0x0C, 0x02, 0x00, 0x01}},
+		{"SetIfNotEqual", "SNE (A1)\n", []byte{0x56, 0xD1}},
 		{"BranchAlwaysShort", "BRA target\n.WORD 0\ntarget:\n", []byte{0x60, 0x02, 0x00, 0x00}},
 		{"BranchConditionWord", "BNE.W target\n.WORD 0\n.WORD 0\ntarget:\n", []byte{0x66, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
 		{"BranchSynonymShort", "BHS target\n.WORD 0\ntarget:\n", []byte{0x64, 0x02, 0x00, 0x00}},
@@ -184,6 +187,8 @@ func TestNewInstructionValidation(t *testing.T) {
 		{"AddImmediateAddressRegister", "ADDI.B #1,A0\n", "data alterable"},
 		{"ChkImmediateInvalid", "CHK #1,D0\n", "immediate source"},
 		{"NbcdDestinationRequired", "NBCD (A0)\n", "predecrement address"},
+		{"SetConditionImmediate", "SNE #1\n", "data alterable"},
+		{"CompareImmediateToAddress", "CMPI.B #1,A0\n", "data alterable"},
 	}
 
 	for _, tt := range tests {
