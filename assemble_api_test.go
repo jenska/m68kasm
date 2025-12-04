@@ -2,6 +2,7 @@ package m68kasm
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,7 +181,8 @@ func TestAssembleStringSRecord(t *testing.T) {
 		t.Fatalf("assemble failed: %v", err)
 	}
 
-	want := "S01100006D36386B61736D2076302E342E30E1\nS3080000100011223381\nS70500001000EA\n"
+	header := s0Record(srecHeader())
+	want := fmt.Sprintf("%s\nS3080000100011223381\nS70500001000EA\n", header)
 	if string(got) != want {
 		t.Fatalf("unexpected S-record output:\n%s\nwant:\n%s", string(got), want)
 	}
@@ -253,4 +255,26 @@ func TestAssembleFileVariants(t *testing.T) {
 	if listing[0].PC != 0x1000 || listing[1].PC != 0x1002 {
 		t.Fatalf("unexpected listing PCs: %+v", listing)
 	}
+}
+
+func s0Record(header string) string {
+	if len(header) > 252 {
+		header = header[:252]
+	}
+
+	count := byte(2 + len(header) + 1)
+	sum := uint32(count)
+
+	var sb strings.Builder
+	sb.WriteString("S0")
+	fmt.Fprintf(&sb, "%02X0000", count)
+
+	for _, b := range []byte(header) {
+		sum += uint32(b)
+		fmt.Fprintf(&sb, "%02X", b)
+	}
+
+	checksum := byte(^sum)
+	fmt.Fprintf(&sb, "%02X", checksum)
+	return sb.String()
 }
