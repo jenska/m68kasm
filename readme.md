@@ -12,16 +12,17 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 ---
 
-## 🚀 Features (as of v0.5)
+## 🚀 Features (as of v0.5.1)
 
 - Supports all mnemonics of 68000 CPU
+- Two-pass macro assembler with deterministic binary output 
+- Include paths, pseudo ops,cpre-defined symbols and rich expressions
 - Simple and fast command-line tool
 - Embeddedable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
-- Two-pass assembler with deterministic binary output  
+-  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
-- Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 
 ---
@@ -201,8 +202,6 @@ Make sure the CI passes before submitting.
 
 ### 🔭 Next up (post-v0.5)
 
-- **Include paths and pre-defined symbols:** Implement the advertised `-I` and `-D` options to enable multi-file assembly, header-style includes, and board- or build-specific symbol overrides.
-- **Macro support and richer expressions:** Bring forward the planned macro system alongside more capable expressions (arithmetic, logical, relocatable) to unlock reusable templates and position-aware calculations.
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Library-quality API refinements:** Add context-rich errors, streaming assembly for large inputs, and thread-safe reuse of parsed tables to strengthen embeddability and performance.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
