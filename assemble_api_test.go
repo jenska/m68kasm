@@ -173,6 +173,21 @@ func TestAssembleStringWithListingInto(t *testing.T) {
 	}
 }
 
+func TestAssembleWithPredefinedSymbols(t *testing.T) {
+	src := ".word FOO\n"
+	opts := ParseOptions{Symbols: map[string]uint32{"FOO": 0xBEEF}}
+
+	got, err := AssembleStringWithOptions(src, opts)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := []byte{0xBE, 0xEF}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("unexpected encoding: got %x want %x", got, want)
+	}
+}
+
 func TestAssembleStringSRecord(t *testing.T) {
 	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
 

@@ -12,26 +12,41 @@ import (
 // be used to generate human-readable listing output alongside assembled
 // binaries.
 type ListingEntry = internal.ListingEntry
+type ParseOptions = internal.ParseOptions
 
 // Assemble parses Motorola 68k assembly source from r and returns the encoded
 // machine code bytes. The program origin, if specified via directives, is
 // accounted for in the parser but the returned slice contains only the
 // assembled bytes.
 func Assemble(r io.Reader) ([]byte, error) {
-	return AssembleInto(nil, r)
+	return AssembleWithOptions(nil, r, ParseOptions{})
 }
 
 // AssembleWithListing parses Motorola 68k assembly source from r, returns the
 // encoded machine code bytes, and also provides listing metadata per source
 // line.
 func AssembleWithListing(r io.Reader) ([]byte, []ListingEntry, error) {
-	return AssembleWithListingInto(nil, r)
+	return AssembleWithListingWithOptions(nil, r, ParseOptions{})
 }
 
 // AssembleInto parses Motorola 68k assembly source from r and appends the
 // encoded machine code bytes to dst.
 func AssembleInto(dst []byte, r io.Reader) ([]byte, error) {
-	prog, err := internal.Parse(r)
+	return AssembleWithOptions(dst, r, ParseOptions{})
+}
+
+// AssembleWithListingInto parses Motorola 68k assembly source from r, appends
+// the encoded machine code bytes to dst, and returns listing metadata per
+// source line.
+func AssembleWithListingInto(dst []byte, r io.Reader) ([]byte, []ListingEntry, error) {
+	return AssembleWithListingWithOptions(dst, r, ParseOptions{})
+}
+
+// AssembleWithOptions parses Motorola 68k assembly source from r, applies the
+// provided parsing options (such as predefined symbols), and appends the
+// encoded machine code bytes to dst.
+func AssembleWithOptions(dst []byte, r io.Reader, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -39,11 +54,12 @@ func AssembleInto(dst []byte, r io.Reader) ([]byte, error) {
 	return internal.AssembleInto(dst, prog)
 }
 
-// AssembleWithListingInto parses Motorola 68k assembly source from r, appends
+// AssembleWithListingWithOptions parses Motorola 68k assembly source from r,
+// applies the provided parsing options (such as predefined symbols), appends
 // the encoded machine code bytes to dst, and returns listing metadata per
 // source line.
-func AssembleWithListingInto(dst []byte, r io.Reader) ([]byte, []ListingEntry, error) {
-	prog, err := internal.Parse(r)
+func AssembleWithListingWithOptions(dst []byte, r io.Reader, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -56,10 +72,23 @@ func AssembleBytes(src []byte) ([]byte, error) {
 	return Assemble(bytes.NewReader(src))
 }
 
+// AssembleBytesWithOptions assembles Motorola 68k source provided as a byte
+// slice using the supplied parsing options.
+func AssembleBytesWithOptions(src []byte, opts ParseOptions) ([]byte, error) {
+	return AssembleWithOptions(nil, bytes.NewReader(src), opts)
+}
+
 // AssembleBytesWithListing assembles Motorola 68k source provided as a byte
 // slice and returns both the encoded bytes and listing metadata.
 func AssembleBytesWithListing(src []byte) ([]byte, []ListingEntry, error) {
 	return AssembleWithListing(bytes.NewReader(src))
+}
+
+// AssembleBytesWithListingWithOptions assembles Motorola 68k source provided as
+// a byte slice using the supplied parsing options and returns both the encoded
+// bytes and listing metadata.
+func AssembleBytesWithListingWithOptions(src []byte, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	return AssembleWithListingWithOptions(nil, bytes.NewReader(src), opts)
 }
 
 // AssembleBytesInto assembles Motorola 68k source provided as a byte slice and
@@ -68,15 +97,35 @@ func AssembleBytesInto(dst, src []byte) ([]byte, error) {
 	return AssembleInto(dst, bytes.NewReader(src))
 }
 
+// AssembleBytesIntoWithOptions assembles Motorola 68k source provided as a byte
+// slice, applies the supplied parsing options, and appends the encoded bytes to
+// dst.
+func AssembleBytesIntoWithOptions(dst, src []byte, opts ParseOptions) ([]byte, error) {
+	return AssembleWithOptions(dst, bytes.NewReader(src), opts)
+}
+
 // AssembleBytesWithListingInto assembles Motorola 68k source provided as a
 // byte slice, appends the encoded bytes to dst, and returns listing metadata.
 func AssembleBytesWithListingInto(dst, src []byte) ([]byte, []ListingEntry, error) {
 	return AssembleWithListingInto(dst, bytes.NewReader(src))
 }
 
+// AssembleBytesWithListingIntoWithOptions assembles Motorola 68k source
+// provided as a byte slice, appends the encoded machine code bytes to dst,
+// applies the supplied parsing options, and returns listing metadata.
+func AssembleBytesWithListingIntoWithOptions(dst, src []byte, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	return AssembleWithListingWithOptions(dst, bytes.NewReader(src), opts)
+}
+
 // AssembleString assembles Motorola 68k source provided as a string.
 func AssembleString(src string) ([]byte, error) {
 	return Assemble(bytes.NewBufferString(src))
+}
+
+// AssembleStringWithOptions assembles Motorola 68k source provided as a string
+// using the supplied parsing options.
+func AssembleStringWithOptions(src string, opts ParseOptions) ([]byte, error) {
+	return AssembleWithOptions(nil, bytes.NewBufferString(src), opts)
 }
 
 // AssembleStringWithListing assembles Motorola 68k source provided as a
@@ -85,10 +134,23 @@ func AssembleStringWithListing(src string) ([]byte, []ListingEntry, error) {
 	return AssembleWithListing(bytes.NewBufferString(src))
 }
 
+// AssembleStringWithListingWithOptions assembles Motorola 68k source provided
+// as a string using the supplied parsing options and returns listing metadata.
+func AssembleStringWithListingWithOptions(src string, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	return AssembleWithListingWithOptions(nil, bytes.NewBufferString(src), opts)
+}
+
 // AssembleStringInto assembles Motorola 68k source provided as a string and
 // appends the encoded bytes to dst.
 func AssembleStringInto(dst []byte, src string) ([]byte, error) {
 	return AssembleInto(dst, bytes.NewBufferString(src))
+}
+
+// AssembleStringIntoWithOptions assembles Motorola 68k source provided as a
+// string, applies the supplied parsing options, and appends the encoded bytes
+// to dst.
+func AssembleStringIntoWithOptions(dst []byte, src string, opts ParseOptions) ([]byte, error) {
+	return AssembleWithOptions(dst, bytes.NewBufferString(src), opts)
 }
 
 // AssembleStringWithListingInto assembles Motorola 68k source provided as a
@@ -97,9 +159,22 @@ func AssembleStringWithListingInto(dst []byte, src string) ([]byte, []ListingEnt
 	return AssembleWithListingInto(dst, bytes.NewBufferString(src))
 }
 
+// AssembleStringWithListingIntoWithOptions assembles Motorola 68k source
+// provided as a string, applies the supplied parsing options, appends the
+// encoded bytes to dst, and returns listing metadata.
+func AssembleStringWithListingIntoWithOptions(dst []byte, src string, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	return AssembleWithListingWithOptions(dst, bytes.NewBufferString(src), opts)
+}
+
 // AssembleFile assembles a Motorola 68k source file specified by path.
 func AssembleFile(path string) ([]byte, error) {
 	return AssembleFileInto(nil, path)
+}
+
+// AssembleFileWithOptions assembles a Motorola 68k source file specified by
+// path using the supplied parsing options.
+func AssembleFileWithOptions(path string, opts ParseOptions) ([]byte, error) {
+	return AssembleFileIntoWithOptions(nil, path, opts)
 }
 
 // AssembleFileWithListing assembles a Motorola 68k source file specified by
@@ -108,20 +183,41 @@ func AssembleFileWithListing(path string) ([]byte, []ListingEntry, error) {
 	return AssembleFileWithListingInto(nil, path)
 }
 
+// AssembleFileWithListingWithOptions assembles a Motorola 68k source file
+// specified by path using the supplied parsing options and returns listing
+// metadata.
+func AssembleFileWithListingWithOptions(path string, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	return AssembleFileWithListingIntoWithOptions(nil, path, opts)
+}
+
 // AssembleFileInto assembles a Motorola 68k source file specified by path and
 // appends the encoded bytes to dst.
 func AssembleFileInto(dst []byte, path string) ([]byte, error) {
-	prog, err := internal.ParseFile(path)
+	return AssembleFileIntoWithOptions(dst, path, ParseOptions{})
+}
+
+// AssembleFileWithListingInto assembles a Motorola 68k source file specified by
+// path, appends the encoded bytes to dst, and returns listing metadata.
+func AssembleFileWithListingInto(dst []byte, path string) ([]byte, []ListingEntry, error) {
+	return AssembleFileWithListingIntoWithOptions(dst, path, ParseOptions{})
+}
+
+// AssembleFileIntoWithOptions assembles a Motorola 68k source file specified by
+// path, applies the supplied parsing options, and appends the encoded bytes to
+// dst.
+func AssembleFileIntoWithOptions(dst []byte, path string, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
 	return internal.AssembleInto(dst, prog)
 }
 
-// AssembleFileWithListingInto assembles a Motorola 68k source file specified by
-// path, appends the encoded bytes to dst, and returns listing metadata.
-func AssembleFileWithListingInto(dst []byte, path string) ([]byte, []ListingEntry, error) {
-	prog, err := internal.ParseFile(path)
+// AssembleFileWithListingIntoWithOptions assembles a Motorola 68k source file
+// specified by path, applies the supplied parsing options, appends the encoded
+// bytes to dst, and returns listing metadata.
+func AssembleFileWithListingIntoWithOptions(dst []byte, path string, opts ParseOptions) ([]byte, []ListingEntry, error) {
+	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -132,7 +228,14 @@ func AssembleFileWithListingInto(dst []byte, path string) ([]byte, []ListingEntr
 // executable image targeting the m68k architecture. The program origin is used
 // as the entry point and load address.
 func AssembleELF(r io.Reader) ([]byte, error) {
-	prog, err := internal.Parse(r)
+	return AssembleELFWithOptions(r, ParseOptions{})
+}
+
+// AssembleELFWithOptions parses Motorola 68k assembly source from r using the
+// supplied parsing options and returns an ELF32 executable image targeting the
+// m68k architecture.
+func AssembleELFWithOptions(r io.Reader, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +258,7 @@ func AssembleStringELF(src string) ([]byte, error) {
 // AssembleFileELF assembles a Motorola 68k source file specified by path and
 // returns an ELF32 executable image targeting the m68k architecture.
 func AssembleFileELF(path string) ([]byte, error) {
-	prog, err := internal.ParseFile(path)
+	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +269,14 @@ func AssembleFileELF(path string) ([]byte, error) {
 // Motorola S-record representation using the current assembler version as the
 // header.
 func AssembleSRecord(r io.Reader) ([]byte, error) {
-	prog, err := internal.Parse(r)
+	return AssembleSRecordWithOptions(r, ParseOptions{})
+}
+
+// AssembleSRecordWithOptions parses Motorola 68k assembly source from r using
+// the supplied parsing options and returns a Motorola S-record representation
+// using the current assembler version as the header.
+func AssembleSRecordWithOptions(r io.Reader, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
