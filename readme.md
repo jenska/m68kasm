@@ -6,32 +6,29 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v0.4.0
+**Current version:** v0.5
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v0.4)
+## 🚀 Features (as of v0.5)
 
-- Two-pass assembler with deterministic binary output  
-- Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Supports all mnemonics of 68000 CPU
-- Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
-- Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Simple and fast command-line tool
+- Embeddedable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
-
-### Planned for Upcoming Releases
-- Supports all mnemonics of 68000 CPU
-- Automated tests and regression validation
+- Two-pass assembler with deterministic binary output  
+- Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
+- Pseudo-operations: `.org`, `.byte`, `.word`, `.long`, `.align`
+- Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 
 ---
 
 ## 🧩 Project Goals
 
-The assembler is designed to demonstrate and implement core principles of assembler construction:
+The assembler implements core principles of assembler construction:
 - **Lexical and syntactic clarity:** each stage is well-separated and testable.  
 - **Declarative instruction definitions:** encoding logic defined via compact data tables.  
 - **Binary precision:** full control over emitted bytes without hidden abstractions.  
