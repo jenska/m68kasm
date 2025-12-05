@@ -30,6 +30,7 @@ type (
 		lx     lexer
 		labels map[string]uint32
 		macros map[string]macroDef
+		instrs *instructions.Table
 		pc     uint32
 		origin uint32
 		hasOrg bool
@@ -77,7 +78,8 @@ func (s *sliceLexer) Next() Token {
 }
 
 type ParseOptions struct {
-	Symbols map[string]uint32
+	Symbols    map[string]uint32
+	InstrTable *instructions.Table
 }
 
 func Parse(r io.Reader) (*Program, error) {
@@ -85,7 +87,11 @@ func Parse(r io.Reader) (*Program, error) {
 }
 
 func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
-	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols), macros: map[string]macroDef{}}
+	table := opts.InstrTable
+	if table == nil {
+		table = instructions.DefaultTable()
+	}
+	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols), macros: map[string]macroDef{}, instrs: table}
 	for {
 		t := p.peek()
 		if t.Kind == EOF {
@@ -117,7 +123,7 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 		}
 
 		if t := p.peek(); t.Kind != NEWLINE && t.Kind != EOF {
-			return nil, fmt.Errorf("line %d: unexpected token: %s", t.Line, t.Text)
+			return nil, errorAtToken(t, fmt.Errorf("unexpected token: %s", t.Text))
 		}
 		if p.peek().Kind == NEWLINE {
 			p.next()
@@ -147,7 +153,7 @@ func ParseFileWithOptions(path string, opts ParseOptions) (*Program, error) {
 }
 
 func parserError(t Token, msg string) error {
-	return fmt.Errorf("%s: %s", t.String(), msg)
+	return errorAtToken(t, fmt.Errorf("%s", msg))
 }
 
 func (p *Parser) parseStmt() error {
@@ -170,7 +176,7 @@ func (p *Parser) parseStmt() error {
 		if idx := strings.IndexRune(s, '.'); idx > 0 {
 			s = s[:idx]
 		}
-		if instrDef, ok := instructions.Instructions[s]; ok {
+		if instrDef := p.instrs.Lookup(s); instrDef != nil {
 			return p.parseInstruction(instrDef)
 		}
 		return parserError(t, "unknown mnemonic")
@@ -214,7 +220,7 @@ func (p *Parser) parseConstDefinition(nameTok Token) error {
 		return err
 	}
 	if val < 0 || val > math.MaxUint32 {
-		return fmt.Errorf("line %d: constant out of 32-bit range: %d", nameTok.Line, val)
+		return errorAtLine(nameTok.Line, fmt.Errorf("constant out of 32-bit range: %d", val))
 	}
 
 	p.labels[nameTok.Text] = uint32(val)
@@ -247,9 +253,9 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 	}
 
 	if lastErr != nil {
-		return lastErr
+		return contextualize(mn.Line, lastErr)
 	}
-	return fmt.Errorf("line %d: no form matches operands", mn.Line)
+	return errorAtLine(mn.Line, fmt.Errorf("no form matches operands"))
 }
 
 func instructionWords(form *instructions.FormDef, args instructions.Args) (int, error) {
@@ -343,14 +349,14 @@ func (p *Parser) invokeMacro(def macroDef) error {
 
 	args, err := splitMacroArgs(argTokens)
 	if err != nil {
-		return fmt.Errorf("line %d: %v", nameTok.Line, err)
+		return errorAtLine(nameTok.Line, err)
 	}
 	if len(args) != len(def.params) {
-		return fmt.Errorf("line %d: macro %s expects %d args, got %d", nameTok.Line, nameTok.Text, len(def.params), len(args))
+		return errorAtLine(nameTok.Line, fmt.Errorf("macro %s expects %d args, got %d", nameTok.Text, len(def.params), len(args)))
 	}
 
 	if p.macroDepth > 64 {
-		return fmt.Errorf("line %d: macro expansion depth exceeded", nameTok.Line)
+		return errorAtLine(nameTok.Line, fmt.Errorf("macro expansion depth exceeded"))
 	}
 	p.macroDepth++
 	defer func() { p.macroDepth-- }()
@@ -459,7 +465,7 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	}
 
 	if trailing := p.peek(); trailing.Kind != EOF {
-		return args, fmt.Errorf("line %d: unexpected token %s", trailing.Line, trailing.Text)
+		return args, errorAtToken(trailing, fmt.Errorf("unexpected token %s", trailing.Text))
 	}
 
 	return args, nil
@@ -499,7 +505,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		ok, dn := isRegDn(dreg.Text)
 		if !ok {
-			return eaExpr, fmt.Errorf("line %d: expected Dn, got %s", dreg.Line, dreg.Text)
+			return eaExpr, errorAtToken(dreg, fmt.Errorf("expected Dn, got %s", dreg.Text))
 		}
 		eaExpr.Kind = instructions.EAkDn
 		eaExpr.Reg = dn
@@ -511,7 +517,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		ok, an := isRegAn(areg.Text)
 		if !ok {
-			return eaExpr, fmt.Errorf("line %d: expected Dn, got %s", areg.Line, areg.Text)
+			return eaExpr, errorAtToken(areg, fmt.Errorf("expected Dn, got %s", areg.Text))
 		}
 		eaExpr.Kind = instructions.EAkAn
 		eaExpr.Reg = an
@@ -522,7 +528,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			return eaExpr, err
 		}
 		if !strings.EqualFold(tok.Text, "SR") {
-			return eaExpr, fmt.Errorf("line %d: expected SR", tok.Line)
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected SR"))
 		}
 		eaExpr.Kind = instructions.EAkSR
 
@@ -532,7 +538,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			return eaExpr, err
 		}
 		if !strings.EqualFold(tok.Text, "CCR") {
-			return eaExpr, fmt.Errorf("line %d: expected CCR", tok.Line)
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected CCR"))
 		}
 		eaExpr.Kind = instructions.EAkCCR
 
@@ -542,7 +548,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			return eaExpr, err
 		}
 		if !strings.EqualFold(tok.Text, "USP") {
-			return eaExpr, fmt.Errorf("line %d: expected USP", tok.Line)
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected USP"))
 		}
 		eaExpr.Kind = instructions.EAkUSP
 
@@ -559,7 +565,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			return eaExpr, err
 		}
 		if ea.Kind != instructions.EAkAddrPredec {
-			return eaExpr, fmt.Errorf("line %d: expected -(An)", mn.Line)
+			return eaExpr, errorAtLine(mn.Line, fmt.Errorf("expected -(An)"))
 		}
 		eaExpr = ea
 
@@ -583,7 +589,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		args.Target = lbl.Text
 
 	default:
-		return eaExpr, fmt.Errorf("line %d: unknown identifier %s", mn.Line, mn.Text)
+		return eaExpr, errorAtLine(mn.Line, fmt.Errorf("unknown identifier %s", mn.Text))
 	}
 
 	return eaExpr, nil
@@ -597,7 +603,7 @@ func (p *Parser) emitPaddingBytes(count uint32, fill byte) error {
 		return nil
 	}
 	if count > maxProgramSize || p.pc > maxProgramSize-count {
-		return fmt.Errorf("line %d: padding would exceed maximum program size of %d bytes", p.line, maxProgramSize)
+		return errorAtLine(p.line, fmt.Errorf("padding would exceed maximum program size of %d bytes", maxProgramSize))
 	}
 
 	buf := make([]byte, int(count))
@@ -701,10 +707,10 @@ func (p *Parser) parseRegList() (uint16, error) {
 				return 0, err
 			}
 			if endIsA != isA {
-				return 0, fmt.Errorf("line %d: register ranges must stay within D or A registers", toTok.Line)
+				return 0, errorAtToken(toTok, fmt.Errorf("register ranges must stay within D or A registers"))
 			}
 			if endReg < reg {
-				return 0, fmt.Errorf("line %d: descending ranges are not allowed", toTok.Line)
+				return 0, errorAtToken(toTok, fmt.Errorf("descending ranges are not allowed"))
 			}
 		}
 		for r := reg; r <= endReg; r++ {
@@ -744,7 +750,7 @@ func parseRegName(tok Token) (bool, int, error) {
 	if ok, an := isRegAn(tok.Text); ok {
 		return true, an, nil
 	}
-	return false, 0, fmt.Errorf("line %d: expected register in list", tok.Line)
+	return false, 0, errorAtToken(tok, fmt.Errorf("expected register in list"))
 }
 
 // ---------- EA parsing ----------
@@ -758,14 +764,14 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			return instructions.EAExpr{}, err
 		}
 		if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") {
-			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+			return instructions.EAExpr{}, errorAtToken(areg, fmt.Errorf("expected address register"))
 		}
 		if _, err := p.want(RPAREN); err != nil {
 			return instructions.EAExpr{}, err
 		}
 		ok, an := isRegAn(areg.Text)
 		if !ok {
-			return instructions.EAExpr{}, fmt.Errorf("line %d: expected address register", areg.Line)
+			return instructions.EAExpr{}, errorAtToken(areg, fmt.Errorf("expected address register"))
 		}
 		return instructions.EAExpr{Kind: instructions.EAkAddrPredec, Reg: an}, nil
 	}
@@ -815,7 +821,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 			case "L":
 				kind = instructions.EAkAbsL
 			default:
-				return instructions.EAExpr{}, fmt.Errorf("line %d: unknown size suffix .%s", suf.Line, suf.Text)
+				return instructions.EAExpr{}, errorAtToken(suf, fmt.Errorf("unknown size suffix .%s", suf.Text))
 			}
 		}
 		if kind == instructions.EAkAbsW {
@@ -944,7 +950,7 @@ func (p *Parser) peekN(n int) Token {
 func (p *Parser) want(k Kind) (Token, error) {
 	t := p.next()
 	if t.Kind != k {
-		return t, fmt.Errorf("line %d col %d: expected %v, got %v (%q)", t.Line, t.Col, k, t.Kind, t.Text)
+		return t, errorAtToken(t, fmt.Errorf("expected %v, got %v (%q)", k, t.Kind, t.Text))
 	}
 	return t, nil
 }

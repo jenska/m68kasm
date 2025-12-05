@@ -11,7 +11,7 @@ const srecDataBytesPerRecord = 16
 // representation. The provided header text is used for the S0 record; if empty,
 // a default identifier is emitted.
 func AssembleSRecord(p *Program, header string) ([]byte, error) {
-	_, listing, err := assemble(nil, p, true)
+	_, listing, _, err := assemble(nil, nil, p, true)
 	if err != nil {
 		return nil, err
 	}
