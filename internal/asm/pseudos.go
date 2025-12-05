@@ -1,6 +1,9 @@
 package asm
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var pseudoMap = map[string]func(*Parser) error{
 	".ORG":   parseORG,
@@ -8,6 +11,7 @@ var pseudoMap = map[string]func(*Parser) error{
 	".WORD":  parseWORD,
 	".LONG":  parseLONG,
 	".ALIGN": parseALIGN,
+	".MACRO": parseMACRO,
 }
 
 func parseORG(p *Parser) error {
@@ -160,4 +164,53 @@ func parseALIGN(p *Parser) error {
 
 	// emit pad bytes of 'fill'
 	return p.emitPaddingBytes(pad, fill)
+}
+
+func parseMACRO(p *Parser) error {
+	nameTok, err := p.want(IDENT)
+	if err != nil {
+		return err
+	}
+
+	params := []string{}
+	for {
+		t := p.peek()
+		if t.Kind == NEWLINE || t.Kind == EOF {
+			_ = p.next()
+			break
+		}
+		paramTok, err := p.want(IDENT)
+		if err != nil {
+			return err
+		}
+		params = append(params, paramTok.Text)
+		if !p.accept(COMMA) {
+			if p.peek().Kind == NEWLINE {
+				_ = p.next()
+			}
+			break
+		}
+	}
+
+	body := []Token{}
+	for {
+		t := p.next()
+		if t.Kind == EOF {
+			return fmt.Errorf("line %d: unexpected EOF inside macro", nameTok.Line)
+		}
+		if t.Kind == DOT {
+			nxt := p.peek()
+			if nxt.Kind == IDENT && strings.EqualFold(nxt.Text, "ENDMACRO") {
+				_ = p.next()
+				if p.peek().Kind == NEWLINE {
+					_ = p.next()
+				}
+				break
+			}
+		}
+		body = append(body, t)
+	}
+
+	p.macros[nameTok.Text] = macroDef{params: params, body: body}
+	return nil
 }
