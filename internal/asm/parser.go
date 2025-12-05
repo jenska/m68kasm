@@ -29,12 +29,16 @@ type (
 	Parser struct {
 		lx     lexer
 		labels map[string]uint32
+		macros map[string]macroDef
 		pc     uint32
 		origin uint32
 		hasOrg bool
 		items  []any
 		line   int
 		col    int
+
+		macroDepth    int
+		macroExpanded bool
 
 		buf          []Token // N-Token Lookahead
 		tokenScratch []Token // reusable buffer for operand collection
@@ -44,6 +48,11 @@ type (
 	sliceLexer struct {
 		tokens []Token
 		pos    int
+	}
+
+	macroDef struct {
+		params []string
+		body   []Token
 	}
 )
 
@@ -76,7 +85,7 @@ func Parse(r io.Reader) (*Program, error) {
 }
 
 func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
-	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols)}
+	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols), macros: map[string]macroDef{}}
 	for {
 		t := p.peek()
 		if t.Kind == EOF {
@@ -100,6 +109,11 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 
 		if err := p.parseStmt(); err != nil {
 			return nil, err
+		}
+
+		if p.macroExpanded {
+			p.macroExpanded = false
+			continue
 		}
 
 		if t := p.peek(); t.Kind != NEWLINE && t.Kind != EOF {
@@ -140,6 +154,9 @@ func (p *Parser) parseStmt() error {
 	t := p.peek()
 
 	if t.Kind == IDENT {
+		if def, ok := p.macros[t.Text]; ok {
+			return p.invokeMacro(def)
+		}
 		if p.peekN(2).Kind == EQUAL {
 			return p.parseConstDefinition(t)
 		}
@@ -306,6 +323,99 @@ func (p *Parser) consumeUntilEOL() []Token {
 
 func (p *Parser) releaseTokens(tokens []Token) {
 	p.tokenScratch = tokens[:0]
+}
+
+func (p *Parser) unshiftTokens(tokens []Token) {
+	if len(tokens) == 0 {
+		return
+	}
+	buf := make([]Token, len(tokens)+len(p.buf))
+	copy(buf, tokens)
+	copy(buf[len(tokens):], p.buf)
+	p.buf = buf
+}
+
+func (p *Parser) invokeMacro(def macroDef) error {
+	nameTok := p.next()
+	rawArgs := p.consumeUntilEOL()
+	argTokens := append([]Token(nil), rawArgs...)
+	p.releaseTokens(rawArgs)
+
+	args, err := splitMacroArgs(argTokens)
+	if err != nil {
+		return fmt.Errorf("line %d: %v", nameTok.Line, err)
+	}
+	if len(args) != len(def.params) {
+		return fmt.Errorf("line %d: macro %s expects %d args, got %d", nameTok.Line, nameTok.Text, len(def.params), len(args))
+	}
+
+	if p.macroDepth > 64 {
+		return fmt.Errorf("line %d: macro expansion depth exceeded", nameTok.Line)
+	}
+	p.macroDepth++
+	defer func() { p.macroDepth-- }()
+
+	expanded := make([]Token, 0, len(def.body)+len(argTokens))
+	for _, t := range def.body {
+		replaced := false
+		if t.Kind == IDENT {
+			for i, param := range def.params {
+				if t.Text == param {
+					for _, at := range args[i] {
+						cloned := at
+						cloned.Line = nameTok.Line
+						cloned.Col = nameTok.Col
+						expanded = append(expanded, cloned)
+					}
+					replaced = true
+					break
+				}
+			}
+		}
+		if replaced {
+			continue
+		}
+		clone := t
+		clone.Line = nameTok.Line
+		clone.Col = nameTok.Col
+		expanded = append(expanded, clone)
+	}
+
+	p.macroExpanded = true
+	p.unshiftTokens(expanded)
+	return nil
+}
+
+func splitMacroArgs(tokens []Token) ([][]Token, error) {
+	if len(tokens) == 0 {
+		return [][]Token{}, nil
+	}
+	args := [][]Token{}
+	current := []Token{}
+	depth := 0
+	for _, t := range tokens {
+		switch t.Kind {
+		case LPAREN:
+			depth++
+		case RPAREN:
+			if depth == 0 {
+				return nil, fmt.Errorf("unmatched ')'")
+			}
+			depth--
+		case COMMA:
+			if depth == 0 {
+				args = append(args, append([]Token{}, current...))
+				current = current[:0]
+				continue
+			}
+		}
+		current = append(current, t)
+	}
+	if depth != 0 {
+		return nil, fmt.Errorf("unmatched '('")
+	}
+	args = append(args, append([]Token{}, current...))
+	return args, nil
 }
 
 func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Token) (instructions.Args, error) {

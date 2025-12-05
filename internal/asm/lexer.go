@@ -19,6 +19,7 @@ const (
 	COMMA
 	COLON
 	EQUAL
+	EQEQ
 	HASH
 	LPAREN
 	RPAREN
@@ -27,8 +28,15 @@ const (
 	MINUS
 	STAR
 	SLASH
+	PERCENT
+	BANG
 	LT
 	GT
+	LTE
+	GTE
+	NEQ
+	ANDAND
+	OROR
 	LSHIFT // <<
 	RSHIFT // >>
 	AMP
@@ -107,6 +115,10 @@ func (lx *Lexer) next() Token {
 		case ':':
 			return lx.tok(COLON, ":", 0)
 		case '=':
+			if lx.peekRune() == '=' {
+				lx.read()
+				return lx.tok(EQEQ, "==", 0)
+			}
 			return lx.tok(EQUAL, "=", 0)
 		case '#':
 			return lx.tok(HASH, "#", 0)
@@ -124,10 +136,22 @@ func (lx *Lexer) next() Token {
 			return lx.tok(STAR, "*", 0)
 		case '/':
 			return lx.tok(SLASH, "/", 0)
+		case '%':
+			return lx.tok(PERCENT, "%", 0)
+		case '!':
+			if lx.peekRune() == '=' {
+				lx.read()
+				return lx.tok(NEQ, "!=", 0)
+			}
+			return lx.tok(BANG, "!", 0)
 		case '<':
 			if lx.peekRune() == '<' {
 				lx.read()
 				return lx.tok(LSHIFT, "<<", 0)
+			}
+			if lx.peekRune() == '=' {
+				lx.read()
+				return lx.tok(LTE, "<=", 0)
 			}
 			return lx.tok(LT, "<", 0)
 		case '>':
@@ -135,10 +159,22 @@ func (lx *Lexer) next() Token {
 				lx.read()
 				return lx.tok(RSHIFT, ">>", 0)
 			}
+			if lx.peekRune() == '=' {
+				lx.read()
+				return lx.tok(GTE, ">=", 0)
+			}
 			return lx.tok(GT, ">", 0)
 		case '&':
+			if lx.peekRune() == '&' {
+				lx.read()
+				return lx.tok(ANDAND, "&&", 0)
+			}
 			return lx.tok(AMP, "&", 0)
 		case '|':
+			if lx.peekRune() == '|' {
+				lx.read()
+				return lx.tok(OROR, "||", 0)
+			}
 			return lx.tok(PIPE, "|", 0)
 		case '^':
 			return lx.tok(CARET, "^", 0)

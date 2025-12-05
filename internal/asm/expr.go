@@ -18,34 +18,50 @@ func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
 
 	precedence := func(k Kind) int {
 		switch k {
-		case TILDE:
+		case TILDE, BANG:
+			return 8
+		case STAR, SLASH, PERCENT:
 			return 7
-		case STAR, SLASH:
-			return 6
 		case PLUS, MINUS:
-			return 5
+			return 6
 		case LSHIFT, RSHIFT:
+			return 5
+		case LT, GT, LTE, GTE:
 			return 4
-		case AMP:
+		case EQEQ, NEQ:
 			return 3
-		case CARET:
+		case AMP:
 			return 2
-		case PIPE:
+		case CARET:
 			return 1
-		default:
+		case PIPE:
 			return 0
+		case ANDAND:
+			return -1
+		case OROR:
+			return -2
+		default:
+			return -3
 		}
 	}
-	isUnary := func(k Kind) bool { return k == MINUS || k == PLUS || k == TILDE }
+	isUnary := func(k Kind) bool { return k == MINUS || k == PLUS || k == TILDE || k == BANG }
 
 	apply := func(op Kind) error {
-		if op == TILDE {
+		if op == TILDE || op == BANG {
 			if len(out) < 1 {
 				return fmt.Errorf("unärer Operator erwartet ein Argument")
 			}
 			a := out[len(out)-1]
 			out = out[:len(out)-1]
-			out = append(out, ^a)
+			if op == TILDE {
+				out = append(out, ^a)
+			} else {
+				if a == 0 {
+					out = append(out, 1)
+				} else {
+					out = append(out, int64(0))
+				}
+			}
 			return nil
 		}
 		if len(out) < 2 {
@@ -54,6 +70,18 @@ func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
 		b := out[len(out)-1]
 		a := out[len(out)-2]
 		out = out[:len(out)-2]
+		truth := func(v int64) int64 {
+			if v == 0 {
+				return 0
+			}
+			return 1
+		}
+		boolVal := func(v bool) int64 {
+			if v {
+				return 1
+			}
+			return 0
+		}
 		switch op {
 		case PLUS:
 			out = append(out, a+b)
@@ -66,16 +94,37 @@ func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
 				return fmt.Errorf("division by zero")
 			}
 			out = append(out, a/b)
+		case PERCENT:
+			if b == 0 {
+				return fmt.Errorf("division by zero")
+			}
+			out = append(out, a%b)
 		case LSHIFT:
 			out = append(out, a<<uint64(b))
 		case RSHIFT:
 			out = append(out, a>>uint64(b))
+		case LT:
+			out = append(out, boolVal(a < b))
+		case GT:
+			out = append(out, boolVal(a > b))
+		case LTE:
+			out = append(out, boolVal(a <= b))
+		case GTE:
+			out = append(out, boolVal(a >= b))
+		case EQEQ:
+			out = append(out, boolVal(a == b))
+		case NEQ:
+			out = append(out, boolVal(a != b))
 		case AMP:
 			out = append(out, a&b)
 		case CARET:
 			out = append(out, a^b)
 		case PIPE:
 			out = append(out, a|b)
+		case ANDAND:
+			out = append(out, truth(truth(a)&truth(b)))
+		case OROR:
+			out = append(out, truth(truth(a)|truth(b)))
 		default:
 			return fmt.Errorf("unbekannter Operator")
 		}
@@ -144,14 +193,14 @@ loop:
 			}
 			ops = ops[:len(ops)-1]
 			wantValue = false
-		case PLUS, MINUS, STAR, SLASH, LSHIFT, RSHIFT, AMP, PIPE, CARET, TILDE:
+		case PLUS, MINUS, STAR, SLASH, PERCENT, LSHIFT, RSHIFT, AMP, PIPE, CARET, TILDE, BANG, LT, GT, LTE, GTE, EQEQ, NEQ, ANDAND, OROR:
 			p.next()
-			if isUnary(t.Kind) && wantValue && t.Kind != TILDE {
+			if isUnary(t.Kind) && wantValue && t.Kind != TILDE && t.Kind != BANG {
 				if err := pushOp(t.Kind); err != nil {
 					return 0, err
 				}
-			} else if t.Kind == TILDE {
-				ops = append(ops, TILDE)
+			} else if t.Kind == TILDE || t.Kind == BANG {
+				ops = append(ops, t.Kind)
 			} else {
 				if err := pushOp(t.Kind); err != nil {
 					return 0, err
