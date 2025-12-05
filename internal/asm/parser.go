@@ -47,6 +47,17 @@ type (
 	}
 )
 
+func copySymbols(src map[string]uint32) map[string]uint32 {
+	if len(src) == 0 {
+		return map[string]uint32{}
+	}
+	dst := make(map[string]uint32, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
 func (s *sliceLexer) Next() Token {
 	if s.pos >= len(s.tokens) {
 		return Token{Kind: EOF}
@@ -56,8 +67,16 @@ func (s *sliceLexer) Next() Token {
 	return t
 }
 
+type ParseOptions struct {
+	Symbols map[string]uint32
+}
+
 func Parse(r io.Reader) (*Program, error) {
-	p := &Parser{lx: NewLexer(r), labels: map[string]uint32{}}
+	return ParseWithOptions(r, ParseOptions{})
+}
+
+func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
+	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols)}
 	for {
 		t := p.peek()
 		if t.Kind == EOF {
@@ -100,13 +119,17 @@ func Parse(r io.Reader) (*Program, error) {
 }
 
 func ParseFile(path string) (*Program, error) {
+	return ParseFileWithOptions(path, ParseOptions{})
+}
+
+func ParseFileWithOptions(path string, opts ParseOptions) (*Program, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return Parse(f)
+	return ParseWithOptions(f, opts)
 }
 
 func parserError(t Token, msg string) error {

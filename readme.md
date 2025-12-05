@@ -65,8 +65,8 @@ m68kasm [options] <source-files>
 |---------|--------------|
 | `-o <file>` | Write binary output (default: `a.out`) |
 | `--format <bin|srec|elf>` | Select output format (binary, Motorola S-record, or ELF32) |
-| `-I <path>` | *(planned)* Add include search path |
-| `-D name=val` | *(planned)* Define symbol |
+| `-I <path>` | Add include search path |
+| `-D name=val` | Define symbol |
 | `--list <file>` | Generate a source listing (use `-` for stdout) |
 | `--version` | Print assembler version and exit |
 | `-v` | Verbose logging |
