@@ -171,11 +171,6 @@ go vet ./...
 go test ./... -v
 ```
 
-### Recommended Future Additions
-- `Makefile` with targets for `build`, `test`, and `release`
-- Static analysis integration (`staticcheck`)
-- Example programs under `examples/`
-
 ---
 
 ## 💡 Contributing
@@ -198,8 +193,8 @@ Make sure the CI passes before submitting.
 |------------|--------------|
 | **v0.2** | Expand core instruction set (`MOVE`, `ADD`, `SUB`, `CMP`) |
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
-| **v0.4 (current)** | Introduce listing and S-record output |
-| **v0.5** | Add ELF format and richer symbol handling |
+| **v0.4** | Introduce listing and S-record output |
+| **v0.5 (current)** | Add ELF format and richer symbol handling |
 | **v1.0** | Full assembler with macros, expressions, and rich error reporting |
 
 ---

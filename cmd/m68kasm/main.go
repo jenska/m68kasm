@@ -52,7 +52,9 @@ func main() {
 		fmt.Println("assemble error:", err)
 		os.Exit(3)
 	}
-	if fmtFormat == "srec" {
+	switch fmtFormat {
+
+	case "srec":
 		header := fmt.Sprintf("m68kasm v%s", m68kasm.Version)
 		srec := asm.FormatSRecords(listing, prog.Origin, header)
 		if err := os.WriteFile(*out, srec, 0644); err != nil {
@@ -60,14 +62,14 @@ func main() {
 			os.Exit(4)
 		}
 		fmt.Printf("assembled %d bytes into S-record %s\n", len(bytes), *out)
-	} else if fmtFormat == "elf" {
+	case "elf":
 		elfBytes := asm.FormatELF(bytes, prog.Origin)
 		if err := os.WriteFile(*out, elfBytes, 0644); err != nil {
 			fmt.Println("write error:", err)
 			os.Exit(4)
 		}
 		fmt.Printf("assembled %d bytes into ELF %s\n", len(bytes), *out)
-	} else {
+	default:
 		if err := os.WriteFile(*out, bytes, 0644); err != nil {
 			fmt.Println("write error:", err)
 			os.Exit(4)

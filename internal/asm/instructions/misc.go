@@ -9,6 +9,7 @@ func init() {
 	registerInstrDef(&defEXT)
 	registerInstrDef(&defSWAP)
 	registerInstrDef(&defILLEGAL)
+	registerInstrDef(&defTAS)
 }
 
 var defCHK = InstrDef{
@@ -186,4 +187,20 @@ func validateSWAP(a *Args) error {
 		return fmt.Errorf("SWAP requires Dn destination")
 	}
 	return nil
+}
+
+var defTAS = InstrDef{
+	Mnemonic: "TAS",
+	Forms: []FormDef{
+		{
+			DefaultSize: ByteSize,
+			Sizes:       []Size{ByteSize},
+			OperKinds:   []OperandKind{OpkEA},
+			Validate:    validateDataAlterable("TAS"),
+			Steps: []EmitStep{
+				{WordBits: 0x4AC0, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
+			},
+		},
+	},
 }
