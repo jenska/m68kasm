@@ -199,6 +199,15 @@ Make sure the CI passes before submitting.
 
 ---
 
+### 🔭 Next up (post-v0.5)
+
+- **Include paths and pre-defined symbols:** Implement the advertised `-I` and `-D` options to enable multi-file assembly, header-style includes, and board- or build-specific symbol overrides.
+- **Macro support and richer expressions:** Bring forward the planned macro system alongside more capable expressions (arithmetic, logical, relocatable) to unlock reusable templates and position-aware calculations.
+- **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
+- **Library-quality API refinements:** Add context-rich errors, streaming assembly for large inputs, and thread-safe reuse of parsed tables to strengthen embeddability and performance.
+- **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
+
+
 ## 🧠 Design Philosophy
 
 The assembler aims to balance **authentic 68k semantics** with **modern Go idioms**.  
