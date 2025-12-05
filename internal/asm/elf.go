@@ -12,7 +12,7 @@ const (
 // AssembleELF assembles the given program and wraps the output bytes in a
 // minimal ELF32 header suitable for m68k emulators and loaders.
 func AssembleELF(p *Program) ([]byte, error) {
-	bytes, _, err := assemble(nil, p, false)
+	bytes, _, _, err := assemble(nil, nil, p, false)
 	if err != nil {
 		return nil, err
 	}

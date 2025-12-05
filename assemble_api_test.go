@@ -2,6 +2,7 @@ package m68kasm
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -170,6 +171,45 @@ func TestAssembleStringWithListingInto(t *testing.T) {
 
 	if len(listing) != 2 || listing[1].PC != 1 {
 		t.Fatalf("unexpected listing entries: %+v", listing)
+	}
+}
+
+func TestAssembleStream(t *testing.T) {
+	src := strings.Repeat("NOP\n", 8)
+	var buf bytes.Buffer
+
+	written, err := AssembleStream(&buf, strings.NewReader(src))
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	if written != int64(buf.Len()) {
+		t.Fatalf("expected written count %d to equal buffer length %d", written, buf.Len())
+	}
+
+	want, err := AssembleString(src)
+	if err != nil {
+		t.Fatalf("assemble baseline failed: %v", err)
+	}
+
+	if !bytes.Equal(buf.Bytes(), want) {
+		t.Fatalf("streamed bytes differ: got %x want %x", buf.Bytes(), want)
+	}
+}
+
+func TestContextualError(t *testing.T) {
+	_, err := AssembleString("NOP\nBADTOKEN\n")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	var asmErr *Error
+	if !errors.As(err, &asmErr) {
+		t.Fatalf("expected contextual Error, got %T", err)
+	}
+
+	if asmErr.Line != 2 {
+		t.Fatalf("expected error on line 2, got %d", asmErr.Line)
 	}
 }
 

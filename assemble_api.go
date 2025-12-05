@@ -12,6 +12,9 @@ import (
 // be used to generate human-readable listing output alongside assembled
 // binaries.
 type ListingEntry = internal.ListingEntry
+
+// Error provides source-location context for parse and assembly failures.
+type Error = internal.Error
 type ParseOptions = internal.ParseOptions
 
 // Assemble parses Motorola 68k assembly source from r and returns the encoded
@@ -20,6 +23,41 @@ type ParseOptions = internal.ParseOptions
 // assembled bytes.
 func Assemble(r io.Reader) ([]byte, error) {
 	return AssembleWithOptions(nil, r, ParseOptions{})
+}
+
+// AssembleStream assembles Motorola 68k source from r and streams the encoded
+// bytes to w without buffering the entire program in memory.
+func AssembleStream(w io.Writer, r io.Reader) (int64, error) {
+	return AssembleStreamWithOptions(w, r, ParseOptions{})
+}
+
+// AssembleStreamWithOptions assembles Motorola 68k source from r using the
+// supplied parsing options and streams the encoded bytes to w. The number of
+// bytes written is returned.
+func AssembleStreamWithOptions(w io.Writer, r io.Reader, opts ParseOptions) (int64, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
+	if err != nil {
+		return 0, err
+	}
+
+	return internal.AssembleStream(w, prog)
+}
+
+// AssembleStreamWithListing streams assembled bytes to w and also returns
+// listing metadata per source line.
+func AssembleStreamWithListing(w io.Writer, r io.Reader) (int64, []ListingEntry, error) {
+	return AssembleStreamWithListingWithOptions(w, r, ParseOptions{})
+}
+
+// AssembleStreamWithListingWithOptions streams assembled bytes to w using the
+// supplied parsing options and returns listing metadata per source line.
+func AssembleStreamWithListingWithOptions(w io.Writer, r io.Reader, opts ParseOptions) (int64, []ListingEntry, error) {
+	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return internal.AssembleStreamWithListing(w, prog)
 }
 
 // AssembleWithListing parses Motorola 68k assembly source from r, returns the
