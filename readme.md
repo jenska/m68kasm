@@ -12,16 +12,15 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 ---
 
-## 🚀 Features (as of v0.5.1)
+## 🚀 Features (as of v1.0)
 
-- Supports all mnemonics of 68000 CPU
 - Two-pass macro assembler with deterministic binary output 
+- Supports all mnemonics of 68000 CPU
 - Include paths, pseudo ops,cpre-defined symbols and rich expressions
 - Simple and fast command-line tool
 - Embeddedable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
--  
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 
@@ -153,8 +152,6 @@ It performs:
 - Unit and E2E tests (`go test ./...`)  
 - CLI build validation
 
-You can extend it with optional steps like `staticcheck` or release automation.
-
 ---
 
 ## 🧰 Development Guidelines
@@ -195,15 +192,14 @@ Make sure the CI passes before submitting.
 | **v0.2** | Expand core instruction set (`MOVE`, `ADD`, `SUB`, `CMP`) |
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
 | **v0.4** | Introduce listing and S-record output |
-| **v0.5 (current)** | Add ELF format and richer symbol handling |
-| **v1.0** | Full assembler with macros, expressions, and rich error reporting |
+| **v0.5** | Add ELF format and richer symbol handling |
+| **v1.0 (current) ** | Full assembler with macros, expressions, and rich error reporting |
 
 ---
 
-### 🔭 Next up (post-v0.5)
+### 🔭 Next up (post-v1.50)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
-- **Library-quality API refinements:** Add context-rich errors, streaming assembly for large inputs, and thread-safe reuse of parsed tables to strengthen embeddability and performance.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
 
 
