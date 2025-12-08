@@ -517,7 +517,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		ok, an := isRegAn(areg.Text)
 		if !ok {
-			return eaExpr, errorAtToken(areg, fmt.Errorf("expected Dn, got %s", areg.Text))
+			return eaExpr, errorAtToken(areg, fmt.Errorf("expected An, got %s", areg.Text))
 		}
 		eaExpr.Kind = instructions.EAkAn
 		eaExpr.Reg = an
