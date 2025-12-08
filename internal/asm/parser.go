@@ -784,6 +784,87 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 		return instructions.EAExpr{Kind: instructions.EAkImm, Imm: v}, nil
 	}
 	if t.Kind == IDENT || t.Kind == NUMBER {
+		if p.peekN(2).Kind == LPAREN {
+			disp, err := p.parseExprUntil(LPAREN)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			if _, err := p.want(LPAREN); err != nil {
+				return instructions.EAExpr{}, err
+			}
+
+			base, err := p.want(IDENT)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			if p.accept(COMMA) {
+				idxTok, err := p.want(IDENT)
+				if err != nil {
+					return instructions.EAExpr{}, err
+				}
+				ix := instructions.EAIndex{}
+				if ok, dn := isRegDn(idxTok.Text); ok {
+					ix.Reg = dn
+				} else if ok, an := isRegAn(idxTok.Text); ok {
+					ix.Reg = an
+					ix.IsA = true
+				} else {
+					return instructions.EAExpr{}, errorAtToken(idxTok, fmt.Errorf("expected Dn or An"))
+				}
+				if p.accept(DOT) {
+					szTok, err := p.want(IDENT)
+					if err != nil {
+						return instructions.EAExpr{}, err
+					}
+					sz := strings.ToUpper(szTok.Text)
+					if sz == "W" {
+						ix.Long = false
+					} else if sz == "L" {
+						ix.Long = true
+					}
+				}
+				if p.accept(STAR) {
+					sc, err := p.parseExprUntil(COMMA, RPAREN)
+					if err != nil {
+						return instructions.EAExpr{}, err
+					}
+					switch sc {
+					case 1:
+						// default
+					case 2:
+						ix.Scale = 2
+					case 4:
+						ix.Scale = 4
+					case 8:
+						ix.Scale = 8
+					default:
+						return instructions.EAExpr{}, fmt.Errorf("invalid scale factor: %d", sc)
+					}
+				}
+				ix.Disp8 = int8(disp)
+				if _, err := p.want(RPAREN); err != nil {
+					return instructions.EAExpr{}, err
+				}
+				if ok, an := isRegAn(base.Text); ok {
+					return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: an, Index: ix}, nil
+				}
+				if isPC(base.Text) {
+					return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
+				}
+				return instructions.EAExpr{}, parserError(base, "base must be An or PC")
+			}
+
+			if _, err := p.want(RPAREN); err != nil {
+				return instructions.EAExpr{}, err
+			}
+			if ok, an := isRegAn(base.Text); ok {
+				return instructions.EAExpr{Kind: instructions.EAkAddrDisp16, Reg: an, Disp16: int32(disp)}, nil
+			}
+			if isPC(base.Text) {
+				return instructions.EAExpr{Kind: instructions.EAkPCDisp16, Disp16: int32(disp)}, nil
+			}
+			return instructions.EAExpr{}, parserError(base, "base must be An or PC")
+		}
 		if ok, dn := isRegDn(t.Text); ok {
 			p.next()
 			return instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, nil
