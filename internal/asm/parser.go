@@ -783,7 +783,7 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 		}
 		return instructions.EAExpr{Kind: instructions.EAkImm, Imm: v}, nil
 	}
-	if t.Kind == IDENT {
+	if t.Kind == IDENT || t.Kind == NUMBER {
 		if ok, dn := isRegDn(t.Text); ok {
 			p.next()
 			return instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, nil
