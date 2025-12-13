@@ -161,6 +161,17 @@ loop:
 		}
 		switch t.Kind {
 		case NUMBER:
+			if name, ok, err := p.consumeLocalLabelRef(); ok {
+				if err != nil {
+					return 0, err
+				}
+				if v, ok := p.labels[name]; ok {
+					out = append(out, int64(v))
+					wantValue = false
+					continue
+				}
+				return 0, fmt.Errorf("undefiniertes Label in Ausdruck: %s", name)
+			}
 			p.next()
 			out = append(out, t.Val)
 			wantValue = false

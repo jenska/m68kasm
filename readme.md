@@ -6,17 +6,18 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v1.0
+**Current version:** v1.1.0
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v1.0)
+## 🚀 Features (as of v1.1)
 
-- Two-pass macro assembler with deterministic binary output 
+- Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
 - Include paths, pseudo ops,cpre-defined symbols and rich expressions
+- Local numeric labels (e.g., `1f`/`1b`) with validated forward/backward resolution
 - Simple and fast command-line tool
 - Embeddedable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
@@ -193,7 +194,7 @@ Make sure the CI passes before submitting.
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
 | **v0.4** | Introduce listing and S-record output |
 | **v0.5** | Add ELF format and richer symbol handling |
-| **v1.0 (current) ** | Full assembler with macros, expressions, and rich error reporting |
+| **v1.1 (current)** | Full assembler with macros, expressions, rich error reporting, and local label support |
 
 ---
 

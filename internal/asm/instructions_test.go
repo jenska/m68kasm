@@ -98,6 +98,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"CompareImmediateByte", "CMPI.B #1,D2\n", []byte{0x0C, 0x02, 0x00, 0x01}},
 		{"SetIfNotEqual", "SNE (A1)\n", []byte{0x56, 0xD1}},
 		{"BranchAlwaysShort", "BRA target\n.WORD 0\ntarget:\n", []byte{0x60, 0x02, 0x00, 0x00}},
+		{"BranchLocalLabels", "BRA 1f\n.WORD 0\n1:\nBRA 1b\n", []byte{0x60, 0x02, 0x00, 0x00, 0x60, 0xFE}},
 		{"BranchConditionWord", "BNE.W target\n.WORD 0\n.WORD 0\ntarget:\n", []byte{0x66, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
 		{"BranchSynonymShort", "BHS target\n.WORD 0\ntarget:\n", []byte{0x64, 0x02, 0x00, 0x00}},
 		{"BSRWordDefault", "BSR target\n.WORD 0\ntarget:\n", []byte{0x61, 0x00, 0x00, 0x02, 0x00, 0x00}},

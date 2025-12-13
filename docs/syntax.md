@@ -27,7 +27,13 @@ This document describes the **source language** accepted by `m68kasm`. It follow
   loop:   ADDQ  #1, D0
           BRA.S  loop
   ```
-- Labels are global; local labels (`1f/1b` style) are not yet supported.
+- **Local labels** use a numeric name followed by `:` and can be referenced with `1f`/`1b` style suffixes to jump forward/backward to the next/previous occurrence of that number.
+  ```asm
+  BRA 1f
+  NOP
+1:
+  BRA 1b
+  ```
 - **Forward references** are allowed (two‑pass assembly).
 
 ---
