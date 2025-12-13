@@ -27,16 +27,18 @@ type (
 	}
 
 	Parser struct {
-		lx     lexer
-		labels map[string]uint32
-		macros map[string]macroDef
-		instrs *instructions.Table
-		pc     uint32
-		origin uint32
-		hasOrg bool
-		items  []any
-		line   int
-		col    int
+		lx            lexer
+		labels        map[string]uint32
+		locals        map[int]int
+		localForwards map[int]int
+		macros        map[string]macroDef
+		instrs        *instructions.Table
+		pc            uint32
+		origin        uint32
+		hasOrg        bool
+		items         []any
+		line          int
+		col           int
 
 		macroDepth    int
 		macroExpanded bool
@@ -68,6 +70,48 @@ func copySymbols(src map[string]uint32) map[string]uint32 {
 	return dst
 }
 
+func localLabelName(num, idx int) string {
+	return fmt.Sprintf("__local_%d_%d", num, idx)
+}
+
+func (p *Parser) defineLocalLabel(tok Token) error {
+	num := int(tok.Val)
+	if num < 0 {
+		return parserError(tok, "local label must be non-negative")
+	}
+	idx := p.locals[num] + 1
+	name := localLabelName(num, idx)
+	p.locals[num] = idx
+	p.labels[name] = p.pc
+	return nil
+}
+
+func (p *Parser) resolveLocalLabel(num int, forward bool) (string, error) {
+	if num < 0 {
+		return "", fmt.Errorf("local label must be non-negative")
+	}
+	if forward {
+		idx := p.locals[num] + 1
+		if p.localForwards[num] < idx {
+			p.localForwards[num] = idx
+		}
+		return localLabelName(num, idx), nil
+	}
+	if p.locals[num] == 0 {
+		return "", fmt.Errorf("no previous local label %d", num)
+	}
+	return localLabelName(num, p.locals[num]), nil
+}
+
+func (p *Parser) ensureLocalForwardsResolved() error {
+	for num, needed := range p.localForwards {
+		if p.locals[num] < needed {
+			return fmt.Errorf("no forward definition for local label %d", num)
+		}
+	}
+	return nil
+}
+
 func (s *sliceLexer) Next() Token {
 	if s.pos >= len(s.tokens) {
 		return Token{Kind: EOF}
@@ -91,7 +135,14 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 	if table == nil {
 		table = instructions.DefaultTable()
 	}
-	p := &Parser{lx: NewLexer(r), labels: copySymbols(opts.Symbols), macros: map[string]macroDef{}, instrs: table}
+	p := &Parser{
+		lx:            NewLexer(r),
+		labels:        copySymbols(opts.Symbols),
+		locals:        map[int]int{},
+		localForwards: map[int]int{},
+		macros:        map[string]macroDef{},
+		instrs:        table,
+	}
 	for {
 		t := p.peek()
 		if t.Kind == EOF {
@@ -102,11 +153,17 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 			continue
 		}
 
-		// Label? IDENT ':'
-		if t.Kind == IDENT && p.peekN(2).Kind == COLON {
-			lbl := p.next() // IDENT
-			p.next()        // ':'
-			p.labels[lbl.Text] = p.pc
+		// Label? IDENT ':' or NUMBER ':' for local labels
+		if (t.Kind == IDENT || t.Kind == NUMBER) && p.peekN(2).Kind == COLON {
+			lbl := p.next()
+			p.next() // ':'
+			if lbl.Kind == IDENT {
+				p.labels[lbl.Text] = p.pc
+			} else {
+				if err := p.defineLocalLabel(lbl); err != nil {
+					return nil, err
+				}
+			}
 			nt := p.peek()
 			if nt.Kind == NEWLINE || nt.Kind == EOF {
 				continue
@@ -128,6 +185,10 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 		if p.peek().Kind == NEWLINE {
 			p.next()
 		}
+	}
+
+	if err := p.ensureLocalForwardsResolved(); err != nil {
+		return nil, err
 	}
 
 	origin := p.origin
@@ -154,6 +215,33 @@ func ParseFileWithOptions(path string, opts ParseOptions) (*Program, error) {
 
 func parserError(t Token, msg string) error {
 	return errorAtToken(t, fmt.Errorf("%s", msg))
+}
+
+func (p *Parser) consumeLocalLabelRef() (string, bool, error) {
+	numTok := p.peek()
+	dirTok := p.peekN(2)
+	if numTok.Kind != NUMBER || dirTok.Kind != IDENT {
+		return "", false, nil
+	}
+	dir := strings.ToLower(dirTok.Text)
+	if dir != "f" && dir != "b" {
+		return "", false, nil
+	}
+	p.next() // number
+	p.next() // direction
+	name, err := p.resolveLocalLabel(int(numTok.Val), dir == "f")
+	return name, true, err
+}
+
+func (p *Parser) parseLabelReference() (string, error) {
+	if p.peek().Kind == IDENT {
+		return p.next().Text, nil
+	}
+	if name, ok, err := p.consumeLocalLabelRef(); ok {
+		return name, err
+	}
+	t := p.next()
+	return "", parserError(t, "expected label")
 }
 
 func (p *Parser) parseStmt() error {
@@ -582,11 +670,11 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 
 	case instructions.OpkDispRel:
-		lbl, err := p.want(IDENT)
+		name, err := p.parseLabelReference()
 		if err != nil {
 			return eaExpr, err
 		}
-		args.Target = lbl.Text
+		args.Target = name
 
 	default:
 		return eaExpr, errorAtLine(mn.Line, fmt.Errorf("unknown identifier %s", mn.Text))
