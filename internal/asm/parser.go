@@ -1,6 +1,7 @@
 package asm
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"math"
@@ -27,18 +28,19 @@ type (
 	}
 
 	Parser struct {
-		lx            lexer
-		labels        map[string]uint32
-		locals        map[int]int
-		localForwards map[int]int
-		macros        map[string]macroDef
-		instrs        *instructions.Table
-		pc            uint32
-		origin        uint32
-		hasOrg        bool
-		items         []any
-		line          int
-		col           int
+		lx               lexer
+		labels           map[string]uint32
+		locals           map[int]int
+		localForwards    map[int]int
+		allowForwardRefs bool
+		macros           map[string]macroDef
+		instrs           *instructions.Table
+		pc               uint32
+		origin           uint32
+		hasOrg           bool
+		items            []any
+		line             int
+		col              int
 
 		macroDepth    int
 		macroExpanded bool
@@ -131,17 +133,33 @@ func Parse(r io.Reader) (*Program, error) {
 }
 
 func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
+	src, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
 	table := opts.InstrTable
 	if table == nil {
 		table = instructions.DefaultTable()
 	}
+
+	firstPass, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, opts.Symbols, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseWithLexer(NewLexer(bytes.NewReader(src)), table, firstPass.Labels, false)
+}
+
+func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint32, allowForward bool) (*Program, error) {
 	p := &Parser{
-		lx:            NewLexer(r),
-		labels:        copySymbols(opts.Symbols),
-		locals:        map[int]int{},
-		localForwards: map[int]int{},
-		macros:        map[string]macroDef{},
-		instrs:        table,
+		lx:               lx,
+		labels:           copySymbols(symbols),
+		locals:           map[int]int{},
+		localForwards:    map[int]int{},
+		allowForwardRefs: allowForward,
+		macros:           map[string]macroDef{},
+		instrs:           table,
 	}
 	for {
 		t := p.peek()
@@ -266,6 +284,18 @@ func (p *Parser) parseStmt() error {
 		}
 		if instrDef := p.instrs.Lookup(s); instrDef != nil {
 			return p.parseInstruction(instrDef)
+		}
+		if strings.HasPrefix(strings.ToUpper(t.Text), "DC.") {
+			_ = p.next()
+			suf := ""
+			if idx := strings.IndexRune(t.Text, '.'); idx >= 0 && idx < len(t.Text)-1 {
+				suf = t.Text[idx+1:]
+			}
+			return parseDC(p, suf)
+		}
+		if pseudo, ok := pseudoMap["."+strings.ToUpper(t.Text)]; ok {
+			_ = p.next()
+			return pseudo(p)
 		}
 		return parserError(t, "unknown mnemonic")
 	}
@@ -999,8 +1029,8 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 		return instructions.EAExpr{Kind: kind, Abs32: uint32(v)}, nil
 	}
 	if p.accept(LPAREN) {
-		// (An)
-		if p.peek().Kind == IDENT {
+		// (An) or (An)+
+		if p.peek().Kind == IDENT && p.peekN(2).Kind == RPAREN {
 			id := p.next()
 			if ok, an := isRegAn(id.Text); ok {
 				if _, err := p.want(RPAREN); err != nil {
@@ -1012,6 +1042,66 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 				return instructions.EAExpr{Kind: instructions.EAkAddrInd, Reg: an}, nil
 			}
 			return instructions.EAExpr{}, parserError(id, "unexpected EA, expected (An) or (disp,An/PC)")
+		}
+		// (An, Xn...) or (PC, Xn...)
+		if p.peek().Kind == IDENT && p.peekN(2).Kind == COMMA {
+			base := p.next()
+			if !p.accept(COMMA) {
+				return instructions.EAExpr{}, parserError(base, "expected ',' after base register")
+			}
+			idxTok, err := p.want(IDENT)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			var ix instructions.EAIndex
+			ix.Disp8 = 0
+			if ok, dn := isRegDn(idxTok.Text); ok {
+				ix.Reg = dn
+			} else if ok, an := isRegAn(idxTok.Text); ok {
+				ix.Reg = an
+				ix.IsA = true
+			} else {
+				return instructions.EAExpr{}, parserError(idxTok, "expected Dn or An")
+			}
+			if p.accept(DOT) {
+				szTok, err := p.want(IDENT)
+				if err != nil {
+					return instructions.EAExpr{}, err
+				}
+				sz := strings.ToUpper(szTok.Text)
+				if sz == "W" {
+					ix.Long = false
+				} else if sz == "L" {
+					ix.Long = true
+				}
+			}
+			if p.accept(STAR) {
+				sc, err := p.parseExprUntil(COMMA, RPAREN)
+				if err != nil {
+					return instructions.EAExpr{}, err
+				}
+				switch sc {
+				case 1:
+				case 2:
+					ix.Scale = 2
+				case 4:
+					ix.Scale = 4
+				case 8:
+					ix.Scale = 8
+				default:
+					return instructions.EAExpr{}, fmt.Errorf("invalid scale factor: %d", sc)
+				}
+			}
+			if _, err := p.want(RPAREN); err != nil {
+				return instructions.EAExpr{}, err
+			}
+			if ok, an := isRegAn(base.Text); ok {
+				return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: an, Index: ix}, nil
+			}
+			if isPC(base.Text) {
+				return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
+			}
+			return instructions.EAExpr{}, parserError(base, "base must be An or PC")
 		}
 		first, err := p.parseExprUntil(COMMA, RPAREN)
 		if err != nil {
@@ -1133,6 +1223,9 @@ func (p *Parser) accept(k Kind) bool {
 }
 
 func isRegDn(s string) (bool, int) {
+	if trimmed, ok := stripRegSizeSuffix(s); ok {
+		s = trimmed
+	}
 	if len(s) == 2 && (s[0] == 'd' || s[0] == 'D') {
 		r := int(s[1] - '0')
 		if 0 <= r && r <= 7 {
@@ -1143,6 +1236,9 @@ func isRegDn(s string) (bool, int) {
 }
 
 func isRegAn(s string) (bool, int) {
+	if trimmed, ok := stripRegSizeSuffix(s); ok {
+		s = trimmed
+	}
 	if len(s) == 2 && (s[0] == 'a' || s[0] == 'A') {
 		r := int(s[1] - '0')
 		if 0 <= r && r <= 7 {
@@ -1157,4 +1253,14 @@ func isRegAn(s string) (bool, int) {
 
 func isPC(s string) bool {
 	return strings.EqualFold(s, "PC")
+}
+
+func stripRegSizeSuffix(s string) (string, bool) {
+	if len(s) >= 3 && s[2] == '.' {
+		suf := strings.ToLower(s[3:])
+		if suf == "b" || suf == "w" || suf == "l" || suf == "s" {
+			return s[:2], true
+		}
+	}
+	return s, false
 }

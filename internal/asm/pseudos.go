@@ -11,6 +11,7 @@ var pseudoMap = map[string]func(*Parser) error{
 	".WORD":  parseWORD,
 	".LONG":  parseLONG,
 	".ALIGN": parseALIGN,
+	".EVEN":  parseEVEN,
 	".MACRO": parseMACRO,
 }
 
@@ -164,6 +165,27 @@ func parseALIGN(p *Parser) error {
 
 	// emit pad bytes of 'fill'
 	return p.emitPaddingBytes(pad, fill)
+}
+
+func parseEVEN(p *Parser) error {
+	if p.pc%2 == 0 {
+		return nil
+	}
+	return p.emitPaddingBytes(1, 0x00)
+}
+
+func parseDC(p *Parser, suffix string) error {
+	suf := strings.ToUpper(suffix)
+	switch suf {
+	case "B":
+		return parseBYTE(p)
+	case "W":
+		return parseWORD(p)
+	case "L":
+		return parseLONG(p)
+	default:
+		return fmt.Errorf("unknown DC size .%s", suffix)
+	}
 }
 
 func parseMACRO(p *Parser) error {
