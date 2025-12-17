@@ -170,6 +170,11 @@ loop:
 					wantValue = false
 					continue
 				}
+				if p.allowForwardRefs {
+					out = append(out, 0)
+					wantValue = false
+					continue
+				}
 				return 0, fmt.Errorf("undefiniertes Label in Ausdruck: %s", name)
 			}
 			p.next()
@@ -179,6 +184,9 @@ loop:
 			p.next()
 			if v, ok := p.labels[t.Text]; ok {
 				out = append(out, int64(v))
+				wantValue = false
+			} else if p.allowForwardRefs {
+				out = append(out, 0)
 				wantValue = false
 			} else {
 				return 0, fmt.Errorf("undefiniertes Label in Ausdruck: %s", t.Text)
