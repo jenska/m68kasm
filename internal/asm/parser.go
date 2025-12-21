@@ -934,10 +934,10 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 					if err != nil {
 						return instructions.EAExpr{}, err
 					}
-					sz := strings.ToUpper(szTok.Text)
-					if sz == "W" {
+					switch strings.ToUpper(szTok.Text) {
+					case "W":
 						ix.Long = false
-					} else if sz == "L" {
+					case "L":
 						ix.Long = true
 					}
 				}
@@ -1068,10 +1068,10 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 				if err != nil {
 					return instructions.EAExpr{}, err
 				}
-				sz := strings.ToUpper(szTok.Text)
-				if sz == "W" {
+				switch strings.ToUpper(szTok.Text) {
+				case "W":
 					ix.Long = false
-				} else if sz == "L" {
+				case "L":
 					ix.Long = true
 				}
 			}

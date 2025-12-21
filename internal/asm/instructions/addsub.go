@@ -115,7 +115,7 @@ func newAddSubXDef(name string, regBits, predecBits uint16) *InstrDef {
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
 				OperKinds:   []OperandKind{OpkDn, OpkDn},
-				Validate:    func(a *Args) error { return validateAddSubX(name, a, false) },
+				Validate:    nil,
 				Steps: []EmitStep{
 					{WordBits: regBits, Fields: []FieldRef{FDnReg, FSizeBits, FSrcDnReg}},
 				},
@@ -124,7 +124,7 @@ func newAddSubXDef(name string, regBits, predecBits uint16) *InstrDef {
 				DefaultSize: WordSize,
 				Sizes:       []Size{ByteSize, WordSize, LongSize},
 				OperKinds:   []OperandKind{OpkPredecAn, OpkPredecAn},
-				Validate:    func(a *Args) error { return validateAddSubX(name, a, true) },
+				Validate:    nil,
 				Steps: []EmitStep{
 					{WordBits: predecBits, Fields: []FieldRef{FAnReg, FSizeBits, FSrcAnReg}},
 				},
@@ -179,11 +179,6 @@ func validateAddSubQuick(name string, a *Args) error {
 	if a.Dst.Kind == EAkAn && a.Size == ByteSize {
 		return fmt.Errorf("%s.B not allowed for address register", name)
 	}
-	return nil
-}
-
-func validateAddSubX(name string, a *Args, predec bool) error {
-	// All constraints (Dn,Dn or -(An),-(An)) are fully covered by OperKinds.
 	return nil
 }
 
