@@ -745,6 +745,13 @@ func sizeAllowedList(sz instructions.Size, allowed []instructions.Size) bool {
 }
 
 func (p *Parser) parseSizeSpec(mn Token, def instructions.Size, allowed []instructions.Size) (instructions.Size, error) {
+	// DBcc instructions (like DBRA) always use a word-sized displacement,
+	// but assemblers don't require a ".W" suffix. To ensure the instruction
+	// size is calculated correctly, we explicitly set the size to WordSize.
+	if len(mn.Text) >= 2 && strings.ToUpper(mn.Text[:2]) == "DB" {
+		return instructions.WordSize, nil
+	}
+
 	if idx := strings.IndexRune(mn.Text, '.'); idx > 0 {
 		suf := mn.Text[idx+1:]
 		if suf == "" {
