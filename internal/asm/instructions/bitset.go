@@ -65,9 +65,6 @@ var defBTST = InstrDef{
 }
 
 func validateBitReg(name string, a *Args) error {
-	if a.Src.Kind != EAkDn {
-		return fmt.Errorf("%s requires Dn source", name)
-	}
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil
@@ -79,9 +76,6 @@ func validateBitReg(name string, a *Args) error {
 }
 
 func validateBitImm(name string, a *Args) error {
-	if a.Src.Kind != EAkImm {
-		return fmt.Errorf("%s requires immediate source", name)
-	}
 	if err := checkImmediateRange(a.Src.Imm, ByteSize); err != nil {
 		return err
 	}
@@ -96,9 +90,6 @@ func validateBitImm(name string, a *Args) error {
 }
 
 func validateBitTestReg(a *Args) error {
-	if a.Src.Kind != EAkDn {
-		return fmt.Errorf("BTST requires Dn source")
-	}
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
 		return nil
@@ -110,9 +101,6 @@ func validateBitTestReg(a *Args) error {
 }
 
 func validateBitTestImm(a *Args) error {
-	if a.Src.Kind != EAkImm {
-		return fmt.Errorf("BTST requires immediate source")
-	}
 	if err := checkImmediateRange(a.Src.Imm, ByteSize); err != nil {
 		return err
 	}

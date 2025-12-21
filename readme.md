@@ -16,14 +16,22 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
-- Include paths, pseudo ops,cpre-defined symbols and rich expressions
+- Include paths, pseudo ops, pre-defined symbols and rich expressions
 - Local numeric labels (e.g., `1f`/`1b`) with validated forward/backward resolution
 - Simple and fast command-line tool
-- Embeddedable directly into Go programs via a public API
+- Embeddable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
+
+---
+
+## ⚠️ Known Limitations
+
+- **CPU Generation:** Strictly targets the **68000** instruction set. Extensions for 68010, 68020+, or FPU coprocessors are not currently supported.
+- **Linker Support:** ELF output is currently limited to a single load segment. It is not yet suitable for complex linking scenarios requiring distinct `.text`, `.data`, and `.bss` sections.
+- **Optimizations:** The assembler prioritizes deterministic output over optimization. It does not automatically relax instructions (e.g., `JMP` to `BRA`) or substitute shorter instruction forms unless explicitly handled by the instruction selection logic.
 
 ---
 
@@ -198,10 +206,11 @@ Make sure the CI passes before submitting.
 
 ---
 
-### 🔭 Next up (post-v1.50)
+### 🔭 Next up (post-v1.1.0)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
+- **Output Optimizations:** Implement instruction relaxation (e.g., `JMP` → `BRA.S`) and optimize internal form matching to reduce assembly time.
 
 
 ## 🧠 Design Philosophy

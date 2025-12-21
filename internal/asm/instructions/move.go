@@ -60,9 +60,6 @@ var defMOVEA = InstrDef{
 }
 
 func validateMOVE(a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind == EAkNone {
-		return fmt.Errorf("MOVE requires source and destination")
-	}
 	if a.Src.Kind == EAkSR || a.Src.Kind == EAkCCR || a.Src.Kind == EAkUSP || a.Dst.Kind == EAkSR || a.Dst.Kind == EAkCCR || a.Dst.Kind == EAkUSP {
 		return fmt.Errorf("MOVE special registers require dedicated forms")
 	}
@@ -89,9 +86,6 @@ func validateMOVE(a *Args) error {
 }
 
 func validateMoveToSR(a *Args) error {
-	if a.Dst.Kind != EAkSR {
-		return fmt.Errorf("MOVE to SR requires SR destination")
-	}
 	switch a.Src.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkPCDisp16, EAkIdxPCBrief, EAkAbsW, EAkAbsL, EAkImm:
 		if a.Src.Kind == EAkImm {
@@ -106,9 +100,6 @@ func validateMoveToSR(a *Args) error {
 }
 
 func validateMoveFromSR(a *Args) error {
-	if a.Src.Kind != EAkSR {
-		return fmt.Errorf("MOVE from SR requires SR source")
-	}
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil
@@ -127,9 +118,6 @@ func validateMoveUSP(a *Args) error {
 }
 
 func validateMOVEA(a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkAn {
-		return fmt.Errorf("MOVEA requires An destination and source")
-	}
 	if a.Size == ByteSize {
 		return fmt.Errorf("MOVEA does not support byte size")
 	}

@@ -74,9 +74,6 @@ func newLogicNotDef() *InstrDef {
 }
 
 func validateLogicToDn(name string, a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
-		return fmt.Errorf("%s requires Dn destination", name)
-	}
 	if a.Src.Kind == EAkAn {
 		return fmt.Errorf("%s does not allow address register source", name)
 	}
@@ -89,9 +86,6 @@ func validateLogicToDn(name string, a *Args) error {
 }
 
 func validateLogicDnToMemory(name string, a *Args) error {
-	if a.Src.Kind != EAkDn || a.Dst.Kind == EAkNone {
-		return fmt.Errorf("%s requires Dn source", name)
-	}
 	switch a.Dst.Kind {
 	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil
@@ -101,9 +95,6 @@ func validateLogicDnToMemory(name string, a *Args) error {
 }
 
 func validateEor(a *Args) error {
-	if a.Src.Kind != EAkDn {
-		return fmt.Errorf("EOR requires Dn source")
-	}
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil

@@ -74,9 +74,6 @@ var defCMPA = InstrDef{
 }
 
 func validateCMP(a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
-		return fmt.Errorf("CMP requires Dn destination")
-	}
 	if a.Src.Kind == EAkImm {
 		if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 			return err
@@ -93,9 +90,6 @@ func validateCMPM(a *Args) error {
 }
 
 func validateCMPI(a *Args) error {
-	if a.Src.Kind != EAkImm {
-		return fmt.Errorf("CMPI requires immediate source")
-	}
 	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 		return err
 	}
@@ -110,9 +104,6 @@ func validateCMPI(a *Args) error {
 }
 
 func validateCMPA(a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkAn {
-		return fmt.Errorf("CMPA requires An destination and source")
-	}
 	if a.Size == ByteSize {
 		return fmt.Errorf("CMPA does not support byte size")
 	}

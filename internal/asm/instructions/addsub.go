@@ -134,9 +134,8 @@ func newAddSubXDef(name string, regBits, predecBits uint16) *InstrDef {
 }
 
 func validateAddSubToDn(name string, a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
-		return fmt.Errorf("%s requires Dn destination", name)
-	}
+	// Operand types (Src=EA, Dst=Dn) are enforced by FormDef.OperKinds.
+	// We only need to validate specific constraints like immediate ranges or size restrictions.
 	if a.Size == ByteSize && a.Src.Kind == EAkAn {
 		return fmt.Errorf("%s.B does not allow address register source", name)
 	}
@@ -149,9 +148,7 @@ func validateAddSubToDn(name string, a *Args) error {
 }
 
 func validateAddSubDnToEA(name string, a *Args) error {
-	if a.Src.Kind != EAkDn || a.Dst.Kind == EAkNone {
-		return fmt.Errorf("%s requires Dn source", name)
-	}
+	// Src=Dn is enforced by OperKinds. Check if Dst is a memory alterable EA.
 	switch a.Dst.Kind {
 	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil
@@ -161,9 +158,6 @@ func validateAddSubDnToEA(name string, a *Args) error {
 }
 
 func validateAddSubAddr(name string, a *Args) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkAn {
-		return fmt.Errorf("%s requires An destination", name)
-	}
 	if a.Size == ByteSize {
 		return fmt.Errorf("%s does not support byte size for address destination", name)
 	}
@@ -179,9 +173,6 @@ func validateAddSubQuick(name string, a *Args) error {
 	if a.Src.Imm < 1 || a.Src.Imm > 8 {
 		return fmt.Errorf("%s immediate out of range: %d", name, a.Src.Imm)
 	}
-	if a.Dst.Kind == EAkNone {
-		return fmt.Errorf("%s requires destination", name)
-	}
 	if isPCRelativeKind(a.Dst.Kind) || a.Dst.Kind == EAkImm {
 		return fmt.Errorf("%s requires alterable destination", name)
 	}
@@ -192,33 +183,17 @@ func validateAddSubQuick(name string, a *Args) error {
 }
 
 func validateAddSubX(name string, a *Args, predec bool) error {
-	if a.Src.Kind == EAkNone || a.Dst.Kind == EAkNone {
-		return fmt.Errorf("%s requires both source and destination", name)
-	}
-	if predec {
-		if a.Src.Kind != EAkAddrPredec || a.Dst.Kind != EAkAddrPredec {
-			return fmt.Errorf("%s requires predecrement addressing for memory form", name)
-		}
-		return nil
-	}
-	if a.Src.Kind != EAkDn || a.Dst.Kind != EAkDn {
-		return fmt.Errorf("%s requires Dn registers for register form", name)
-	}
+	// All constraints (Dn,Dn or -(An),-(An)) are fully covered by OperKinds.
 	return nil
 }
 
 func validateAddSubImm(name string, a *Args) error {
-	if a.Src.Kind != EAkImm {
-		return fmt.Errorf("%s requires immediate source", name)
-	}
 	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 		return err
 	}
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
 		return nil
-	case EAkNone:
-		return fmt.Errorf("%s requires destination", name)
 	default:
 		return fmt.Errorf("%s destination must be data alterable EA", name)
 	}
