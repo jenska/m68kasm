@@ -410,3 +410,19 @@ func isIdentContinue(ch rune) bool {
 func isHex(ch rune) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
+
+// sliceLexer is a lexer implementation that reads from a pre-filled slice of tokens.
+// It is primarily used for macro expansion and re-parsing instruction forms.
+type sliceLexer struct {
+	tokens []Token
+	pos    int
+}
+
+func (s *sliceLexer) Next() Token {
+	if s.pos >= len(s.tokens) {
+		return Token{Kind: EOF}
+	}
+	t := s.tokens[s.pos]
+	s.pos++
+	return t
+}
