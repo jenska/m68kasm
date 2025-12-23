@@ -61,11 +61,20 @@ var defEXT = InstrDef{
 	Forms: []FormDef{
 		{
 			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize, LongSize},
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OpkDn},
 			Validate:    validateEXT,
 			Steps: []EmitStep{
-				{WordBits: 0x4800, Fields: []FieldRef{FSizeBits, FDstRegLow}},
+				{WordBits: 0x4880, Fields: []FieldRef{FDstRegLow}},
+			},
+		},
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkDn},
+			Validate:    validateEXT,
+			Steps: []EmitStep{
+				{WordBits: 0x48C0, Fields: []FieldRef{FDstRegLow}},
 			},
 		},
 	},
@@ -80,7 +89,7 @@ var defSWAP = InstrDef{
 			OperKinds:   []OperandKind{OpkDn},
 			Validate:    validateSWAP,
 			Steps: []EmitStep{
-				{WordBits: 0x4880, Fields: []FieldRef{FDstRegLow}},
+				{WordBits: 0x4840, Fields: []FieldRef{FDstRegLow}},
 			},
 		},
 	},
@@ -124,8 +133,8 @@ func newEXGForms() []FormDef {
 		wordBits  uint16
 		fields    []FieldRef
 	}{
-		{[]OperandKind{OpkDn, OpkDn}, validateEXGData, 0xC140, []FieldRef{FDnReg, FSrcDnReg}},
-		{[]OperandKind{OpkAn, OpkAn}, validateEXGAddr, 0xC148, []FieldRef{FAnReg, FSrcAnReg}},
+		{[]OperandKind{OpkDn, OpkDn}, validateEXGData, 0xC140, []FieldRef{FSrcDnRegHi, FDstRegLow}},
+		{[]OperandKind{OpkAn, OpkAn}, validateEXGAddr, 0xC148, []FieldRef{FSrcDnRegHi, FDstRegLow}},
 		{[]OperandKind{OpkDn, OpkAn}, validateEXGMixed, 0xC188, []FieldRef{FSrcDnRegHi, FDstRegLow}},
 	}
 
