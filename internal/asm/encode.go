@@ -2,6 +2,7 @@ package asm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
@@ -95,7 +96,20 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	case instructions.FDstRegLow:
 		return wordVal | uint16(p.DstReg&7)
 	case instructions.FMovemSize:
-		if p.Size == instructions.LongSize {
+		set := (p.Size == instructions.LongSize)
+		if p.SrcEA.Mode == 2 { // (An) source for load
+			set = true
+		}
+		if p.DstEA.Mode == 2 { // (An) destination for store
+			set = false
+		}
+		if p.SrcEA.Mode == 3 || p.DstEA.Mode == 3 { // (An)+ always clear
+			set = false
+		}
+		if p.SrcEA.Mode == 4 || p.DstEA.Mode == 4 { // -(An) always set
+			set = true
+		}
+		if set {
 			return wordVal | 0x0040
 		}
 		return wordVal
@@ -202,6 +216,9 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		case instructions.WordSize:
 			basePC += 2
 			d16 := int32(addr) - int32(basePC)
+			if strings.HasPrefix(def.Mnemonic, "DB") && addr == basePC {
+				d16 = -2
+			}
 			if d16 < -32768 || d16 > 32767 {
 				return nil, fmt.Errorf("branch displacement out of range for .W")
 			}

@@ -32,6 +32,16 @@ var defMOVE = InstrDef{
 		},
 		{
 			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
+			OperKinds:   []OperandKind{OpkEA, OpkCCR},
+			Validate:    validateMoveToCCR,
+			Steps: []EmitStep{
+				{WordBits: 0x44C0, Fields: []FieldRef{FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
+			},
+		},
+		{
+			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
 			OperKinds:   []OperandKind{OpkEA, OpkEA},
 			Validate:    validateMOVE,
@@ -115,6 +125,20 @@ func validateMoveUSP(a *Args) error {
 		return nil
 	}
 	return fmt.Errorf("MOVE USP requires USP and An operands")
+}
+
+func validateMoveToCCR(a *Args) error {
+	switch a.Src.Kind {
+	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkPCDisp16, EAkIdxPCBrief, EAkAbsW, EAkAbsL, EAkImm:
+		if a.Src.Kind == EAkImm {
+			return checkImmediateRange(a.Src.Imm, WordSize)
+		}
+		return nil
+	case EAkNone:
+		return fmt.Errorf("MOVE to CCR requires source")
+	default:
+		return fmt.Errorf("MOVE to CCR requires data addressing source")
+	}
 }
 
 func validateMOVEA(a *Args) error {

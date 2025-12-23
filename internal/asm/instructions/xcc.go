@@ -55,6 +55,22 @@ func init() {
 			},
 		})
 	}
+	// DBF is an alias for DBRA (condition code 1)
+	registerInstrDef(&InstrDef{
+		Mnemonic: "DBF",
+		Forms: []FormDef{
+			{
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
+				OperKinds:   []OperandKind{OpkDn, OpkDispRel},
+				Validate:    nil,
+				Steps: []EmitStep{
+					{WordBits: 0x51C8, Fields: []FieldRef{FSrcDnReg}},
+					{Trailer: []TrailerItem{TBranchWordIfNeeded}},
+				},
+			},
+		},
+	})
 
 	for i, c := range sccConditions {
 		registerInstrDef(

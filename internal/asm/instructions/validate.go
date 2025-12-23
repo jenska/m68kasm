@@ -20,7 +20,7 @@ func validateControlEA(name string, a *Args) error {
 func checkImmediateRange(v int64, sz Size) error {
 	switch sz {
 	case ByteSize:
-		if v < -128 || v > 127 {
+		if v < -128 || v > 255 {
 			return fmt.Errorf("immediate out of range for .b: %d", v)
 		}
 	case WordSize:
