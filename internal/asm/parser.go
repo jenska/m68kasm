@@ -934,7 +934,7 @@ func (p *Parser) parseEAPreDecrement() (instructions.EAExpr, error) {
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
-	if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") {
+	if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") && !strings.EqualFold(areg.Text, "SP") && !strings.EqualFold(areg.Text, "SSP") {
 		return instructions.EAExpr{}, parserError(areg, "expected address register")
 	}
 	if _, err := p.want(RPAREN); err != nil {
