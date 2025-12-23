@@ -97,17 +97,30 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | uint16(p.DstReg&7)
 	case instructions.FMovemSize:
 		set := (p.Size == instructions.LongSize)
-		if p.SrcEA.Mode == 2 { // (An) source for load
-			set = true
+		// MOVEM's size bit depends on the memory EA. For loads, (An) is encoded
+		// as long even without a .L suffix; stores keep the requested size.
+		// Post-increment always clears the bit; pre-decrement always sets it.
+		isLoad := p.DstRegMask != 0
+		ea := p.SrcEA
+		if !isLoad {
+			ea = p.DstEA
 		}
-		if p.DstEA.Mode == 2 { // (An) destination for store
-			set = false
-		}
-		if p.SrcEA.Mode == 3 || p.DstEA.Mode == 3 { // (An)+ always clear
-			set = false
-		}
-		if p.SrcEA.Mode == 4 || p.DstEA.Mode == 4 { // -(An) always set
-			set = true
+		if isLoad {
+			switch ea.Mode {
+			case 2: // (An)
+				set = true
+			case 4: // -(An)
+				set = true
+			}
+		} else {
+			switch ea.Mode {
+			case 2: // (An)
+				set = false
+			case 3: // (An)+
+				set = false
+			case 4: // -(An)
+				set = true
+			}
 		}
 		if set {
 			return wordVal | 0x0040
