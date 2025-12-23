@@ -1111,9 +1111,25 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 	}
 
 	var ix instructions.EAIndex
-	if ok, dn := isRegDn(idxTok.Text); ok {
+	regText := idxTok.Text
+
+	// Handle size suffix embedded in the identifier, e.g. D0.L or A1.W
+	if dot := strings.IndexRune(regText, '.'); dot != -1 {
+		suf := strings.ToUpper(regText[dot+1:])
+		regText = regText[:dot]
+		switch suf {
+		case "W":
+			ix.Long = false
+		case "L":
+			ix.Long = true
+		default:
+			return ix, parserError(idxTok, "expected .W or .L for index register size")
+		}
+	}
+
+	if ok, dn := isRegDn(regText); ok {
 		ix.Reg = dn
-	} else if ok, an := isRegAn(idxTok.Text); ok {
+	} else if ok, an := isRegAn(regText); ok {
 		ix.Reg = an
 		ix.IsA = true
 	} else {
