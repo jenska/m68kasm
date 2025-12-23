@@ -1,3 +1,5 @@
 .org 0x1000
 .byte 0x12,0x34
 MOVEQ #1,D0
+MULU #2, D0
+DIVS #2, D0

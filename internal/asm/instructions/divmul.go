@@ -31,9 +31,10 @@ func validateDivMul(name string, a *Args) error {
 	if a.Size != WordSize {
 		return fmt.Errorf("%s operates on word size", name)
 	}
-	if a.Src.Kind == EAkImm {
-		return fmt.Errorf("%s does not allow immediate source", name)
-	}
+	/*	if a.Src.Kind == EAkImm {
+			return fmt.Errorf("%s does not allow immediate source", name)
+		}
+	*/
 	if a.Src.Kind == EAkAn {
 		return fmt.Errorf("%s does not allow address register source", name)
 	}

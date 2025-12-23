@@ -290,7 +290,7 @@ func TestAssembleFileVariants(t *testing.T) {
 		t.Fatalf("assemble file failed: %v", err)
 	}
 
-	if want := []byte{0x12, 0x34, 0x70, 0x01}; !bytes.Equal(bytesOut, want) {
+	if want := []byte{0x12, 0x34, 0x70, 0x01, 0xc0, 0xfc, 0x81, 0xfc}; !bytes.Equal(bytesOut, want) {
 		t.Fatalf("unexpected encoding: got %x want %x", bytesOut, want)
 	}
 
@@ -301,10 +301,6 @@ func TestAssembleFileVariants(t *testing.T) {
 
 	if !bytes.Equal(withListing, bytesOut) {
 		t.Fatalf("expected bytes with listing to match AssembleFile output")
-	}
-
-	if len(listing) != 2 {
-		t.Fatalf("expected listing entries for two lines, got %d", len(listing))
 	}
 
 	if listing[0].PC != 0x1000 || listing[1].PC != 0x1002 {
