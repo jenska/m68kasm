@@ -1110,14 +1110,26 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 		return instructions.EAIndex{}, err
 	}
 
-	var ix instructions.EAIndex
-	regText := idxTok.Text
+	// Handle embedded size suffix (e.g. D0.L) which the lexer consumes as one IDENT
+	name := idxTok.Text
+	var suffix string
+	if idx := strings.IndexByte(name, '.'); idx >= 0 {
+		suffix = name[idx+1:]
+		name = name[:idx]
+	}
 
-	// Handle size suffix embedded in the identifier, e.g. D0.L or A1.W
-	if dot := strings.IndexRune(regText, '.'); dot != -1 {
-		suf := strings.ToUpper(regText[dot+1:])
-		regText = regText[:dot]
-		switch suf {
+	var ix instructions.EAIndex
+	if ok, dn := isRegDn(name); ok {
+		ix.Reg = dn
+	} else if ok, an := isRegAn(name); ok {
+		ix.Reg = an
+		ix.IsA = true
+	} else {
+		return ix, parserError(idxTok, "expected Dn or An as index register")
+	}
+
+	if suffix != "" {
+		switch strings.ToUpper(suffix) {
 		case "W":
 			ix.Long = false
 		case "L":
@@ -1125,19 +1137,7 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 		default:
 			return ix, parserError(idxTok, "expected .W or .L for index register size")
 		}
-	}
-
-	if ok, dn := isRegDn(regText); ok {
-		ix.Reg = dn
-	} else if ok, an := isRegAn(regText); ok {
-		ix.Reg = an
-		ix.IsA = true
-	} else {
-		return ix, parserError(idxTok, "expected Dn or An as index register")
-	}
-
-	// Optional size specifier .W or .L
-	if p.accept(DOT) {
+	} else if p.accept(DOT) {
 		szTok, err := p.want(IDENT)
 		if err != nil {
 			return ix, err
