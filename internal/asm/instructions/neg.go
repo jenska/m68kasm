@@ -30,10 +30,7 @@ func newNegLikeDef(name string, wordBits uint16) InstrDef {
 
 func validateNegLike(name string) func(*Args) error {
 	return func(a *Args) error {
-		if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-			a.Dst = a.Src
-			a.Src = EAExpr{}
-		}
+		swapSrcDstIfDstNone(a)
 		switch a.Dst.Kind {
 		case EAkNone:
 			return fmt.Errorf("%s requires destination", name)

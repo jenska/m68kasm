@@ -2,7 +2,6 @@ package asm
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
@@ -229,7 +228,8 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		case instructions.WordSize:
 			basePC += 2
 			d16 := int32(addr) - int32(basePC)
-			if strings.HasPrefix(def.Mnemonic, "DB") && addr == basePC {
+			// Check if this is a DBcc instruction with target == current PC
+			if len(def.Mnemonic) >= 2 && def.Mnemonic[0:2] == "DB" && addr == basePC {
 				d16 = -2
 			}
 			if d16 < -32768 || d16 > 32767 {

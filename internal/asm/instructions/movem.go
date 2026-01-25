@@ -42,22 +42,18 @@ func validateMovemLoad(a *Args) error {
 	if a.Src.Kind == EAkNone {
 		return fmt.Errorf("MOVEM requires source EA")
 	}
-	switch a.Src.Kind {
-	case EAkPCDisp16, EAkIdxPCBrief, EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	default:
+	if !isMovemLoadEA(a.Src.Kind) {
 		return fmt.Errorf("MOVEM source must be memory or PC-relative")
 	}
+	return nil
 }
 
 func validateMovemStore(a *Args) error {
 	if a.RegMaskSrc == 0 {
 		return fmt.Errorf("MOVEM requires register list source")
 	}
-	switch a.Dst.Kind {
-	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	default:
+	if !isMemoryAlterable(a.Dst.Kind) {
 		return fmt.Errorf("MOVEM destination must be memory alterable EA")
 	}
+	return nil
 }

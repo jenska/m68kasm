@@ -63,15 +63,44 @@ const (
 type InstrDef struct {
 	Mnemonic string
 	Forms    []FormDef
+	// Priority determines matching order for overlapping opcode patterns.
+	// Higher priority patterns are checked first.
+	// Used for patterns that share opcode bits (e.g., MULU 0xC0C0 vs AND 0xC000).
+	Priority int
 }
 
+// registrationOrder tracks which instruction families must register before others.
+// This ensures more specific opcode patterns are registered before generic ones.
+var registrationOrder = []string{
+	// Phase 1: Specific multiply/divide patterns (0xC0C0, 0xC1C0, 0x80C0, 0x81C0)
+	// must register before generic logical ops (AND 0xC000/0xC100, OR 0x8000/0x8100)
+	"MULU", "MULS", "DIVU", "DIVS",
+	// Phase 2: BCD patterns (ABCD 0xC100, SBCD 0x8100) before logical ops
+	"ABCD", "SBCD",
+	// Phase 3: All other instructions (no ordering constraint)
+}
+
+// registerInstrDef registers an instruction definition. This is the ONLY way to add
+// instructions to the Instructions map. Direct map assignments are prohibited.
 func registerInstrDef(def *InstrDef) {
 	if Instructions[def.Mnemonic] != nil {
-		panic(fmt.Errorf("instruction %s already rgistered", def.Mnemonic))
+		panic(fmt.Errorf("instruction %s already registered", def.Mnemonic))
+	}
+	// Assign priority based on registration order
+	for i, mnemonic := range registrationOrder {
+		if def.Mnemonic == mnemonic {
+			def.Priority = 1000 - i // Higher phase = higher priority
+			break
+		}
+	}
+	if def.Priority == 0 {
+		def.Priority = 100 // Default priority for unordered instructions
 	}
 	Instructions[def.Mnemonic] = def
 }
 
+// Instructions is the global registry of instruction definitions.
+// IMPORTANT: Always use registerInstrDef() to add instructions. Never assign directly to this map.
 var Instructions = map[string]*InstrDef{}
 
 type FormDef struct {

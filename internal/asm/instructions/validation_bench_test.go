@@ -48,7 +48,7 @@ func BenchmarkValidateAddSubDnToEA(b *testing.B) {
 
 func BenchmarkValidateAddSubX(b *testing.B) {
 	// Szenario: ADDX.W D0,D1
-	// Dies nutzt validateAddSubX, welches nun fast leer sein sollte.
+	// ADDX has no validation, so we just test the registration lookups.
 	def := Instructions["ADDX"]
 	if def == nil {
 		b.Fatal("ADDX instruction not found")
@@ -62,8 +62,10 @@ func BenchmarkValidateAddSubX(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := form.Validate(args); err != nil {
-			b.Fatal(err)
+		if form.Validate != nil {
+			if err := form.Validate(args); err != nil {
+				b.Fatal(err)
+			}
 		}
 	}
 }

@@ -96,28 +96,26 @@ func validateMOVE(a *Args) error {
 }
 
 func validateMoveToSR(a *Args) error {
-	switch a.Src.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkPCDisp16, EAkIdxPCBrief, EAkAbsW, EAkAbsL, EAkImm:
-		if a.Src.Kind == EAkImm {
-			return checkImmediateRange(a.Src.Imm, WordSize)
+	if !isReadableDataEA(a.Src.Kind) {
+		if a.Src.Kind == EAkNone {
+			return fmt.Errorf("MOVE to SR requires source")
 		}
-		return nil
-	case EAkNone:
-		return fmt.Errorf("MOVE to SR requires source")
-	default:
 		return fmt.Errorf("MOVE to SR requires data addressing source")
 	}
+	if a.Src.Kind == EAkImm {
+		return checkImmediateRange(a.Src.Imm, WordSize)
+	}
+	return nil
 }
 
 func validateMoveFromSR(a *Args) error {
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("MOVE from SR requires destination")
-	default:
+	if !isDataAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("MOVE from SR requires destination")
+		}
 		return fmt.Errorf("MOVE from SR destination must be data alterable")
 	}
+	return nil
 }
 
 func validateMoveUSP(a *Args) error {
@@ -128,17 +126,16 @@ func validateMoveUSP(a *Args) error {
 }
 
 func validateMoveToCCR(a *Args) error {
-	switch a.Src.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkPCDisp16, EAkIdxPCBrief, EAkAbsW, EAkAbsL, EAkImm:
-		if a.Src.Kind == EAkImm {
-			return checkImmediateRange(a.Src.Imm, WordSize)
+	if !isReadableDataEA(a.Src.Kind) {
+		if a.Src.Kind == EAkNone {
+			return fmt.Errorf("MOVE to CCR requires source")
 		}
-		return nil
-	case EAkNone:
-		return fmt.Errorf("MOVE to CCR requires source")
-	default:
 		return fmt.Errorf("MOVE to CCR requires data addressing source")
 	}
+	if a.Src.Kind == EAkImm {
+		return checkImmediateRange(a.Src.Imm, WordSize)
+	}
+	return nil
 }
 
 func validateMOVEA(a *Args) error {

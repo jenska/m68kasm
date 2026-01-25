@@ -151,6 +151,7 @@ func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.Op
 }
 
 func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
+	// Most forms allow 1-3 sizes, so linear search is efficient here
 	for _, v := range list {
 		if v == sz {
 			return true

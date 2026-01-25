@@ -93,14 +93,13 @@ func validateCMPI(a *Args) error {
 	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 		return err
 	}
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("CMPI requires destination")
-	default:
+	if !isDataAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("CMPI requires destination")
+		}
 		return fmt.Errorf("CMPI destination must be data alterable EA")
 	}
+	return nil
 }
 
 func validateCMPA(a *Args) error {
@@ -130,10 +129,7 @@ var defTST = InstrDef{
 }
 
 func validateTst(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	switch a.Dst.Kind {
 	case EAkNone:
 		return fmt.Errorf("TST requires destination")

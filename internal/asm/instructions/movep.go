@@ -53,10 +53,7 @@ var defMOVEP = InstrDef{
 }
 
 func validateMOVEPToMem(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Src.Kind != EAkDn {
 		return fmt.Errorf("MOVEP requires Dn source")
 	}
@@ -67,10 +64,7 @@ func validateMOVEPToMem(a *Args) error {
 }
 
 func validateMOVEPFromMem(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Src.Kind != EAkAddrDisp16 {
 		return fmt.Errorf("MOVEP source must be (d16,An)")
 	}

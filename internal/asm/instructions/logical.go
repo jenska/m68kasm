@@ -86,38 +86,32 @@ func validateLogicToDn(name string, a *Args) error {
 }
 
 func validateLogicDnToMemory(name string, a *Args) error {
-	switch a.Dst.Kind {
-	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	default:
+	if !isMemoryAlterable(a.Dst.Kind) {
 		return fmt.Errorf("%s destination must be memory alterable EA", name)
 	}
+	return nil
 }
 
 func validateEor(a *Args) error {
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("EOR requires destination")
-	default:
+	if !isDataAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("EOR requires destination")
+		}
 		return fmt.Errorf("EOR destination must be data alterable EA")
 	}
+	return nil
 }
 
 func validateNot(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
-	switch a.Dst.Kind {
-	case EAkNone:
-		return fmt.Errorf("NOT requires destination")
-	case EAkImm, EAkPCDisp16, EAkIdxPCBrief:
+	swapSrcDstIfDstNone(a)
+	if !isDataAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("NOT requires destination")
+		}
+		if a.Dst.Kind == EAkAn {
+			return fmt.Errorf("NOT does not allow address register destination")
+		}
 		return fmt.Errorf("NOT destination must be data alterable EA")
-	case EAkAn:
-		return fmt.Errorf("NOT does not allow address register destination")
-	default:
-		return nil
 	}
+	return nil
 }

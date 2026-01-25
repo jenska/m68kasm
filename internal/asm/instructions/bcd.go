@@ -49,10 +49,7 @@ var defNBCD = InstrDef{
 }
 
 func validateNbcd(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	switch a.Dst.Kind {
 	case EAkDn, EAkAddrPredec:
 		return nil

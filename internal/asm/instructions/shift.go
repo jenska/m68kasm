@@ -70,19 +70,15 @@ func validateShiftRegister(a *Args) error {
 }
 
 func validateShiftMemory(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Src.Kind != EAkNone {
 		return fmt.Errorf("memory shift takes single operand")
 	}
-	switch a.Dst.Kind {
-	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("shift requires destination")
-	default:
+	if !isMemoryAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("shift requires destination")
+		}
 		return fmt.Errorf("memory shift requires alterable memory EA")
 	}
+	return nil
 }

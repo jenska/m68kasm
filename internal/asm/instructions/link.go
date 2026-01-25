@@ -49,10 +49,7 @@ func validateLINK(a *Args) error {
 }
 
 func validateUNLK(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Dst.Kind != EAkAn {
 		return fmt.Errorf("UNLK requires address register operand")
 	}

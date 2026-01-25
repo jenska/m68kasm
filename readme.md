@@ -12,18 +12,23 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 
 ---
 
-## 🚀 Features (as of v1.1)
+## 🚀 Features (as of v1.1.2)
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
 - Include paths, pseudo ops, pre-defined symbols and rich expressions
 - Local numeric labels (e.g., `1f`/`1b`) with validated forward/backward resolution
-- Simple and fast command-line tool
+- Simple and fast command-line tool with optimized performance
 - Embeddable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
+- Performance optimizations:
+  - Map-based effective address (EA) validation for O(1) lookups
+  - Consolidated validation helpers to reduce code duplication
+  - Priority-based instruction registration for correct opcode pattern matching
+  - Minimized string operations in hot paths
 
 ---
 
@@ -206,7 +211,36 @@ Make sure the CI passes before submitting.
 
 ---
 
-### 🔭 Next up (post-v1.1.x)
+## 🔧 Recent Improvements (v1.1.2)
+
+### Code Quality & Performance
+
+**Instruction Pattern Matching**
+- Implemented priority-based instruction registration system to fix opcode pattern conflicts (MULU/MULS vs AND/OR)
+- Replaced filename-based ordering with explicit Priority field in `InstrDef`
+
+**Validation & Code Consolidation**
+- Created reusable EA (effective address) validation helpers with map-based lookups:
+  - `isMemoryAlterable()`, `isDataAlterable()`, `isReadableEA()`, `isReadableDataEA()`, `isMovemLoadEA()`
+- Consolidated redundant validation patterns across 15+ validation functions
+- Removed ~70 lines of duplicate switch statements in validation logic
+- Eliminated 12 instances of repeated operand swapping with `swapSrcDstIfDstNone()` helper
+
+**Performance Optimizations**
+- Replaced switch statements with O(1) map lookups in hot paths (`isPCRelativeKind()`, `validateControlEA()`)
+- Removed unnecessary string operations (replaced `strings.HasPrefix()` with direct byte comparison)
+- Simplified `reverse16()` bit manipulation for MOVEM encoding
+- Improved immediate range validation performance
+
+**Testing & Benchmarks**
+- All 200+ unit tests pass
+- All e2e tests pass
+- All benchmarks pass with improved performance metrics
+- Fixed validation benchmark tests
+
+---
+
+## 🔭 Next up (post-v1.1.x)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.

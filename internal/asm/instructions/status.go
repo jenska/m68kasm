@@ -64,12 +64,11 @@ func validateImmediateLogicEA(a *Args) error {
 	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 		return err
 	}
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("requires destination")
-	default:
+	if !isDataAlterable(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("requires destination")
+		}
 		return fmt.Errorf("destination must be data alterable EA")
 	}
+	return nil
 }

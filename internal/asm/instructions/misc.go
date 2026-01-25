@@ -54,7 +54,32 @@ var defCLR = InstrDef{
 	},
 }
 
-var defEXG = InstrDef{Mnemonic: "EXG", Forms: newEXGForms()}
+var defEXG = InstrDef{
+	Mnemonic: "EXG",
+	Forms: []FormDef{
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkDn, OpkDn},
+			Validate:    validateEXGData,
+			Steps:       []EmitStep{{WordBits: 0xC140, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}}},
+		},
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkAn, OpkAn},
+			Validate:    validateEXGAddr,
+			Steps:       []EmitStep{{WordBits: 0xC148, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}}},
+		},
+		{
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkDn, OpkAn},
+			Validate:    validateEXGMixed,
+			Steps:       []EmitStep{{WordBits: 0xC188, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}}},
+		},
+	},
+}
 
 var defEXT = InstrDef{
 	Mnemonic: "EXT",
@@ -110,46 +135,15 @@ var defILLEGAL = InstrDef{
 
 func validateDataAlterable(name string) func(*Args) error {
 	return func(a *Args) error {
-		if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-			a.Dst = a.Src
-			a.Src = EAExpr{}
-		}
+		swapSrcDstIfDstNone(a)
 		if a.Dst.Kind == EAkNone {
 			return fmt.Errorf("%s requires destination", name)
 		}
-		switch a.Dst.Kind {
-		case EAkImm, EAkPCDisp16, EAkIdxPCBrief, EAkAn:
+		if !isDataAlterable(a.Dst.Kind) {
 			return fmt.Errorf("%s destination must be data alterable EA", name)
-		default:
-			return nil
 		}
+		return nil
 	}
-}
-
-func newEXGForms() []FormDef {
-	forms := []struct {
-		operKinds []OperandKind
-		validate  func(*Args) error
-		wordBits  uint16
-		fields    []FieldRef
-	}{
-		{[]OperandKind{OpkDn, OpkDn}, validateEXGData, 0xC140, []FieldRef{FSrcDnRegHi, FDstRegLow}},
-		{[]OperandKind{OpkAn, OpkAn}, validateEXGAddr, 0xC148, []FieldRef{FSrcDnRegHi, FDstRegLow}},
-		{[]OperandKind{OpkDn, OpkAn}, validateEXGMixed, 0xC188, []FieldRef{FSrcDnRegHi, FDstRegLow}},
-	}
-
-	formDefs := make([]FormDef, 0, len(forms))
-	for _, f := range forms {
-		formDefs = append(formDefs, FormDef{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
-			OperKinds:   f.operKinds,
-			Validate:    f.validate,
-			Steps:       []EmitStep{{WordBits: f.wordBits, Fields: f.fields}},
-		})
-	}
-
-	return formDefs
 }
 
 func validateEXGData(a *Args) error {
@@ -174,10 +168,7 @@ func validateEXGMixed(a *Args) error {
 }
 
 func validateEXT(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Dst.Kind != EAkDn {
 		return fmt.Errorf("EXT requires Dn destination")
 	}
@@ -188,10 +179,7 @@ func validateEXT(a *Args) error {
 }
 
 func validateSWAP(a *Args) error {
-	if a.Dst.Kind == EAkNone && a.Src.Kind != EAkNone {
-		a.Dst = a.Src
-		a.Src = EAExpr{}
-	}
+	swapSrcDstIfDstNone(a)
 	if a.Dst.Kind != EAkDn {
 		return fmt.Errorf("SWAP requires Dn destination")
 	}

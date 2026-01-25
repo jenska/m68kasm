@@ -149,12 +149,10 @@ func validateAddSubToDn(name string, a *Args) error {
 
 func validateAddSubDnToEA(name string, a *Args) error {
 	// Src=Dn is enforced by OperKinds. Check if Dst is a memory alterable EA.
-	switch a.Dst.Kind {
-	case EAkAddrInd, EAkAddrPostinc, EAkAddrDisp16, EAkAddrPredec, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	default:
+	if !isMemoryAlterable(a.Dst.Kind) {
 		return fmt.Errorf("%s destination must be memory alterable EA", name)
 	}
+	return nil
 }
 
 func validateAddSubAddr(name string, a *Args) error {
@@ -186,10 +184,8 @@ func validateAddSubImm(name string, a *Args) error {
 	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 		return err
 	}
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
-		return nil
-	default:
+	if !isDataAlterable(a.Dst.Kind) {
 		return fmt.Errorf("%s destination must be data alterable EA", name)
 	}
+	return nil
 }
