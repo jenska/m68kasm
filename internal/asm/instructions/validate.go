@@ -93,26 +93,6 @@ func isDataAlterable(k EAExprKind) bool {
 	return dataAlterableEA[k]
 }
 
-// Readable EA kinds: data registers, memory addresses, PC-relative, and immediates
-var readableEA = map[EAExprKind]bool{
-	EAkDn:          true,
-	EAkAddrInd:     true,
-	EAkAddrPostinc: true,
-	EAkAddrPredec:  true,
-	EAkAddrDisp16:  true,
-	EAkIdxAnBrief:  true,
-	EAkAbsW:        true,
-	EAkAbsL:        true,
-	EAkPCDisp16:    true,
-	EAkIdxPCBrief:  true,
-	EAkImm:         true,
-}
-
-// isReadableEA checks if EA can be used as a source (excludes registers that require explicit addressing).
-func isReadableEA(k EAExprKind) bool {
-	return readableEA[k]
-}
-
 // readableDataEA kinds: data registers, memory addresses, PC-relative, and immediates
 var readableDataEA = map[EAExprKind]bool{
 	EAkDn:          true,
