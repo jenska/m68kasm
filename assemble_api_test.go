@@ -243,6 +243,22 @@ func TestAssembleStringSRecord(t *testing.T) {
 	}
 }
 
+func TestAssembleStringSRecordWithOptions(t *testing.T) {
+	src := ".org 0x1000\n.byte FOO\n"
+	opts := ParseOptions{Symbols: map[string]uint32{"FOO": 0x11}}
+
+	got, err := AssembleStringSRecordWithOptions(src, opts)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	header := s0Record(srecHeader())
+	want := fmt.Sprintf("%s\nS3060000100011D8\nS70500001000EA\n", header)
+	if string(got) != want {
+		t.Fatalf("unexpected S-record output:\n%s\nwant:\n%s", string(got), want)
+	}
+}
+
 func TestAssembleSRecordVariants(t *testing.T) {
 	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
 
@@ -279,6 +295,20 @@ func TestAssembleSRecordVariants(t *testing.T) {
 		if string(got) != string(stringSrec) {
 			t.Fatalf("%s s-record mismatch:\n%s\nwant:\n%s", name, string(got), string(stringSrec))
 		}
+	}
+}
+
+func TestAssembleELFWithOptions(t *testing.T) {
+	src := ".org ENTRY\nMOVEQ #1,D0\n"
+	opts := ParseOptions{Symbols: map[string]uint32{"ENTRY": 0x2000}}
+
+	elf, err := AssembleStringELFWithOptions(src, opts)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	if len(elf) < 4 || string(elf[:4]) != "\x7fELF" {
+		t.Fatalf("missing ELF magic: %x", elf[:4])
 	}
 }
 
