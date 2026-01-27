@@ -16,7 +16,7 @@ import (
 // for regression tracking without hard-coding bytes.
 func Test_Assemble_Hello(t *testing.T) {
 	root := repoRoot(t)
-	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+	src := filepath.Join(root, "tests", "testdata", "hello.s")
 
 	outDir := t.TempDir()
 	out := filepath.Join(outDir, "out.bin")
@@ -49,7 +49,7 @@ func Test_Assemble_Hello(t *testing.T) {
 // alongside the assembled binary.
 func Test_Assemble_Hello_Listing(t *testing.T) {
 	root := repoRoot(t)
-	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+	src := filepath.Join(root, "tests", "testdata", "hello.s")
 
 	outDir := t.TempDir()
 	out := filepath.Join(outDir, "out.bin")
@@ -84,7 +84,7 @@ func Test_Assemble_Hello_Listing(t *testing.T) {
 // Test_Assemble_SRecord_Output ensures the CLI can emit Motorola S-record text.
 func Test_Assemble_SRecord_Output(t *testing.T) {
 	root := repoRoot(t)
-	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+	src := filepath.Join(root, "tests", "testdata", "hello.s")
 
 	outDir := t.TempDir()
 	out := filepath.Join(outDir, "out.srec")
@@ -112,7 +112,7 @@ func Test_Assemble_SRecord_Output(t *testing.T) {
 // Test_Assemble_ELF_Output ensures the CLI can emit an ELF32 image for m68k.
 func Test_Assemble_ELF_Output(t *testing.T) {
 	root := repoRoot(t)
-	src := filepath.Join(root, "tests", "e2e", "testdata", "hello.s")
+	src := filepath.Join(root, "tests", "testdata", "hello.s")
 
 	outDir := t.TempDir()
 	out := filepath.Join(outDir, "out.elf")

@@ -231,8 +231,7 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 	if expect == actual {
 		return true
 	}
-	switch expect {
-	case instructions.OpkEA:
+	if expect == instructions.OpkEA {
 		switch actual {
 		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn:
 			return true

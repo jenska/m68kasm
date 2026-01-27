@@ -26,7 +26,7 @@ func runCLI(t *testing.T, args ...string) ([]byte, error) {
 // Test_Assemble_Invalid asserts that assembling an invalid source
 // returns a non-zero exit status and a helpful error message.
 func Test_Assemble_Invalid(t *testing.T) {
-	src := filepath.Join("tests", "e2e", "testdata", "invalid.s")
+	src := filepath.Join("tests", "testdata", "invalid.s")
 	out, err := runCLI(t, "-i", src, "-o", "out.bin")
 	if err == nil {
 		t.Fatalf("expected CLI to fail for invalid source, but it succeeded.\nOUTPUT:\n%s", string(out))

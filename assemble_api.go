@@ -387,5 +387,5 @@ func AssembleFileSRecordWithOptions(path string, opts ParseOptions) ([]byte, err
 }
 
 func srecHeader() string {
-	return "m68kasm v" + Version
+	return "m68kasm " + Version
 }

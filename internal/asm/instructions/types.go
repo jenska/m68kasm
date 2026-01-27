@@ -38,9 +38,9 @@ const (
 type Size uint16
 
 const (
-	ByteSize Size = iota
-	WordSize
-	LongSize
+	ByteSize Size = 0
+	WordSize Size = 4
+	LongSize Size = 8
 )
 
 type OperandKind uint16
