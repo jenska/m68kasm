@@ -287,16 +287,37 @@ func AssembleBytesELF(src []byte) ([]byte, error) {
 	return AssembleELF(bytes.NewReader(src))
 }
 
+// AssembleBytesELFWithOptions assembles Motorola 68k source provided as a byte
+// slice using the supplied parsing options and returns an ELF32 executable
+// image targeting the m68k architecture.
+func AssembleBytesELFWithOptions(src []byte, opts ParseOptions) ([]byte, error) {
+	return AssembleELFWithOptions(bytes.NewReader(src), opts)
+}
+
 // AssembleStringELF assembles Motorola 68k source provided as a string and
 // returns an ELF32 executable image targeting the m68k architecture.
 func AssembleStringELF(src string) ([]byte, error) {
 	return AssembleELF(strings.NewReader(src))
 }
 
+// AssembleStringELFWithOptions assembles Motorola 68k source provided as a
+// string using the supplied parsing options and returns an ELF32 executable
+// image targeting the m68k architecture.
+func AssembleStringELFWithOptions(src string, opts ParseOptions) ([]byte, error) {
+	return AssembleELFWithOptions(strings.NewReader(src), opts)
+}
+
 // AssembleFileELF assembles a Motorola 68k source file specified by path and
 // returns an ELF32 executable image targeting the m68k architecture.
 func AssembleFileELF(path string) ([]byte, error) {
-	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions{})
+	return AssembleFileELFWithOptions(path, ParseOptions{})
+}
+
+// AssembleFileELFWithOptions assembles a Motorola 68k source file specified by
+// path using the supplied parsing options and returns an ELF32 executable image
+// targeting the m68k architecture.
+func AssembleFileELFWithOptions(path string, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -328,16 +349,37 @@ func AssembleBytesSRecord(src []byte) ([]byte, error) {
 	return AssembleSRecord(bytes.NewReader(src))
 }
 
+// AssembleBytesSRecordWithOptions assembles Motorola 68k source provided as a
+// byte slice using the supplied parsing options and returns a Motorola S-record
+// representation.
+func AssembleBytesSRecordWithOptions(src []byte, opts ParseOptions) ([]byte, error) {
+	return AssembleSRecordWithOptions(bytes.NewReader(src), opts)
+}
+
 // AssembleStringSRecord assembles Motorola 68k source provided as a string and
 // returns a Motorola S-record representation.
 func AssembleStringSRecord(src string) ([]byte, error) {
 	return AssembleSRecord(strings.NewReader(src))
 }
 
+// AssembleStringSRecordWithOptions assembles Motorola 68k source provided as a
+// string using the supplied parsing options and returns a Motorola S-record
+// representation.
+func AssembleStringSRecordWithOptions(src string, opts ParseOptions) ([]byte, error) {
+	return AssembleSRecordWithOptions(strings.NewReader(src), opts)
+}
+
 // AssembleFileSRecord assembles a Motorola 68k source file specified by path
 // and returns a Motorola S-record representation.
 func AssembleFileSRecord(path string) ([]byte, error) {
-	prog, err := internal.ParseFile(path)
+	return AssembleFileSRecordWithOptions(path, ParseOptions{})
+}
+
+// AssembleFileSRecordWithOptions assembles a Motorola 68k source file specified
+// by path using the supplied parsing options and returns a Motorola S-record
+// representation.
+func AssembleFileSRecordWithOptions(path string, opts ParseOptions) ([]byte, error) {
+	prog, err := internal.ParseFileWithOptions(path, internal.ParseOptions(opts))
 	if err != nil {
 		return nil, err
 	}
