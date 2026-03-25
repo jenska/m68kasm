@@ -6,13 +6,13 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v2.0.0
+**Current version:** v1.2.0
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v2.0.0)
+## 🚀 Features (as of v1.2.0)
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
@@ -220,11 +220,11 @@ Make sure the CI passes before submitting.
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
 | **v0.4** | Introduce listing and S-record output |
 | **v0.5** | Add ELF format and richer symbol handling |
-| **v2.0.0 (current)** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
+| **v1.2.0 (current)** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
 
 ---
 
-## 🔧 Recent Improvements (v2.0.0)
+## 🔧 Recent Improvements (v1.2.0)
 
 ### Code Quality & Performance
 
@@ -253,7 +253,7 @@ Make sure the CI passes before submitting.
 
 ---
 
-## 🔭 Next up (post-v2.0.x)
+## 🔭 Next up (post-v1.2.x)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
