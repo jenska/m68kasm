@@ -139,6 +139,39 @@ Pads by one zero byte when needed so the location counter becomes even.
 .even
 ```
 
+### `.text`, `.data`, `.bss`
+
+Switches the current ELF section classification for subsequent labels and bytes.
+
+- Sections are forward-only: `.text` -> `.data` -> `.bss`
+- Binary and S-record output remain flat and keep the original byte order
+- `.bss` is zero-initialized only; use zero-valued data directives or padding/alignment there
+
+```asm
+.text
+start:
+MOVEQ #1, D0
+
+.data
+value:
+.word $1234
+
+.bss
+scratch:
+.byte 0, 0, 0, 0
+```
+
+### `.section <name>`
+
+Named form of the same section switch. Supported names are `.text`, `.data`, and `.bss`
+(with or without the leading dot, or as a quoted string).
+
+```asm
+.section ".data"
+table:
+.word 1, 2, 3
+```
+
 ### `.macro name [param[, param ...]]`
 
 Begins a macro definition.
@@ -255,4 +288,5 @@ BRA 1f
 
 - The assembler targets the Motorola 68000 instruction set.
 - The parser accepts Motorola-style syntax, not GAS/AT&T syntax.
-- ELF output is executable-oriented: one flat load segment plus ELF section and symbol metadata, not relocatable object generation.
+- ELF output is executable-oriented: one flat load segment plus `.text`/`.data`/`.bss` metadata, not relocatable object generation.
+- Section directives are intentionally lightweight and currently support only forward-only `.text` -> `.data` -> `.bss` layout.

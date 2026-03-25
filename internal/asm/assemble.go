@@ -18,8 +18,9 @@ type Program struct {
 // DefinedLabel captures a named label defined in source so that output formats
 // can preserve stable label metadata without including parser-only symbols.
 type DefinedLabel struct {
-	Name string
-	Addr uint32
+	Name    string
+	Addr    uint32
+	Section SectionKind
 }
 
 // ListingEntry captures the assembled bytes for a single source line so that a

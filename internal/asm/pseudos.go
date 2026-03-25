@@ -6,13 +6,57 @@ import (
 )
 
 var pseudoMap = map[string]func(*Parser) error{
-	".ORG":   parseORG,
-	".BYTE":  parseBYTE,
-	".WORD":  parseWORD,
-	".LONG":  parseLONG,
-	".ALIGN": parseALIGN,
-	".EVEN":  parseEVEN,
-	".MACRO": parseMACRO,
+	".ORG":     parseORG,
+	".BYTE":    parseBYTE,
+	".WORD":    parseWORD,
+	".LONG":    parseLONG,
+	".ALIGN":   parseALIGN,
+	".EVEN":    parseEVEN,
+	".MACRO":   parseMACRO,
+	".TEXT":    parseTEXT,
+	".DATA":    parseDATA,
+	".BSS":     parseBSS,
+	".SECTION": parseSECTION,
+}
+
+func parseTEXT(p *Parser) error {
+	return p.setSection(SectionText)
+}
+
+func parseDATA(p *Parser) error {
+	return p.setSection(SectionData)
+}
+
+func parseBSS(p *Parser) error {
+	return p.setSection(SectionBSS)
+}
+
+func parseSECTION(p *Parser) error {
+	name, err := parseSectionOperand(p)
+	if err != nil {
+		return err
+	}
+	section, ok := parseSectionName(name)
+	if !ok {
+		return fmt.Errorf("line %d: unsupported section %q", p.line, name)
+	}
+	return p.setSection(section)
+}
+
+func parseSectionOperand(p *Parser) (string, error) {
+	t := p.next()
+	switch t.Kind {
+	case IDENT, STRING:
+		return t.Text, nil
+	case DOT:
+		nameTok, err := p.want(IDENT)
+		if err != nil {
+			return "", err
+		}
+		return "." + nameTok.Text, nil
+	default:
+		return "", errorAtToken(t, fmt.Errorf("expected section name"))
+	}
 }
 
 func parseORG(p *Parser) error {
@@ -57,6 +101,9 @@ func parseBYTE(p *Parser) error {
 	if err != nil {
 		return err
 	}
+	if err := ensureBSSValue(p, val, ".byte"); err != nil {
+		return err
+	}
 	var bytes []byte
 	bytes = append(bytes, byte(val))
 	for p.accept(COMMA) {
@@ -64,9 +111,12 @@ func parseBYTE(p *Parser) error {
 		if err != nil {
 			return err
 		}
+		if err := ensureBSSValue(p, v, ".byte"); err != nil {
+			return err
+		}
 		bytes = append(bytes, byte(v))
 	}
-	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line, Col: col})
+	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line, Col: col, Section: p.section})
 	p.pc += uint32(len(bytes))
 	return nil
 }
@@ -84,6 +134,9 @@ func parseWORD(p *Parser) error {
 	if v < -0x8000 || v > 0xFFFF {
 		return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
 	}
+	if err := ensureBSSValue(p, v, ".word"); err != nil {
+		return err
+	}
 	w := uint16(int16(v))
 	out = append(out, byte(w>>8), byte(w))
 
@@ -96,11 +149,14 @@ func parseWORD(p *Parser) error {
 		if v < -0x8000 || v > 0xFFFF {
 			return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
 		}
+		if err := ensureBSSValue(p, v, ".word"); err != nil {
+			return err
+		}
 		w := uint16(int16(v))
 		out = append(out, byte(w>>8), byte(w))
 	}
 
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col})
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col, Section: p.section})
 	p.pc += uint32(len(out))
 	return nil
 }
@@ -117,6 +173,9 @@ func parseLONG(p *Parser) error {
 	if v < -0x80000000 || v > 0xFFFFFFFF {
 		return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
 	}
+	if err := ensureBSSValue(p, v, ".long"); err != nil {
+		return err
+	}
 	u := uint32(v) // two's complement when v is negative
 	out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
 
@@ -128,12 +187,25 @@ func parseLONG(p *Parser) error {
 		if v < -0x80000000 || v > 0xFFFFFFFF {
 			return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
 		}
+		if err := ensureBSSValue(p, v, ".long"); err != nil {
+			return err
+		}
 		u := uint32(v)
 		out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
 	}
 
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col})
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col, Section: p.section})
 	p.pc += uint32(len(out))
+	return nil
+}
+
+func ensureBSSValue(p *Parser, v int64, directive string) error {
+	if p.section != SectionBSS || p.allowForwardRefs {
+		return nil
+	}
+	if v != 0 {
+		return fmt.Errorf("line %d: %s in %s must be zero-initialized", p.line, directive, p.section.Name())
+	}
 	return nil
 }
 

@@ -7,11 +7,12 @@ import (
 )
 
 type Instr struct {
-	Def  *instructions.InstrDef
-	Args instructions.Args
-	PC   uint32
-	Line int
-	Col  int
+	Def     *instructions.InstrDef
+	Args    instructions.Args
+	PC      uint32
+	Line    int
+	Col     int
+	Section SectionKind
 }
 
 func sizeToBits(sz instructions.Size) uint16 {

@@ -191,6 +191,90 @@ func TestAssembleELF_FromProgram(t *testing.T) {
 	}
 }
 
+func TestAssembleELF_WithSectionDirectives(t *testing.T) {
+	asmSrc := ".org 0x1000\n.text\nstart:\n.byte 0xAA\n.data\nvalue:\n.word 0x1234\n.bss\nzeroes:\n.byte 0,0\n"
+	prog, err := Parse(strings.NewReader(asmSrc))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	elf, err := AssembleELF(prog)
+	if err != nil {
+		t.Fatalf("assemble error: %v", err)
+	}
+
+	sections := readSectionHeaders(t, elf)
+	text := sections[elfSectionText]
+	if text.addr != 0x1000 || text.size != 1 {
+		t.Fatalf("unexpected .text addr/size: addr=0x%X size=%d", text.addr, text.size)
+	}
+	if got := elf[text.offset]; got != 0xAA {
+		t.Fatalf("unexpected .text payload byte: 0x%X", got)
+	}
+
+	data := sections[elfSectionData]
+	if data.addr != 0x1001 || data.size != 2 {
+		t.Fatalf("unexpected .data addr/size: addr=0x%X size=%d", data.addr, data.size)
+	}
+	if got := elf[data.offset : data.offset+data.size]; string(got) != string([]byte{0x12, 0x34}) {
+		t.Fatalf("unexpected .data payload: %x", got)
+	}
+
+	bss := sections[elfSectionBSS]
+	if bss.addr != 0x1003 || bss.size != 2 {
+		t.Fatalf("unexpected .bss addr/size: addr=0x%X size=%d", bss.addr, bss.size)
+	}
+	if got := binary.BigEndian.Uint32(elf[elfHeaderSize+24 : elfHeaderSize+28]); got != elfPfR|elfPfX|elfPfW {
+		t.Fatalf("unexpected program header flags: 0x%X", got)
+	}
+	if got := binary.BigEndian.Uint32(elf[elfHeaderSize+16 : elfHeaderSize+20]); got != 3 {
+		t.Fatalf("unexpected program file size: %d", got)
+	}
+	if got := binary.BigEndian.Uint32(elf[elfHeaderSize+20 : elfHeaderSize+24]); got != 5 {
+		t.Fatalf("unexpected program memory size: %d", got)
+	}
+
+	symtab := sections[elfSectionSymtab]
+	strtab := sections[elfSectionStrtab]
+	symbols := readSymbols(t, elf[symtab.offset:symtab.offset+symtab.size])
+	strtabBytes := elf[strtab.offset : strtab.offset+strtab.size]
+
+	checks := map[string]uint16{
+		"start":  elfSectionText,
+		"value":  elfSectionData,
+		"zeroes": elfSectionBSS,
+	}
+	for name, wantSection := range checks {
+		sym, ok := findSymbolByName(symbols, strtabBytes, name)
+		if !ok {
+			t.Fatalf("missing symbol %q", name)
+		}
+		if sym.shndx != wantSection {
+			t.Fatalf("symbol %q in section %d, want %d", name, sym.shndx, wantSection)
+		}
+	}
+}
+
+func TestParseRejectsBackwardSectionSwitch(t *testing.T) {
+	_, err := Parse(strings.NewReader(".data\n.byte 1\n.text\n.byte 2\n"))
+	if err == nil {
+		t.Fatalf("expected parse error for backward section switch")
+	}
+	if !strings.Contains(err.Error(), ".text -> .data -> .bss order") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsNonZeroBSSData(t *testing.T) {
+	_, err := Parse(strings.NewReader(".bss\n.byte 1\n"))
+	if err == nil {
+		t.Fatalf("expected parse error for initialized bss data")
+	}
+	if !strings.Contains(err.Error(), "must be zero-initialized") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func readSectionHeaders(t *testing.T, elf []byte) []elfSectionHeader {
 	t.Helper()
 
@@ -234,6 +318,15 @@ func readSymbols(t *testing.T, data []byte) []elfSymbol {
 		})
 	}
 	return symbols
+}
+
+func findSymbolByName(symbols []elfSymbol, strtab []byte, name string) (elfSymbol, bool) {
+	for _, sym := range symbols {
+		if readString(strtab, sym.name) == name {
+			return sym, true
+		}
+	}
+	return elfSymbol{}, false
 }
 
 func readString(table []byte, off uint32) string {

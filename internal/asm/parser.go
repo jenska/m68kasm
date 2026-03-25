@@ -22,10 +22,11 @@ type lexer interface {
 
 type (
 	DataBytes struct {
-		Bytes []byte
-		PC    uint32
-		Line  int
-		Col   int
+		Bytes   []byte
+		PC      uint32
+		Line    int
+		Col     int
+		Section SectionKind
 	}
 
 	Parser struct {
@@ -41,6 +42,7 @@ type (
 		pc               uint32
 		origin           uint32
 		hasOrg           bool
+		section          SectionKind
 		items            []any
 		line             int
 		col              int
@@ -164,6 +166,7 @@ func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint
 		allowForwardRefs: allowForward,
 		macros:           map[string]macroDef{},
 		instrs:           table,
+		section:          SectionText,
 	}
 	for {
 		t := p.peek()
@@ -254,10 +257,11 @@ func (p *Parser) parseLabelDefinition() (bool, error) {
 func (p *Parser) recordDefinedLabel(name string, addr uint32) {
 	if idx, ok := p.definedLabelPos[name]; ok {
 		p.definedLabels[idx].Addr = addr
+		p.definedLabels[idx].Section = p.section
 		return
 	}
 	p.definedLabelPos[name] = len(p.definedLabels)
-	p.definedLabels = append(p.definedLabels, DefinedLabel{Name: name, Addr: addr})
+	p.definedLabels = append(p.definedLabels, DefinedLabel{Name: name, Addr: addr, Section: p.section})
 }
 
 func (p *Parser) consumeLocalLabelRef() (string, bool, error) {
@@ -384,6 +388,10 @@ func (p *Parser) parseConstDefinition(nameTok Token) error {
 }
 
 func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
+	if p.section == SectionBSS {
+		return errorAtLine(p.line, fmt.Errorf("instructions are not allowed in %s", p.section.Name()))
+	}
+
 	mn, err := p.want(IDENT)
 	if err != nil {
 		return err
@@ -398,7 +406,7 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 			lastErr = err
 			continue
 		}
-		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col}
+		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col, Section: p.section}
 		p.items = append(p.items, ins)
 		words, err := instructionWords(&form, args)
 		if err != nil {
@@ -766,8 +774,16 @@ func (p *Parser) emitPaddingBytes(count uint32, fill byte) error {
 			buf[i] = fill
 		}
 	}
-	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line, Col: p.col})
+	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line, Col: p.col, Section: p.section})
 	p.pc += count
+	return nil
+}
+
+func (p *Parser) setSection(section SectionKind) error {
+	if section < p.section {
+		return errorAtLine(p.line, fmt.Errorf("sections must stay in .text -> .data -> .bss order"))
+	}
+	p.section = section
 	return nil
 }
 

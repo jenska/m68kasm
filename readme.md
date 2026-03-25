@@ -6,13 +6,13 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v1.2.0
+**Current version:** v1.2.1
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v1.2.0)
+## 🚀 Features (as of v1.2.1)
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
@@ -22,7 +22,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Embeddable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
 - Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment plus standard section/symbol tables
-- Documented pseudo-ops including `.org`, `.byte`, `.word`, `.long`, `.align`, `.even`, `.macro`/`.endmacro`, and `DC.B`/`DC.W`/`DC.L`
+- Documented pseudo-ops including `.org`, `.byte`, `.word`, `.long`, `.align`, `.even`, `.text`, `.data`, `.bss`, `.section`, `.macro`/`.endmacro`, and `DC.B`/`DC.W`/`DC.L`
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Performance optimizations:
@@ -36,7 +36,8 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 ## ⚠️ Known Limitations
 
 - **CPU Generation:** Strictly targets the **68000** instruction set. Extensions for 68010, 68020+, or FPU coprocessors are not currently supported.
-- **Linker Support:** ELF output now includes standard `.text`, `.data`, `.bss`, `.symtab`, `.strtab`, and `.shstrtab` metadata, but the assembler still emits a single flat load image rather than truly separated loadable sections or relocatable objects.
+- **Linker Support:** ELF output now includes standard `.text`, `.data`, `.bss`, `.symtab`, `.strtab`, and `.shstrtab` metadata, and source can switch between `.text`, `.data`, and `.bss`, but the assembler still emits a single executable-style image rather than relocatable objects.
+- **Section Layout:** Section directives are intentionally minimal and forward-only: `.text` -> `.data` -> `.bss`. `.bss` content must remain zero-initialized.
 - **Optimizations:** The assembler prioritizes deterministic output over optimization. It does not automatically relax instructions (e.g., `JMP` to `BRA`) or substitute shorter instruction forms unless explicitly handled by the instruction selection logic.
 
 ---
@@ -220,11 +221,21 @@ Make sure the CI passes before submitting.
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
 | **v0.4** | Introduce listing and S-record output |
 | **v0.5** | Add ELF format and richer symbol handling |
-| **v1.2.0 (current)** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
+| **v1.2.0** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
+| **v1.2.1 (current)** | Adds source-level `.text`/`.data`/`.bss`/`.section` support with ELF-aware section and symbol placement |
 
 ---
 
-## 🔧 Recent Improvements (v1.2.0)
+## 🔧 Recent Improvements (v1.2.1)
+
+### ELF Section Directives
+
+- Added source-level `.text`, `.data`, `.bss`, and `.section` pseudo-ops
+- Propagated section metadata into ELF section headers and symbol table entries
+- Enforced the current forward-only section layout: `.text` -> `.data` -> `.bss`
+- Kept `.bss` zero-initialized and emitted as `SHT_NOBITS` in ELF output
+
+## 🔧 Previous Improvements (v1.2.0)
 
 ### Code Quality & Performance
 
