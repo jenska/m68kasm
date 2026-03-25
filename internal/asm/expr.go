@@ -7,128 +7,17 @@ import (
 func (p *Parser) parseExpr() (int64, error) { return p.parseExprUntil(COMMA, NEWLINE, EOF) }
 
 func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
-	stop := map[Kind]bool{}
-	for _, k := range stops {
-		stop[k] = true
-	}
+	stop := newKindSet(stops...)
 
 	out := []int64{}
 	ops := []Kind{}
 	wantValue := true
 
-	precedence := func(k Kind) int {
-		switch k {
-		case TILDE, BANG:
-			return 8
-		case STAR, SLASH, PERCENT:
-			return 7
-		case PLUS, MINUS:
-			return 6
-		case LSHIFT, RSHIFT:
-			return 5
-		case LT, GT, LTE, GTE:
-			return 4
-		case EQEQ, NEQ:
-			return 3
-		case AMP:
-			return 2
-		case CARET:
-			return 1
-		case PIPE:
-			return 0
-		case ANDAND:
-			return -1
-		case OROR:
-			return -2
-		default:
-			return -3
-		}
-	}
-	isUnary := func(k Kind) bool { return k == MINUS || k == PLUS || k == TILDE || k == BANG }
-
 	apply := func(op Kind) error {
-		if op == TILDE || op == BANG {
-			if len(out) < 1 {
-				return fmt.Errorf("unärer Operator erwartet ein Argument")
-			}
-			a := out[len(out)-1]
-			out = out[:len(out)-1]
-			if op == TILDE {
-				out = append(out, ^a)
-			} else {
-				if a == 0 {
-					out = append(out, 1)
-				} else {
-					out = append(out, int64(0))
-				}
-			}
-			return nil
+		if isUnaryOperator(op) && (op == TILDE || op == BANG) {
+			return applyUnaryOperator(op, &out)
 		}
-		if len(out) < 2 {
-			return fmt.Errorf("binärer Operator erwartet zwei Argumente")
-		}
-		b := out[len(out)-1]
-		a := out[len(out)-2]
-		out = out[:len(out)-2]
-		truth := func(v int64) int64 {
-			if v == 0 {
-				return 0
-			}
-			return 1
-		}
-		boolVal := func(v bool) int64 {
-			if v {
-				return 1
-			}
-			return 0
-		}
-		switch op {
-		case PLUS:
-			out = append(out, a+b)
-		case MINUS:
-			out = append(out, a-b)
-		case STAR:
-			out = append(out, a*b)
-		case SLASH:
-			if b == 0 {
-				return fmt.Errorf("division by zero")
-			}
-			out = append(out, a/b)
-		case PERCENT:
-			if b == 0 {
-				return fmt.Errorf("division by zero")
-			}
-			out = append(out, a%b)
-		case LSHIFT:
-			out = append(out, a<<uint64(b))
-		case RSHIFT:
-			out = append(out, a>>uint64(b))
-		case LT:
-			out = append(out, boolVal(a < b))
-		case GT:
-			out = append(out, boolVal(a > b))
-		case LTE:
-			out = append(out, boolVal(a <= b))
-		case GTE:
-			out = append(out, boolVal(a >= b))
-		case EQEQ:
-			out = append(out, boolVal(a == b))
-		case NEQ:
-			out = append(out, boolVal(a != b))
-		case AMP:
-			out = append(out, a&b)
-		case CARET:
-			out = append(out, a^b)
-		case PIPE:
-			out = append(out, a|b)
-		case ANDAND:
-			out = append(out, truth(truth(a)&truth(b)))
-		case OROR:
-			out = append(out, truth(truth(a)|truth(b)))
-		default:
-			return fmt.Errorf("unbekannter Operator")
-		}
-		return nil
+		return applyBinaryOperator(op, &out)
 	}
 
 	pushOp := func(k Kind) error {
@@ -156,7 +45,7 @@ func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
 loop:
 	for {
 		t := p.peek()
-		if stop[t.Kind] {
+		if stop.has(t.Kind) {
 			break
 		}
 		switch t.Kind {
@@ -196,7 +85,7 @@ loop:
 			ops = append(ops, LPAREN)
 			wantValue = true
 		case RPAREN:
-			if stop[RPAREN] && (len(ops) == 0 || ops[len(ops)-1] != LPAREN) {
+			if stop.has(RPAREN) && (len(ops) == 0 || ops[len(ops)-1] != LPAREN) {
 				break loop
 			}
 			p.next()
@@ -214,7 +103,7 @@ loop:
 			wantValue = false
 		case PLUS, MINUS, STAR, SLASH, PERCENT, LSHIFT, RSHIFT, AMP, PIPE, CARET, TILDE, BANG, LT, GT, LTE, GTE, EQEQ, NEQ, ANDAND, OROR:
 			p.next()
-			if isUnary(t.Kind) && wantValue && t.Kind != TILDE && t.Kind != BANG {
+			if isUnaryOperator(t.Kind) && wantValue && t.Kind != TILDE && t.Kind != BANG {
 				if err := pushOp(t.Kind); err != nil {
 					return 0, err
 				}
@@ -244,4 +133,141 @@ loop:
 		return 0, fmt.Errorf("invalid expression")
 	}
 	return out[0], nil
+}
+
+type kindSet map[Kind]struct{}
+
+func newKindSet(kinds ...Kind) kindSet {
+	set := make(kindSet, len(kinds))
+	for _, kind := range kinds {
+		set[kind] = struct{}{}
+	}
+	return set
+}
+
+func (s kindSet) has(kind Kind) bool {
+	_, ok := s[kind]
+	return ok
+}
+
+func precedence(k Kind) int {
+	switch k {
+	case TILDE, BANG:
+		return 8
+	case STAR, SLASH, PERCENT:
+		return 7
+	case PLUS, MINUS:
+		return 6
+	case LSHIFT, RSHIFT:
+		return 5
+	case LT, GT, LTE, GTE:
+		return 4
+	case EQEQ, NEQ:
+		return 3
+	case AMP:
+		return 2
+	case CARET:
+		return 1
+	case PIPE:
+		return 0
+	case ANDAND:
+		return -1
+	case OROR:
+		return -2
+	default:
+		return -3
+	}
+}
+
+func isUnaryOperator(k Kind) bool {
+	return k == MINUS || k == PLUS || k == TILDE || k == BANG
+}
+
+func applyUnaryOperator(op Kind, out *[]int64) error {
+	if len(*out) < 1 {
+		return fmt.Errorf("unärer Operator erwartet ein Argument")
+	}
+	a := (*out)[len(*out)-1]
+	*out = (*out)[:len(*out)-1]
+
+	switch op {
+	case TILDE:
+		*out = append(*out, ^a)
+	case BANG:
+		*out = append(*out, boolToInt64(a == 0))
+	default:
+		return fmt.Errorf("unbekannter Operator")
+	}
+	return nil
+}
+
+func applyBinaryOperator(op Kind, out *[]int64) error {
+	if len(*out) < 2 {
+		return fmt.Errorf("binärer Operator erwartet zwei Argumente")
+	}
+	b := (*out)[len(*out)-1]
+	a := (*out)[len(*out)-2]
+	*out = (*out)[:len(*out)-2]
+
+	switch op {
+	case PLUS:
+		*out = append(*out, a+b)
+	case MINUS:
+		*out = append(*out, a-b)
+	case STAR:
+		*out = append(*out, a*b)
+	case SLASH:
+		if b == 0 {
+			return fmt.Errorf("division by zero")
+		}
+		*out = append(*out, a/b)
+	case PERCENT:
+		if b == 0 {
+			return fmt.Errorf("division by zero")
+		}
+		*out = append(*out, a%b)
+	case LSHIFT:
+		*out = append(*out, a<<uint64(b))
+	case RSHIFT:
+		*out = append(*out, a>>uint64(b))
+	case LT:
+		*out = append(*out, boolToInt64(a < b))
+	case GT:
+		*out = append(*out, boolToInt64(a > b))
+	case LTE:
+		*out = append(*out, boolToInt64(a <= b))
+	case GTE:
+		*out = append(*out, boolToInt64(a >= b))
+	case EQEQ:
+		*out = append(*out, boolToInt64(a == b))
+	case NEQ:
+		*out = append(*out, boolToInt64(a != b))
+	case AMP:
+		*out = append(*out, a&b)
+	case CARET:
+		*out = append(*out, a^b)
+	case PIPE:
+		*out = append(*out, a|b)
+	case ANDAND:
+		*out = append(*out, truthy(a)&truthy(b))
+	case OROR:
+		*out = append(*out, truthy(a)|truthy(b))
+	default:
+		return fmt.Errorf("unbekannter Operator")
+	}
+	return nil
+}
+
+func truthy(v int64) int64 {
+	if v == 0 {
+		return 0
+	}
+	return 1
+}
+
+func boolToInt64(v bool) int64 {
+	if v {
+		return 1
+	}
+	return 0
 }

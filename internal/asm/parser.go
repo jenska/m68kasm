@@ -25,11 +25,14 @@ type (
 		Bytes []byte
 		PC    uint32
 		Line  int
+		Col   int
 	}
 
 	Parser struct {
 		lx               lexer
 		labels           map[string]uint32
+		definedLabelPos  map[string]int
+		definedLabels    []DefinedLabel
 		locals           map[int]int
 		localForwards    map[int]int
 		allowForwardRefs bool
@@ -42,8 +45,7 @@ type (
 		line             int
 		col              int
 
-		macroDepth    int
-		macroExpanded bool
+		macroDepth int
 
 		buf          []Token // N-Token Lookahead
 		tokenScratch []Token // reusable buffer for operand collection
@@ -123,6 +125,7 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
+	lines := splitSourceLines(src)
 
 	table := opts.InstrTable
 	if table == nil {
@@ -131,16 +134,31 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 
 	firstPass, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, opts.Symbols, true)
 	if err != nil {
-		return nil, err
+		return nil, withSourceLines(err, lines)
 	}
 
-	return parseWithLexer(NewLexer(bytes.NewReader(src)), table, firstPass.Labels, false)
+	prog, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, firstPass.Labels, false)
+	if err != nil {
+		return nil, withSourceLines(err, lines)
+	}
+	prog.SourceLines = append([]string(nil), lines...)
+	return prog, nil
+}
+
+func splitSourceLines(src []byte) []string {
+	text := strings.ReplaceAll(string(src), "\r\n", "\n")
+	text = strings.TrimSuffix(text, "\n")
+	if text == "" {
+		return nil
+	}
+	return strings.Split(text, "\n")
 }
 
 func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint32, allowForward bool) (*Program, error) {
 	p := &Parser{
 		lx:               lx,
 		labels:           copySymbols(symbols),
+		definedLabelPos:  map[string]int{},
 		locals:           map[int]int{},
 		localForwards:    map[int]int{},
 		allowForwardRefs: allowForward,
@@ -166,12 +184,11 @@ func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint
 			continue
 		}
 
-		if err := p.parseStmt(); err != nil {
+		expanded, err := p.parseStmt()
+		if err != nil {
 			return nil, err
 		}
-
-		if p.macroExpanded {
-			p.macroExpanded = false
+		if expanded {
 			continue
 		}
 
@@ -192,7 +209,8 @@ func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint
 		origin = 0
 	}
 
-	return &Program{Items: p.items, Labels: p.labels, Origin: origin}, nil
+	definedLabels := append([]DefinedLabel(nil), p.definedLabels...)
+	return &Program{Items: p.items, Labels: p.labels, DefinedLabels: definedLabels, Origin: origin}, nil
 }
 
 func ParseFile(path string) (*Program, error) {
@@ -222,6 +240,7 @@ func (p *Parser) parseLabelDefinition() (bool, error) {
 		p.next() // consume ':'
 		if lbl.Kind == IDENT {
 			p.labels[lbl.Text] = p.pc
+			p.recordDefinedLabel(lbl.Text, p.pc)
 		} else {
 			if err := p.defineLocalLabel(lbl); err != nil {
 				return true, err
@@ -230,6 +249,15 @@ func (p *Parser) parseLabelDefinition() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (p *Parser) recordDefinedLabel(name string, addr uint32) {
+	if idx, ok := p.definedLabelPos[name]; ok {
+		p.definedLabels[idx].Addr = addr
+		return
+	}
+	p.definedLabelPos[name] = len(p.definedLabels)
+	p.definedLabels = append(p.definedLabels, DefinedLabel{Name: name, Addr: addr})
 }
 
 func (p *Parser) consumeLocalLabelRef() (string, bool, error) {
@@ -259,57 +287,70 @@ func (p *Parser) parseLabelReference() (string, error) {
 	return "", parserError(t, "expected label")
 }
 
-func (p *Parser) parseStmt() error {
+func (p *Parser) parseStmt() (bool, error) {
 	t := p.peek()
 
 	if t.Kind == IDENT {
 		if def, ok := p.macros[t.Text]; ok {
 			return p.invokeMacro(def)
 		}
-		if p.peekN(2).Kind == EQUAL {
-			return p.parseConstDefinition(t)
+		if p.isConstDefinitionStart() {
+			return false, p.parseConstDefinition(t)
 		}
-		if p.peekN(2).Kind == DOT {
-			if eq := p.peekN(3); eq.Kind == IDENT && strings.EqualFold(eq.Text, "equ") {
-				return p.parseConstDefinition(t)
-			}
+		base, suffix := splitMnemonic(t.Text)
+		if instrDef := p.instrs.Lookup(base); instrDef != nil {
+			return false, p.parseInstruction(instrDef)
 		}
 
-		s := strings.ToUpper(t.Text)
-		if idx := strings.IndexRune(s, '.'); idx > 0 {
-			s = s[:idx]
-		}
-		if instrDef := p.instrs.Lookup(s); instrDef != nil {
-			return p.parseInstruction(instrDef)
-		}
-		if strings.HasPrefix(strings.ToUpper(t.Text), "DC.") {
+		if base == "DC" && suffix != "" {
 			_ = p.next()
-			suf := ""
-			if idx := strings.IndexRune(t.Text, '.'); idx >= 0 && idx < len(t.Text)-1 {
-				suf = t.Text[idx+1:]
-			}
-			return parseDC(p, suf)
+			return false, parseDC(p, suffix)
 		}
-		if pseudo, ok := pseudoMap["."+strings.ToUpper(t.Text)]; ok {
+
+		if pseudo, ok := lookupPseudo(t.Text); ok {
 			_ = p.next()
-			return pseudo(p)
+			return false, pseudo(p)
 		}
-		return parserError(t, "unknown mnemonic")
+		return false, parserError(t, "unknown mnemonic")
 	}
 
 	if t.Kind == DOT {
 		p.next()
 		id, err := p.want(IDENT)
 		if err != nil {
-			return err
+			return false, err
 		}
 		name := "." + strings.ToUpper(id.Text)
 		if pseudo, ok := pseudoMap[name]; ok {
-			return pseudo(p)
+			return false, pseudo(p)
 		}
-		return parserError(t, "unknown pseudo op")
+		return false, parserError(t, "unknown pseudo op")
 	}
-	return parserError(t, "unexpected token")
+	return false, parserError(t, "unexpected token")
+}
+
+func (p *Parser) isConstDefinitionStart() bool {
+	if p.peekN(2).Kind == EQUAL {
+		return true
+	}
+	return p.peekN(2).Kind == DOT && isEquToken(p.peekN(3))
+}
+
+func splitMnemonic(text string) (base, suffix string) {
+	upper := strings.ToUpper(text)
+	if idx := strings.IndexByte(upper, '.'); idx >= 0 {
+		return upper[:idx], upper[idx+1:]
+	}
+	return upper, ""
+}
+
+func lookupPseudo(text string) (func(*Parser) error, bool) {
+	pseudo, ok := pseudoMap["."+strings.ToUpper(text)]
+	return pseudo, ok
+}
+
+func isEquToken(tok Token) bool {
+	return tok.Kind == IDENT && strings.EqualFold(tok.Text, "equ")
 }
 
 func (p *Parser) parseConstDefinition(nameTok Token) error {
@@ -321,7 +362,7 @@ func (p *Parser) parseConstDefinition(nameTok Token) error {
 		if err != nil {
 			return err
 		}
-		if !strings.EqualFold(eqTok.Text, "equ") {
+		if !isEquToken(eqTok) {
 			return parserError(eqTok, "expected EQU")
 		}
 	} else {
@@ -357,7 +398,7 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 			lastErr = err
 			continue
 		}
-		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line}
+		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col}
 		p.items = append(p.items, ins)
 		words, err := instructionWords(&form, args)
 		if err != nil {
@@ -368,9 +409,9 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 	}
 
 	if lastErr != nil {
-		return contextualize(mn.Line, lastErr)
+		return contextualizeAt(mn.Line, mn.Col, lastErr)
 	}
-	return errorAtLine(mn.Line, fmt.Errorf("no form matches operands"))
+	return &Error{Line: mn.Line, Col: mn.Col, Err: fmt.Errorf("no form matches operands")}
 }
 
 func instructionWords(form *instructions.FormDef, args instructions.Args) (int, error) {
@@ -446,7 +487,7 @@ func (p *Parser) releaseTokens(tokens []Token) {
 	p.tokenScratch = tokens[:0]
 }
 
-func (p *Parser) unshiftTokens(tokens []Token) {
+func (p *Parser) prependTokens(tokens []Token) {
 	if len(tokens) == 0 {
 		return
 	}
@@ -456,55 +497,57 @@ func (p *Parser) unshiftTokens(tokens []Token) {
 	p.buf = buf
 }
 
-func (p *Parser) invokeMacro(def macroDef) error {
+func (p *Parser) invokeMacro(def macroDef) (bool, error) {
 	nameTok := p.next()
 	rawArgs := p.consumeUntilEOL()
-	argTokens := append([]Token(nil), rawArgs...)
-	p.releaseTokens(rawArgs)
+	defer p.releaseTokens(rawArgs)
 
-	args, err := splitMacroArgs(argTokens)
+	args, err := splitMacroArgs(rawArgs)
 	if err != nil {
-		return errorAtLine(nameTok.Line, err)
+		return false, errorAtLine(nameTok.Line, err)
 	}
 	if len(args) != len(def.params) {
-		return errorAtLine(nameTok.Line, fmt.Errorf("macro %s expects %d args, got %d", nameTok.Text, len(def.params), len(args)))
+		return false, errorAtLine(nameTok.Line, fmt.Errorf("macro %s expects %d args, got %d", nameTok.Text, len(def.params), len(args)))
 	}
 
 	if p.macroDepth > 64 {
-		return errorAtLine(nameTok.Line, fmt.Errorf("macro expansion depth exceeded"))
+		return false, errorAtLine(nameTok.Line, fmt.Errorf("macro expansion depth exceeded"))
 	}
 	p.macroDepth++
 	defer func() { p.macroDepth-- }()
 
-	expanded := make([]Token, 0, len(def.body)+len(argTokens))
+	expanded := expandMacroBody(def, args, nameTok)
+	p.prependTokens(expanded)
+	return true, nil
+}
+
+func expandMacroBody(def macroDef, args [][]Token, origin Token) []Token {
+	expanded := make([]Token, 0, len(def.body)+len(args))
 	for _, t := range def.body {
-		replaced := false
-		if t.Kind == IDENT {
-			for i, param := range def.params {
-				if t.Text == param {
-					for _, at := range args[i] {
-						cloned := at
-						cloned.Line = nameTok.Line
-						cloned.Col = nameTok.Col
-						expanded = append(expanded, cloned)
-					}
-					replaced = true
-					break
-				}
+		if repl, ok := macroArgumentTokens(def.params, args, t.Text); ok && t.Kind == IDENT {
+			for _, at := range repl {
+				expanded = append(expanded, relocatedToken(at, origin))
 			}
-		}
-		if replaced {
 			continue
 		}
-		clone := t
-		clone.Line = nameTok.Line
-		clone.Col = nameTok.Col
-		expanded = append(expanded, clone)
+		expanded = append(expanded, relocatedToken(t, origin))
 	}
+	return expanded
+}
 
-	p.macroExpanded = true
-	p.unshiftTokens(expanded)
-	return nil
+func macroArgumentTokens(params []string, args [][]Token, name string) ([]Token, bool) {
+	for i, param := range params {
+		if name == param {
+			return args[i], true
+		}
+	}
+	return nil, false
+}
+
+func relocatedToken(tok Token, origin Token) Token {
+	tok.Line = origin.Line
+	tok.Col = origin.Col
+	return tok
 }
 
 func splitMacroArgs(tokens []Token) ([][]Token, error) {
@@ -539,6 +582,12 @@ func splitMacroArgs(tokens []Token) ([][]Token, error) {
 	return args, nil
 }
 
+func withSliceLexer(tokens []Token, line int, scratch []Token) (*sliceLexer, []Token) {
+	tmp := append(scratch[:0], tokens...)
+	tmp = append(tmp, Token{Kind: EOF, Line: line})
+	return &sliceLexer{tokens: tmp}, tmp
+}
+
 func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Token) (instructions.Args, error) {
 	args := instructions.Args{}
 	origLX, origBuf, origLine, origCol := p.lx, p.buf, p.line, p.col
@@ -548,10 +597,9 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	}()
 
 	// isolate parsing to the captured tokens
-	tmp := append(p.formScratch[:0], tokens...)
-	tmp = append(tmp, Token{Kind: EOF, Line: mn.Line})
-	p.formScratch = tmp
-	p.lx = &sliceLexer{tokens: tmp}
+	var lx *sliceLexer
+	lx, p.formScratch = withSliceLexer(tokens, mn.Line, p.formScratch)
+	p.lx = lx
 	p.buf = nil
 
 	sz, err := p.parseSizeSpec(mn, form.DefaultSize, form.Sizes)
@@ -638,34 +686,25 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr.Reg = an
 
 	case instructions.OpkSR:
-		tok, err := p.want(IDENT)
+		special, err := p.parseExpectedSpecialRegister("SR", instructions.EAkSR)
 		if err != nil {
 			return eaExpr, err
 		}
-		if !strings.EqualFold(tok.Text, "SR") {
-			return eaExpr, errorAtToken(tok, fmt.Errorf("expected SR"))
-		}
-		eaExpr.Kind = instructions.EAkSR
+		eaExpr = special
 
 	case instructions.OpkCCR:
-		tok, err := p.want(IDENT)
+		special, err := p.parseExpectedSpecialRegister("CCR", instructions.EAkCCR)
 		if err != nil {
 			return eaExpr, err
 		}
-		if !strings.EqualFold(tok.Text, "CCR") {
-			return eaExpr, errorAtToken(tok, fmt.Errorf("expected CCR"))
-		}
-		eaExpr.Kind = instructions.EAkCCR
+		eaExpr = special
 
 	case instructions.OpkUSP:
-		tok, err := p.want(IDENT)
+		special, err := p.parseExpectedSpecialRegister("USP", instructions.EAkUSP)
 		if err != nil {
 			return eaExpr, err
 		}
-		if !strings.EqualFold(tok.Text, "USP") {
-			return eaExpr, errorAtToken(tok, fmt.Errorf("expected USP"))
-		}
-		eaExpr.Kind = instructions.EAkUSP
+		eaExpr = special
 
 	case instructions.OpkEA:
 		ea, err := p.parseEA()
@@ -727,7 +766,7 @@ func (p *Parser) emitPaddingBytes(count uint32, fill byte) error {
 			buf[i] = fill
 		}
 	}
-	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line})
+	p.items = append(p.items, &DataBytes{Bytes: buf, PC: p.pc, Line: p.line, Col: p.col})
 	p.pc += count
 	return nil
 }
@@ -875,6 +914,16 @@ func parseRegName(tok Token) (bool, int, error) {
 	return false, 0, errorAtToken(tok, fmt.Errorf("expected register in list"))
 }
 
+func parseDirectEAFromIdent(tok Token) (instructions.EAExpr, bool) {
+	if ok, dn := isRegDn(tok.Text); ok {
+		return instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, true
+	}
+	if ok, an := isRegAn(tok.Text); ok {
+		return instructions.EAExpr{Kind: instructions.EAkAn, Reg: an}, true
+	}
+	return parseSpecialRegisterEA(tok)
+}
+
 // parseEA parses an effective address operand. It acts as a dispatcher,
 // delegating to more specific parsing functions based on the initial token.
 func (p *Parser) parseEA() (instructions.EAExpr, error) {
@@ -897,24 +946,9 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 
 	// Dn, An, SR, CCR, USP
 	if t.Kind == IDENT {
-		if ok, dn := isRegDn(t.Text); ok {
+		if ea, ok := parseDirectEAFromIdent(t); ok {
 			p.next()
-			return instructions.EAExpr{Kind: instructions.EAkDn, Reg: dn}, nil
-		}
-		if ok, an := isRegAn(t.Text); ok {
-			p.next()
-			return instructions.EAExpr{Kind: instructions.EAkAn, Reg: an}, nil
-		}
-		switch strings.ToUpper(t.Text) {
-		case "SR":
-			p.next()
-			return instructions.EAExpr{Kind: instructions.EAkSR}, nil
-		case "CCR":
-			p.next()
-			return instructions.EAExpr{Kind: instructions.EAkCCR}, nil
-		case "USP":
-			p.next()
-			return instructions.EAExpr{Kind: instructions.EAkUSP}, nil
+			return ea, nil
 		}
 	}
 
@@ -923,6 +957,87 @@ func (p *Parser) parseEA() (instructions.EAExpr, error) {
 	// - d(An) / d(PC) / d(An,ix) / d(PC,ix)
 	// - addr.W / addr.L
 	return p.parseEADisplacementOrAbsolute()
+}
+
+func parseSpecialRegisterEA(tok Token) (instructions.EAExpr, bool) {
+	switch strings.ToUpper(tok.Text) {
+	case "SR":
+		return instructions.EAExpr{Kind: instructions.EAkSR}, true
+	case "CCR":
+		return instructions.EAExpr{Kind: instructions.EAkCCR}, true
+	case "USP":
+		return instructions.EAExpr{Kind: instructions.EAkUSP}, true
+	default:
+		return instructions.EAExpr{}, false
+	}
+}
+
+func (p *Parser) parseExpectedSpecialRegister(name string, kind instructions.EAExprKind) (instructions.EAExpr, error) {
+	tok, err := p.want(IDENT)
+	if err != nil {
+		return instructions.EAExpr{}, err
+	}
+	if !strings.EqualFold(tok.Text, name) {
+		return instructions.EAExpr{}, errorAtToken(tok, fmt.Errorf("expected %s", name))
+	}
+	return instructions.EAExpr{Kind: kind}, nil
+}
+
+func parseAbsoluteEA(kind instructions.EAExprKind, value int64) instructions.EAExpr {
+	if kind == instructions.EAkAbsW {
+		return instructions.EAExpr{Kind: kind, Abs16: uint16(value)}
+	}
+	return instructions.EAExpr{Kind: kind, Abs32: uint32(value)}
+}
+
+func (p *Parser) parseAbsoluteSuffix(defaultKind instructions.EAExprKind, invalidMsg string) (instructions.EAExprKind, error) {
+	kind := defaultKind
+	if !p.accept(DOT) {
+		return kind, nil
+	}
+	suf, err := p.want(IDENT)
+	if err != nil {
+		return 0, err
+	}
+	switch strings.ToUpper(suf.Text) {
+	case "W":
+		return instructions.EAkAbsW, nil
+	case "L":
+		return instructions.EAkAbsL, nil
+	default:
+		return 0, errorAtToken(suf, fmt.Errorf(invalidMsg, suf.Text))
+	}
+}
+
+func parseEABaseRegister(text string) (reg int, pcRelative bool, ok bool) {
+	if ok, an := isRegAn(text); ok {
+		return an, false, true
+	}
+	if isPC(text) {
+		return 0, true, true
+	}
+	return 0, false, false
+}
+
+func displacementEA(base Token, disp int64) (instructions.EAExpr, error) {
+	if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
+		if isPC {
+			return instructions.EAExpr{Kind: instructions.EAkPCDisp16, Disp16: int32(disp)}, nil
+		}
+		return instructions.EAExpr{Kind: instructions.EAkAddrDisp16, Reg: reg, Disp16: int32(disp)}, nil
+	}
+	return instructions.EAExpr{}, parserError(base, "base must be An or PC for displacement addressing")
+}
+
+func indexedEA(base Token, disp int64, ix instructions.EAIndex) (instructions.EAExpr, error) {
+	ix.Disp8 = int8(disp)
+	if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
+		if isPC {
+			return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
+		}
+		return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: reg, Index: ix}, nil
+	}
+	return instructions.EAExpr{}, parserError(base, "base must be An or PC for indexed addressing")
 }
 
 // ---------- EA parsing helpers ----------
@@ -934,15 +1049,12 @@ func (p *Parser) parseEAPreDecrement() (instructions.EAExpr, error) {
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
-	if !strings.HasPrefix(strings.ToUpper(areg.Text), "A") && !strings.EqualFold(areg.Text, "SP") && !strings.EqualFold(areg.Text, "SSP") {
+	ok, an := isRegAn(areg.Text)
+	if !ok {
 		return instructions.EAExpr{}, parserError(areg, "expected address register")
 	}
 	if _, err := p.want(RPAREN); err != nil {
 		return instructions.EAExpr{}, err
-	}
-	ok, an := isRegAn(areg.Text)
-	if !ok {
-		return instructions.EAExpr{}, parserError(areg, "expected address register")
 	}
 	return instructions.EAExpr{Kind: instructions.EAkAddrPredec, Reg: an}, nil
 }
@@ -970,27 +1082,11 @@ func (p *Parser) parseEADisplacementOrAbsolute() (instructions.EAExpr, error) {
 		return p.parseEADisplacementBody(expr)
 	}
 
-	// Case 2: Absolute address.
-	kind := instructions.EAkAbsL // Default to .L
-	if p.accept(DOT) {
-		suf, err := p.want(IDENT)
-		if err != nil {
-			return instructions.EAExpr{}, err
-		}
-		switch strings.ToUpper(suf.Text) {
-		case "W":
-			kind = instructions.EAkAbsW
-		case "L":
-			kind = instructions.EAkAbsL
-		default:
-			return instructions.EAExpr{}, errorAtToken(suf, fmt.Errorf("unknown size suffix .%s", suf.Text))
-		}
+	kind, err := p.parseAbsoluteSuffix(instructions.EAkAbsL, "unknown size suffix .%s")
+	if err != nil {
+		return instructions.EAExpr{}, err
 	}
-
-	if kind == instructions.EAkAbsW {
-		return instructions.EAExpr{Kind: kind, Abs16: uint16(expr)}, nil
-	}
-	return instructions.EAExpr{Kind: kind, Abs32: uint32(expr)}, nil
+	return parseAbsoluteEA(kind, expr), nil
 }
 
 func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
@@ -1012,7 +1108,7 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 
 	// Case 2: (An, ix) or (PC, ix) -- no outer displacement
 	if base := p.peek(); base.Kind == IDENT && p.peekN(2).Kind == COMMA {
-		if isRegAnOrPC(base.Text) {
+		if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
 			p.next() // base
 			p.next() // ','
 			ix, err := p.parseEAIndex()
@@ -1022,11 +1118,10 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 			if _, err := p.want(RPAREN); err != nil {
 				return instructions.EAExpr{}, err
 			}
-
-			if ok, an := isRegAn(base.Text); ok {
-				return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: an, Index: ix}, nil
+			if isPC {
+				return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
 			}
-			return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
+			return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: reg, Index: ix}, nil
 		}
 	}
 
@@ -1045,21 +1140,10 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 	if _, err := p.want(RPAREN); err != nil {
 		return instructions.EAExpr{}, err
 	}
-	if p.accept(DOT) {
-		suf, err := p.want(IDENT)
-		if err != nil {
-			return instructions.EAExpr{}, err
-		}
-		switch strings.ToUpper(suf.Text) {
-		case "W":
-			return instructions.EAExpr{Kind: instructions.EAkAbsW, Abs16: uint16(expr)}, nil
-		case "L":
-			return instructions.EAExpr{Kind: instructions.EAkAbsL, Abs32: uint32(expr)}, nil
-		default:
-			return instructions.EAExpr{}, parserError(suf, "expected .W or .L after (absolute address)")
-		}
+	kind, err := p.parseAbsoluteSuffix(0, "expected .W or .L after (absolute address)")
+	if err == nil && kind != 0 {
+		return parseAbsoluteEA(kind, expr), nil
 	}
-
 	return instructions.EAExpr{}, errorAtLine(p.line, fmt.Errorf("invalid effective address form, expected (abs).W or (abs).L"))
 }
 
@@ -1079,29 +1163,14 @@ func (p *Parser) parseEADisplacementBody(disp int64) (instructions.EAExpr, error
 		if _, err := p.want(RPAREN); err != nil {
 			return instructions.EAExpr{}, err
 		}
-
-		ix.Disp8 = int8(disp) // The outer displacement is the 8-bit brief displacement
-
-		if ok, an := isRegAn(base.Text); ok {
-			return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: an, Index: ix}, nil
-		}
-		if isPC(base.Text) {
-			return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
-		}
-		return instructions.EAExpr{}, parserError(base, "base must be An or PC for indexed addressing")
+		return indexedEA(base, disp, ix)
 	}
 
 	// It's a simple displacement mode: d(An) or d(PC)
 	if _, err := p.want(RPAREN); err != nil {
 		return instructions.EAExpr{}, err
 	}
-	if ok, an := isRegAn(base.Text); ok {
-		return instructions.EAExpr{Kind: instructions.EAkAddrDisp16, Reg: an, Disp16: int32(disp)}, nil
-	}
-	if isPC(base.Text) {
-		return instructions.EAExpr{Kind: instructions.EAkPCDisp16, Disp16: int32(disp)}, nil
-	}
-	return instructions.EAExpr{}, parserError(base, "base must be An or PC for displacement addressing")
+	return displacementEA(base, disp)
 }
 
 func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
@@ -1118,38 +1187,27 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 		name = name[:idx]
 	}
 
-	var ix instructions.EAIndex
-	if ok, dn := isRegDn(name); ok {
-		ix.Reg = dn
-	} else if ok, an := isRegAn(name); ok {
-		ix.Reg = an
-		ix.IsA = true
-	} else {
-		return ix, parserError(idxTok, "expected Dn or An as index register")
+	ix, err := parseIndexRegister(name)
+	if err != nil {
+		return ix, parserError(idxTok, err.Error())
 	}
 
 	if suffix != "" {
-		switch strings.ToUpper(suffix) {
-		case "W":
-			ix.Long = false
-		case "L":
-			ix.Long = true
-		default:
-			return ix, parserError(idxTok, "expected .W or .L for index register size")
+		long, err := parseIndexSizeSuffix(suffix)
+		if err != nil {
+			return ix, parserError(idxTok, err.Error())
 		}
+		ix.Long = long
 	} else if p.accept(DOT) {
 		szTok, err := p.want(IDENT)
 		if err != nil {
 			return ix, err
 		}
-		switch strings.ToUpper(szTok.Text) {
-		case "W":
-			ix.Long = false
-		case "L":
-			ix.Long = true
-		default:
-			return ix, parserError(szTok, "expected .W or .L for index register size")
+		long, err := parseIndexSizeSuffix(szTok.Text)
+		if err != nil {
+			return ix, parserError(szTok, err.Error())
 		}
+		ix.Long = long
 	}
 
 	// Optional scale factor *1, *2, *4, *8
@@ -1169,6 +1227,31 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 	}
 
 	return ix, nil
+}
+
+func parseIndexRegister(name string) (instructions.EAIndex, error) {
+	var ix instructions.EAIndex
+	if ok, dn := isRegDn(name); ok {
+		ix.Reg = dn
+		return ix, nil
+	}
+	if ok, an := isRegAn(name); ok {
+		ix.Reg = an
+		ix.IsA = true
+		return ix, nil
+	}
+	return ix, fmt.Errorf("expected Dn or An as index register")
+}
+
+func parseIndexSizeSuffix(suffix string) (bool, error) {
+	switch strings.ToUpper(suffix) {
+	case "W":
+		return false, nil
+	case "L":
+		return true, nil
+	default:
+		return false, fmt.Errorf("expected .W or .L for index register size")
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -1240,11 +1323,6 @@ func isRegAn(s string) (bool, int) {
 		return true, 7
 	}
 	return false, 0
-}
-
-func isRegAnOrPC(s string) bool {
-	ok, _ := isRegAn(s)
-	return ok || isPC(s)
 }
 
 func isPC(s string) bool {

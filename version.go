@@ -1,4 +1,4 @@
 package m68kasm
 
 // Version identifies the assembler release number.
-const Version = "v1.1.5"
+const Version = "v2.0.0"

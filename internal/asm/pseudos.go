@@ -52,6 +52,7 @@ func parseORG(p *Parser) error {
 }
 
 func parseBYTE(p *Parser) error {
+	col := p.col
 	val, err := p.parseExpr()
 	if err != nil {
 		return err
@@ -65,13 +66,14 @@ func parseBYTE(p *Parser) error {
 		}
 		bytes = append(bytes, byte(v))
 	}
-	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line})
+	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line, Col: col})
 	p.pc += uint32(len(bytes))
 	return nil
 }
 
 // .word <expr>[, <expr>]...
 func parseWORD(p *Parser) error {
+	col := p.col
 	// first value
 	v, err := p.parseExpr()
 	if err != nil {
@@ -98,13 +100,14 @@ func parseWORD(p *Parser) error {
 		out = append(out, byte(w>>8), byte(w))
 	}
 
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col})
 	p.pc += uint32(len(out))
 	return nil
 }
 
 // .long <expr>[, <expr>]...
 func parseLONG(p *Parser) error {
+	col := p.col
 	v, err := p.parseExpr()
 	if err != nil {
 		return err
@@ -129,7 +132,7 @@ func parseLONG(p *Parser) error {
 		out = append(out, byte(u>>24), byte(u>>16), byte(u>>8), byte(u))
 	}
 
-	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line})
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col})
 	p.pc += uint32(len(out))
 	return nil
 }

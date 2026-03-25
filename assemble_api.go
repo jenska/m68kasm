@@ -15,6 +15,10 @@ type ListingEntry = internal.ListingEntry
 
 // Error provides source-location context for parse and assembly failures.
 type Error = internal.Error
+
+// ParseOptions controls parser customization for all public assembly helpers.
+// Symbols predefines label values, and InstrTable lets advanced callers supply
+// an alternate instruction table.
 type ParseOptions = internal.ParseOptions
 
 // Assemble parses Motorola 68k assembly source from r and returns the encoded
@@ -264,14 +268,16 @@ func AssembleFileWithListingIntoWithOptions(dst []byte, path string, opts ParseO
 
 // AssembleELF parses Motorola 68k assembly source from r and returns an ELF32
 // executable image targeting the m68k architecture. The program origin is used
-// as the entry point and load address.
+// as the entry point and load address. The emitted file includes a single load
+// segment plus standard section and symbol tables for ELF-aware tooling.
 func AssembleELF(r io.Reader) ([]byte, error) {
 	return AssembleELFWithOptions(r, ParseOptions{})
 }
 
 // AssembleELFWithOptions parses Motorola 68k assembly source from r using the
 // supplied parsing options and returns an ELF32 executable image targeting the
-// m68k architecture.
+// m68k architecture. The emitted file includes a single load segment plus
+// standard section and symbol tables for ELF-aware tooling.
 func AssembleELFWithOptions(r io.Reader, opts ParseOptions) ([]byte, error) {
 	prog, err := internal.ParseWithOptions(r, internal.ParseOptions(opts))
 	if err != nil {

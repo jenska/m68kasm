@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("m68kasm v%s\n", m68kasm.Version)
+		fmt.Printf("m68kasm %s\n", m68kasm.Version)
 		return
 	}
 
@@ -68,7 +68,7 @@ func main() {
 	switch fmtFormat {
 
 	case "srec":
-		header := fmt.Sprintf("m68kasm v%s", m68kasm.Version)
+		header := fmt.Sprintf("m68kasm %s", m68kasm.Version)
 		srec := asm.FormatSRecords(listing, prog.Origin, header)
 		if err := os.WriteFile(*out, srec, 0644); err != nil {
 			fmt.Println("write error:", err)
@@ -76,7 +76,7 @@ func main() {
 		}
 		fmt.Printf("assembled %d bytes into S-record %s\n", len(bytes), *out)
 	case "elf":
-		elfBytes := asm.FormatELF(bytes, prog.Origin)
+		elfBytes := asm.FormatELFWithLabels(bytes, prog.Origin, prog.DefinedLabels)
 		if err := os.WriteFile(*out, elfBytes, 0644); err != nil {
 			fmt.Println("write error:", err)
 			os.Exit(4)

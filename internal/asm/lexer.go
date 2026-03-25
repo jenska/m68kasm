@@ -67,6 +67,77 @@ func (t *Token) String() string {
 	return fmt.Sprintf("(%d, %d) token '%s'", t.Line, t.Col, t.Text)
 }
 
+func (k Kind) String() string {
+	switch k {
+	case EOF:
+		return "EOF"
+	case IDENT:
+		return "identifier"
+	case NUMBER:
+		return "number"
+	case STRING:
+		return "string"
+	case COMMA:
+		return "comma"
+	case COLON:
+		return "colon"
+	case EQUAL:
+		return "equal"
+	case EQEQ:
+		return "double-equal"
+	case HASH:
+		return "hash"
+	case LPAREN:
+		return "left paren"
+	case RPAREN:
+		return "right paren"
+	case DOT:
+		return "dot"
+	case PLUS:
+		return "plus"
+	case MINUS:
+		return "minus"
+	case STAR:
+		return "star"
+	case SLASH:
+		return "slash"
+	case PERCENT:
+		return "percent"
+	case BANG:
+		return "bang"
+	case LT:
+		return "less-than"
+	case GT:
+		return "greater-than"
+	case LTE:
+		return "less-than-equal"
+	case GTE:
+		return "greater-than-equal"
+	case NEQ:
+		return "not-equal"
+	case ANDAND:
+		return "double-ampersand"
+	case OROR:
+		return "double-pipe"
+	case LSHIFT:
+		return "left-shift"
+	case RSHIFT:
+		return "right-shift"
+	case AMP:
+		return "ampersand"
+	case PIPE:
+		return "pipe"
+	case CARET:
+		return "caret"
+	case TILDE:
+		return "tilde"
+	case NEWLINE:
+		return "newline"
+	default:
+		return fmt.Sprintf("Kind(%d)", int(k))
+	}
+}
+
 func NewLexer(r io.Reader) *Lexer { return &Lexer{r: bufio.NewReader(r), line: 1, col: 0} }
 
 func (lx *Lexer) Next() Token {
@@ -216,80 +287,20 @@ func (lx *Lexer) scanNumber(first rune) Token {
 	b.WriteRune(first)
 
 	if first == '$' {
-		for {
-			ch := lx.peekRune()
-			if isHex(ch) {
-				lx.read()
-				b.WriteRune(ch)
-			} else {
-				break
-			}
-		}
-		v, err := strconv.ParseInt(b.String()[1:], 16, 64)
-		if err != nil {
-			return lx.errToken(err)
-		}
-		return lx.tok(NUMBER, b.String(), v)
+		return lx.finishBaseNumber(&b, 1, 16, isHex)
 	}
 	if first == '%' {
-		for {
-			ch := lx.peekRune()
-			if ch == '0' || ch == '1' {
-				lx.read()
-				b.WriteRune(ch)
-			} else {
-				break
-			}
-		}
-		v, err := strconv.ParseInt(b.String()[1:], 2, 64)
-		if err != nil {
-			return lx.errToken(err)
-		}
-		return lx.tok(NUMBER, b.String(), v)
+		return lx.finishBaseNumber(&b, 1, 2, isBinary)
 	}
 	if first == '@' {
-		for {
-			ch := lx.peekRune()
-			if ch >= '0' && ch <= '7' {
-				lx.read()
-				b.WriteRune(ch)
-			} else {
-				break
-			}
-		}
-		v, err := strconv.ParseInt(b.String()[1:], 8, 64)
-		if err != nil {
-			return lx.errToken(err)
-		}
-		return lx.tok(NUMBER, b.String(), v)
+		return lx.finishBaseNumber(&b, 1, 8, isOctal)
 	}
 	if first == '0' && (lx.peekRune() == 'x' || lx.peekRune() == 'X') {
 		lx.read() // x
 		b.WriteByte('x')
-		for {
-			ch := lx.peekRune()
-			if isHex(ch) {
-				lx.read()
-				b.WriteRune(ch)
-			} else {
-				break
-			}
-		}
-		v, err := strconv.ParseInt(b.String()[2:], 16, 64)
-		if err != nil {
-			return lx.errToken(err)
-		}
-		return lx.tok(NUMBER, b.String(), v)
+		return lx.finishBaseNumber(&b, 2, 16, isHex)
 	}
-	for {
-		ch := lx.peekRune()
-		if unicode.IsDigit(ch) {
-			lx.read()
-			b.WriteRune(ch)
-		} else {
-			break
-		}
-	}
+	lx.scanWhile(&b, unicode.IsDigit)
 	v, err := strconv.ParseInt(b.String(), 10, 64)
 	if err != nil {
 		return lx.errToken(err)
@@ -305,23 +316,7 @@ func (lx *Lexer) scanString() Token {
 			return lx.errToken(fmt.Errorf("unterminated string"))
 		}
 		if ch == '\\' {
-			esc := lx.read()
-			switch esc {
-			case 'n':
-				b.WriteByte('\n')
-			case 'r':
-				b.WriteByte('\r')
-			case 't':
-				b.WriteByte('\t')
-			case '\\':
-				b.WriteByte('\\')
-			case '"':
-				b.WriteByte('"')
-			case '0':
-				b.WriteByte(0)
-			default:
-				b.WriteRune(esc)
-			}
+			b.WriteRune(lx.readEscapedRune())
 			continue
 		}
 		if ch == '"' {
@@ -336,21 +331,7 @@ func (lx *Lexer) scanChar() Token {
 	ch := lx.read()
 	var v rune
 	if ch == '\\' {
-		esc := lx.read()
-		switch esc {
-		case 'n':
-			v = '\n'
-		case 'r':
-			v = '\r'
-		case 't':
-			v = '\t'
-		case '\\':
-			v = '\\'
-		case '\'':
-			v = '\''
-		default:
-			v = esc
-		}
+		v = lx.readEscapedRune()
 	} else {
 		v = ch
 	}
@@ -358,6 +339,48 @@ func (lx *Lexer) scanChar() Token {
 		return lx.errToken(fmt.Errorf("unterminated char literal"))
 	}
 	return lx.tok(NUMBER, fmt.Sprintf("'%c'", v), int64(v))
+}
+
+func (lx *Lexer) finishBaseNumber(b *strings.Builder, prefixLen int, base int, accept func(rune) bool) Token {
+	lx.scanWhile(b, accept)
+	text := b.String()
+	v, err := strconv.ParseInt(text[prefixLen:], base, 64)
+	if err != nil {
+		return lx.errToken(err)
+	}
+	return lx.tok(NUMBER, text, v)
+}
+
+func (lx *Lexer) scanWhile(b *strings.Builder, accept func(rune) bool) {
+	for {
+		ch := lx.peekRune()
+		if !accept(ch) {
+			return
+		}
+		lx.read()
+		b.WriteRune(ch)
+	}
+}
+
+func (lx *Lexer) readEscapedRune() rune {
+	switch esc := lx.read(); esc {
+	case 'n':
+		return '\n'
+	case 'r':
+		return '\r'
+	case 't':
+		return '\t'
+	case '\\':
+		return '\\'
+	case '"':
+		return '"'
+	case '\'':
+		return '\''
+	case '0':
+		return 0
+	default:
+		return esc
+	}
 }
 
 func (lx *Lexer) skipUntilNewline() {
@@ -410,6 +433,8 @@ func isIdentContinue(ch rune) bool {
 func isHex(ch rune) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
+func isBinary(ch rune) bool { return ch == '0' || ch == '1' }
+func isOctal(ch rune) bool  { return ch >= '0' && ch <= '7' }
 
 // sliceLexer is a lexer implementation that reads from a pre-filled slice of tokens.
 // It is primarily used for macro expansion and re-parsing instruction forms.

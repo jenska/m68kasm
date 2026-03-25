@@ -6,13 +6,13 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v1.1
+**Current version:** v2.0.0
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v1.1)
+## 🚀 Features (as of v2.0.0)
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
@@ -21,7 +21,8 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 - Simple and fast command-line tool with optimized performance
 - Embeddable directly into Go programs via a public API
 - Optional source listings to pair machine code with source lines
-- Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment
+- Output formats: flat binary, Motorola S-record (S0/S3/S7), and ELF32 (m68k) with a single load segment plus standard section/symbol tables
+- Documented pseudo-ops including `.org`, `.byte`, `.word`, `.long`, `.align`, `.even`, `.macro`/`.endmacro`, and `DC.B`/`DC.W`/`DC.L`
 - Table-driven instruction encoding (based on `InstDef`, `FormDef`, and `EmitStep` structures)
 - Clear modular design in Go (`lexer`, `parser`, `expr`, `instructions`, `encode`, `assemble`)
 - Performance optimizations:
@@ -35,7 +36,7 @@ The goal of this project is to provide a clean, maintainable, and easily extensi
 ## ⚠️ Known Limitations
 
 - **CPU Generation:** Strictly targets the **68000** instruction set. Extensions for 68010, 68020+, or FPU coprocessors are not currently supported.
-- **Linker Support:** ELF output is currently limited to a single load segment. It is not yet suitable for complex linking scenarios requiring distinct `.text`, `.data`, and `.bss` sections.
+- **Linker Support:** ELF output now includes standard `.text`, `.data`, `.bss`, `.symtab`, `.strtab`, and `.shstrtab` metadata, but the assembler still emits a single flat load image rather than truly separated loadable sections or relocatable objects.
 - **Optimizations:** The assembler prioritizes deterministic output over optimization. It does not automatically relax instructions (e.g., `JMP` to `BRA`) or substitute shorter instruction forms unless explicitly handled by the instruction selection logic.
 
 ---
@@ -109,7 +110,7 @@ func main() {
 
         // Emit Motorola S-record text directly from the same source.
         srec, _ := m68kasm.AssembleStringSRecord(".org 0x1000\n.byte 0x12,0x34\n")
-        // Produce a minimal ELF image with the origin as the entry point.
+        // Produce an ELF image with section headers and label symbols.
         elf, _ := m68kasm.AssembleStringELF(".org 0x2000\n.byte 0x12\n")
         _ = bin
         _ = srec
@@ -120,6 +121,10 @@ func main() {
 Additional helpers support assembling from `[]byte`, `io.Reader`, or file paths
 with or without listings, and can append results into an existing destination
 buffer.
+
+Errors returned by the public API include source location context and, when
+available, the original source line with a caret marker. Type-assert to
+`m68kasm.Error` when you want structured access to line and column data.
 
 ### Quick start: assemble and run the sample program
 
@@ -154,6 +159,14 @@ docs/                     # Reference material including grammar and opcode tabl
 - [`docs/syntax.md`](docs/syntax.md) documents the accepted assembly syntax and directives.
 - [`docs/grammar.ebnf`](docs/grammar.ebnf) provides the EBNF grammar used by the parser.
 - [`docs/M68kOpcodes.pdf`](docs/M68kOpcodes.pdf) is a handy opcode reference while extending the instruction tables.
+
+### Pseudo-op summary
+- `.org <expr>` sets the location counter and program origin.
+- `.byte`, `.word`, and `.long` emit big-endian data items.
+- `.align <n[, fill]>` aligns the location counter with optional fill bytes.
+- `.even` aligns the location counter to an even address.
+- `.macro` / `.endmacro` define parameterized macros.
+- `DC.B`, `DC.W`, and `DC.L` are aliases for the corresponding data directives.
 
 ---
 
@@ -207,11 +220,11 @@ Make sure the CI passes before submitting.
 | **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
 | **v0.4** | Introduce listing and S-record output |
 | **v0.5** | Add ELF format and richer symbol handling |
-| **v1.1 (current)** | Full assembler with macros, expressions, rich error reporting, and local label support |
+| **v2.0.0 (current)** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
 
 ---
 
-## 🔧 Recent Improvements (v1.1.2)
+## 🔧 Recent Improvements (v2.0.0)
 
 ### Code Quality & Performance
 
@@ -240,7 +253,7 @@ Make sure the CI passes before submitting.
 
 ---
 
-## 🔭 Next up (post-v1.1.x)
+## 🔭 Next up (post-v2.0.x)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.

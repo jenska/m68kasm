@@ -18,7 +18,7 @@ jobs:
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
-          VERSION="${TAG_NAME#v}"
+          VERSION="${TAG_NAME}"
           sed -i "s/^const Version = \".*\"/const Version = \"${VERSION}\"/" version.go
 
       - name: Commit and push changes

@@ -8,9 +8,18 @@ import (
 )
 
 type Program struct {
-	Items  []any
-	Labels map[string]uint32
-	Origin uint32
+	Items         []any
+	Labels        map[string]uint32
+	DefinedLabels []DefinedLabel
+	Origin        uint32
+	SourceLines   []string
+}
+
+// DefinedLabel captures a named label defined in source so that output formats
+// can preserve stable label metadata without including parser-only symbols.
+type DefinedLabel struct {
+	Name string
+	Addr uint32
 }
 
 // ListingEntry captures the assembled bytes for a single source line so that a
@@ -77,39 +86,10 @@ func assemble(dst []byte, w io.Writer, p *Program, wantListing bool) ([]byte, []
 	itemBuf := make([]byte, 0, 32)
 
 	for _, it := range p.Items {
-		itemBuf = itemBuf[:0]
-		switch x := it.(type) {
-		case *Instr:
-			ins := *x
-			ins.Args = x.Args
-
-			def := x.Def
-			if def == nil {
-				return nil, nil, written, errorAtLine(x.Line, fmt.Errorf("no definition for opcode"))
-			}
-			actualKinds := operandKinds(&ins.Args)
-			form, err := selectForm(def, &ins, actualKinds)
-			if err != nil {
-				return nil, nil, written, contextualize(x.Line, err)
-			}
-
-			if form.Validate != nil {
-				if err := form.Validate(&ins.Args); err != nil {
-					return nil, nil, written, contextualize(x.Line, err)
-				}
-			}
-
-			bytes, err := Encode(def, form, &ins, p.Labels)
-			if err != nil {
-				return nil, nil, written, contextualize(x.Line, err)
-			}
-			itemBuf = append(itemBuf, bytes...)
-
-		case *DataBytes:
-			itemBuf = append(itemBuf, x.Bytes...)
-
-		default:
-			return nil, nil, written, fmt.Errorf("unknown item type in program")
+		var err error
+		itemBuf, err = assembleItem(itemBuf[:0], it, p.Labels)
+		if err != nil {
+			return nil, nil, written, withSourceLines(err, p.SourceLines)
 		}
 
 		if w != nil {
@@ -123,13 +103,50 @@ func assemble(dst []byte, w io.Writer, p *Program, wantListing bool) ([]byte, []
 		}
 
 		if wantListing {
-			entry := ListingEntry{PC: pcForItem(it), Line: lineForItem(it)}
+			pc, line, _ := itemLocation(it)
+			entry := ListingEntry{PC: pc, Line: line}
 			entry.Bytes = append(entry.Bytes, itemBuf...)
 			listing = append(listing, entry)
 		}
 	}
 
 	return out, listing, written, nil
+}
+
+func assembleItem(dst []byte, it any, labels map[string]uint32) ([]byte, error) {
+	switch x := it.(type) {
+	case *Instr:
+		ins := *x
+		ins.Args = x.Args
+
+		def := x.Def
+		if def == nil {
+			return nil, &Error{Line: x.Line, Col: x.Col, Err: fmt.Errorf("no definition for opcode")}
+		}
+
+		actualKinds := operandKinds(&ins.Args)
+		form, err := selectForm(def, &ins, actualKinds)
+		if err != nil {
+			return nil, contextualizeAt(x.Line, x.Col, err)
+		}
+		if form.Validate != nil {
+			if err := form.Validate(&ins.Args); err != nil {
+				return nil, contextualizeAt(x.Line, x.Col, err)
+			}
+		}
+
+		bytes, err := Encode(def, form, &ins, labels)
+		if err != nil {
+			return nil, contextualizeAt(x.Line, x.Col, err)
+		}
+		return append(dst, bytes...), nil
+
+	case *DataBytes:
+		return append(dst, x.Bytes...), nil
+
+	default:
+		return nil, fmt.Errorf("unknown item type in program")
+	}
 }
 
 func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.OperandKind) (*instructions.FormDef, error) {
@@ -240,24 +257,13 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 	return false
 }
 
-func pcForItem(it any) uint32 {
+func itemLocation(it any) (pc uint32, line int, ok bool) {
 	switch v := it.(type) {
 	case *Instr:
-		return v.PC
+		return v.PC, v.Line, true
 	case *DataBytes:
-		return v.PC
+		return v.PC, v.Line, true
 	default:
-		return 0
-	}
-}
-
-func lineForItem(it any) int {
-	switch v := it.(type) {
-	case *Instr:
-		return v.Line
-	case *DataBytes:
-		return v.Line
-	default:
-		return 0
+		return 0, 0, false
 	}
 }

@@ -11,6 +11,20 @@ type Instr struct {
 	Args instructions.Args
 	PC   uint32
 	Line int
+	Col  int
+}
+
+func sizeToBits(sz instructions.Size) uint16 {
+	switch sz {
+	case instructions.ByteSize:
+		return 0x0000
+	case instructions.WordSize:
+		return 0x0040
+	case instructions.LongSize:
+		return 0x0080
+	default:
+		return 0
+	}
 }
 
 func appendWord(out []byte, v uint16) []byte {
@@ -175,7 +189,7 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		}
 	}
 
-	p.SizeBits = uint16(ins.Args.Size)
+	p.SizeBits = sizeToBits(ins.Args.Size)
 
 	if ins.Args.Target != "" {
 		addr, ok := sym[ins.Args.Target]
