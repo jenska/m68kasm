@@ -39,7 +39,7 @@ func newStatusDef(name string, wordb, wordw, immWord uint16) *InstrDef {
 				Validate:    validateImmediateLogicEA,
 				Steps: []EmitStep{
 					{WordBits: immWord, Fields: []FieldRef{FSizeBits, FDstEA}},
-					{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
+					{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
 				},
 			},
 		},

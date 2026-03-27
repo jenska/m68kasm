@@ -51,7 +51,7 @@ var defCMPI = InstrDef{
 			Validate:    validateCMPI,
 			Steps: []EmitStep{
 				{WordBits: 0x0C00, Fields: []FieldRef{FSizeBits, FDstEA}},
-				{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
+				{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
 			},
 		},
 	},

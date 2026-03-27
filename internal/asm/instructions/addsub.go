@@ -82,7 +82,7 @@ func newAddSubImmDef(name string, wordBits uint16) *InstrDef {
 				Validate:    func(a *Args) error { return validateAddSubImm(name, a) },
 				Steps: []EmitStep{
 					{WordBits: wordBits, Fields: []FieldRef{FSizeBits, FDstEA}},
-					{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
+					{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
 				},
 			},
 		},
