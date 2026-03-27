@@ -136,7 +136,7 @@ Pads by one zero byte when needed so the location counter becomes even.
 
 ```asm
 .byte 1
-.even
+m.even
 ```
 
 ### `.text`, `.data`, `.bss`

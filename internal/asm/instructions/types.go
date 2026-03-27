@@ -118,9 +118,11 @@ type EmitStep struct {
 }
 
 type Args struct {
-	Target   string
-	Src, Dst EAExpr
-	Size     Size
+	Target        string
+	TargetAddr    int64
+	HasTargetAddr bool
+	Src, Dst      EAExpr
+	Size          Size
 
 	HasImmQuick bool
 	RegMaskSrc  uint16

@@ -64,7 +64,7 @@ loop:
 					wantValue = false
 					continue
 				}
-				return 0, fmt.Errorf("undefiniertes Label in Ausdruck: %s", name)
+				return 0, fmt.Errorf("undefined label in expression: %s", name)
 			}
 			p.next()
 			out = append(out, t.Val)
@@ -78,7 +78,7 @@ loop:
 				out = append(out, 0)
 				wantValue = false
 			} else {
-				return 0, fmt.Errorf("undefiniertes Label in Ausdruck: %s", t.Text)
+				return 0, fmt.Errorf("undefined label in expression: %s", t.Text)
 			}
 		case LPAREN:
 			p.next()
@@ -97,7 +97,7 @@ loop:
 				}
 			}
 			if len(ops) == 0 {
-				return 0, fmt.Errorf("expected: ')'")
+				return 0, fmt.Errorf("expected ')'")
 			}
 			ops = ops[:len(ops)-1]
 			wantValue = false
@@ -123,7 +123,7 @@ loop:
 		op := ops[len(ops)-1]
 		ops = ops[:len(ops)-1]
 		if op == LPAREN {
-			return 0, fmt.Errorf("expected: '('")
+			return 0, fmt.Errorf("expected '('")
 		}
 		if err := apply(op); err != nil {
 			return 0, err
@@ -185,7 +185,7 @@ func isUnaryOperator(k Kind) bool {
 
 func applyUnaryOperator(op Kind, out *[]int64) error {
 	if len(*out) < 1 {
-		return fmt.Errorf("unärer Operator erwartet ein Argument")
+		return fmt.Errorf("unary operator expects one argument")
 	}
 	a := (*out)[len(*out)-1]
 	*out = (*out)[:len(*out)-1]
@@ -196,14 +196,14 @@ func applyUnaryOperator(op Kind, out *[]int64) error {
 	case BANG:
 		*out = append(*out, boolToInt64(a == 0))
 	default:
-		return fmt.Errorf("unbekannter Operator")
+		return fmt.Errorf("unknown operator")
 	}
 	return nil
 }
 
 func applyBinaryOperator(op Kind, out *[]int64) error {
 	if len(*out) < 2 {
-		return fmt.Errorf("binärer Operator erwartet zwei Argumente")
+		return fmt.Errorf("binary operator expects two arguments")
 	}
 	b := (*out)[len(*out)-1]
 	a := (*out)[len(*out)-2]
@@ -253,7 +253,7 @@ func applyBinaryOperator(op Kind, out *[]int64) error {
 	case OROR:
 		*out = append(*out, truthy(a)|truthy(b))
 	default:
-		return fmt.Errorf("unbekannter Operator")
+		return fmt.Errorf("unknown operator")
 	}
 	return nil
 }

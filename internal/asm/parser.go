@@ -243,7 +243,7 @@ func (p *Parser) parseLabelDefinition() (bool, error) {
 		p.next() // consume ':'
 		if lbl.Kind == IDENT {
 			p.labels[lbl.Text] = p.pc
-			p.recordDefinedLabel(lbl.Text, p.pc)
+			p.recordDefinedLabel(lbl.Text, p.pc, lbl.Line)
 		} else {
 			if err := p.defineLocalLabel(lbl); err != nil {
 				return true, err
@@ -254,14 +254,15 @@ func (p *Parser) parseLabelDefinition() (bool, error) {
 	return false, nil
 }
 
-func (p *Parser) recordDefinedLabel(name string, addr uint32) {
+func (p *Parser) recordDefinedLabel(name string, addr uint32, line int) {
 	if idx, ok := p.definedLabelPos[name]; ok {
 		p.definedLabels[idx].Addr = addr
+		p.definedLabels[idx].Line = line
 		p.definedLabels[idx].Section = p.section
 		return
 	}
 	p.definedLabelPos[name] = len(p.definedLabels)
-	p.definedLabels = append(p.definedLabels, DefinedLabel{Name: name, Addr: addr, Section: p.section})
+	p.definedLabels = append(p.definedLabels, DefinedLabel{Name: name, Addr: addr, Line: line, Section: p.section})
 }
 
 func (p *Parser) consumeLocalLabelRef() (string, bool, error) {
@@ -400,15 +401,16 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 	operandTokens := p.consumeUntilEOL()
 	defer p.releaseTokens(operandTokens)
 	var lastErr error
-	for _, form := range instrDef.Forms {
-		args, err := p.tryParseForm(mn, &form, operandTokens)
+	for i := range instrDef.Forms {
+		form := &instrDef.Forms[i]
+		args, err := p.tryParseForm(mn, form, operandTokens)
 		if err != nil {
 			lastErr = err
 			continue
 		}
-		ins := &Instr{Def: instrDef, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col, Section: p.section}
+		ins := &Instr{Def: instrDef, Form: form, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col, Section: p.section}
 		p.items = append(p.items, ins)
-		words, err := instructionWords(&form, args)
+		words, err := instructionWords(form, args)
 		if err != nil {
 			return err
 		}
@@ -744,11 +746,22 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 
 	case instructions.OpkDispRel:
-		name, err := p.parseLabelReference()
+		if name, ok, err := p.consumeLocalLabelRef(); err != nil {
+			return eaExpr, err
+		} else if ok {
+			args.Target = name
+			return eaExpr, nil
+		}
+		if p.peek().Kind == IDENT && (p.peekN(2).Kind == EOF || p.peekN(2).Kind == NEWLINE) {
+			args.Target = p.next().Text
+			return eaExpr, nil
+		}
+		target, err := p.parseExpr()
 		if err != nil {
 			return eaExpr, err
 		}
-		args.Target = name
+		args.TargetAddr = target
+		args.HasTargetAddr = true
 
 	default:
 		return eaExpr, errorAtLine(mn.Line, fmt.Errorf("unknown identifier %s", mn.Text))
@@ -842,7 +855,7 @@ func (p *Parser) parseSizeSuffix(def instructions.Size, allowed []instructions.S
 		sz = val
 	}
 	if !sizeAllowedList(sz, allowed) {
-		return 0, fmt.Errorf("(%d, %d): illegal size for instruction", p.line, p.col)
+		return 0, contextualizeAt(p.line, p.col, fmt.Errorf("illegal size for instruction"))
 	}
 	return sz, nil
 }

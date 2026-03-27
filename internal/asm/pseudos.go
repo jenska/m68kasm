@@ -38,7 +38,7 @@ func parseSECTION(p *Parser) error {
 	}
 	section, ok := parseSectionName(name)
 	if !ok {
-		return fmt.Errorf("line %d: unsupported section %q", p.line, name)
+		return contextualizeAt(p.line, p.col, fmt.Errorf("unsupported section %q", name))
 	}
 	return p.setSection(section)
 }
@@ -67,7 +67,7 @@ func parseORG(p *Parser) error {
 	newPC := uint32(val)
 
 	if newPC > maxProgramSize {
-		return fmt.Errorf("line %d: .org would exceed maximum program size of %d bytes", p.line, maxProgramSize)
+		return contextualizeAt(p.line, p.col, fmt.Errorf(".org would exceed maximum program size of %d bytes", maxProgramSize))
 	}
 
 	if !p.hasOrg && p.pc == 0 {
@@ -82,7 +82,7 @@ func parseORG(p *Parser) error {
 	}
 
 	if newPC < p.pc {
-		return fmt.Errorf("line %d: .org cannot move backwards (pc=%d -> %d)", p.line, p.pc, newPC)
+		return contextualizeAt(p.line, p.col, fmt.Errorf(".org cannot move backwards (pc=%d -> %d)", p.pc, newPC))
 	}
 
 	if newPC > p.pc {
@@ -132,7 +132,7 @@ func parseWORD(p *Parser) error {
 
 	out := make([]byte, 0, 2*4)
 	if v < -0x8000 || v > 0xFFFF {
-		return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
+		return contextualizeAt(p.line, p.col, fmt.Errorf(".word value out of 16-bit range: %d", v))
 	}
 	if err := ensureBSSValue(p, v, ".word"); err != nil {
 		return err
@@ -147,7 +147,7 @@ func parseWORD(p *Parser) error {
 			return err
 		}
 		if v < -0x8000 || v > 0xFFFF {
-			return fmt.Errorf("(%d, %d): .word value out of 16-bit range: %d", p.line, p.col, v)
+			return contextualizeAt(p.line, p.col, fmt.Errorf(".word value out of 16-bit range: %d", v))
 		}
 		if err := ensureBSSValue(p, v, ".word"); err != nil {
 			return err
@@ -171,7 +171,7 @@ func parseLONG(p *Parser) error {
 
 	out := make([]byte, 0, 4*4)
 	if v < -0x80000000 || v > 0xFFFFFFFF {
-		return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
+		return contextualizeAt(p.line, p.col, fmt.Errorf(".long value out of range: %d", v))
 	}
 	if err := ensureBSSValue(p, v, ".long"); err != nil {
 		return err
@@ -185,7 +185,7 @@ func parseLONG(p *Parser) error {
 			return err
 		}
 		if v < -0x80000000 || v > 0xFFFFFFFF {
-			return fmt.Errorf("(%d, %d): .long value out of range: %d", p.line, p.col, v)
+			return contextualizeAt(p.line, p.col, fmt.Errorf(".long value out of range: %d", v))
 		}
 		if err := ensureBSSValue(p, v, ".long"); err != nil {
 			return err
@@ -204,7 +204,7 @@ func ensureBSSValue(p *Parser, v int64, directive string) error {
 		return nil
 	}
 	if v != 0 {
-		return fmt.Errorf("line %d: %s in %s must be zero-initialized", p.line, directive, p.section.Name())
+		return contextualizeAt(p.line, p.col, fmt.Errorf("%s in %s must be zero-initialized", directive, p.section.Name()))
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func parseALIGN(p *Parser) error {
 		return err
 	}
 	if val < 1 {
-		return fmt.Errorf("line %d: .align expects value >= 1, got %d", p.line, val)
+		return contextualizeAt(p.line, p.col, fmt.Errorf(".align expects value >= 1, got %d", val))
 	}
 	align := uint32(val)
 
@@ -293,7 +293,7 @@ func parseMACRO(p *Parser) error {
 	for {
 		t := p.next()
 		if t.Kind == EOF {
-			return fmt.Errorf("line %d: unexpected EOF inside macro", nameTok.Line)
+			return contextualizeAt(nameTok.Line, nameTok.Col, fmt.Errorf("unexpected EOF inside macro"))
 		}
 		if t.Kind == DOT {
 			nxt := p.peek()

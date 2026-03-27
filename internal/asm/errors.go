@@ -14,19 +14,26 @@ type Error struct {
 	Err      error
 }
 
+func (e *Error) Message() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
 func (e *Error) Error() string {
 	loc := fmt.Sprintf("line %d", e.Line)
 	if e.Col > 0 {
 		loc += fmt.Sprintf(", col %d", e.Col)
 	}
 	if e.LineText != "" {
-		msg := fmt.Sprintf("%s: %v\n    %s", loc, e.Err, e.LineText)
+		msg := fmt.Sprintf("%s: %s\n    %s", loc, e.Message(), e.LineText)
 		if e.Col > 0 {
 			msg += fmt.Sprintf("\n    %s^", strings.Repeat(" ", e.Col-1))
 		}
 		return msg
 	}
-	return fmt.Sprintf("%s: %v", loc, e.Err)
+	return fmt.Sprintf("%s: %s", loc, e.Message())
 }
 
 func (e *Error) Unwrap() error { return e.Err }

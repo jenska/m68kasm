@@ -259,6 +259,181 @@ func TestAssembleStringSRecordWithOptions(t *testing.T) {
 	}
 }
 
+func TestAssembleStringDetailed(t *testing.T) {
+	src := ".org $1000\nstart:\nMOVEQ #1,D0\nloop:\nBRA.W $1002\n"
+
+	result, err := AssembleStringDetailed(src)
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	if result.Origin != 0x1000 {
+		t.Fatalf("unexpected origin: got 0x%X want 0x1000", result.Origin)
+	}
+
+	if got, ok := result.AddressOf("start"); !ok || got != 0x1000 {
+		t.Fatalf("unexpected start label: got 0x%X ok=%v", got, ok)
+	}
+
+	if got, ok := result.AddressOf("loop"); !ok || got != 0x1002 {
+		t.Fatalf("unexpected loop label: got 0x%X ok=%v", got, ok)
+	}
+
+	if got, ok := result.AddressForLine(2); !ok || got != 0x1000 {
+		t.Fatalf("unexpected line 2 address: got 0x%X ok=%v", got, ok)
+	}
+
+	if got, ok := result.AddressForLine(4); !ok || got != 0x1002 {
+		t.Fatalf("unexpected line 4 address: got 0x%X ok=%v", got, ok)
+	}
+
+	wantBytes := []byte{0x70, 0x01, 0x60, 0x00, 0xFF, 0xFC}
+	if !bytes.Equal(result.Bytes, wantBytes) {
+		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, wantBytes)
+	}
+
+	if len(result.Instructions) != 2 {
+		t.Fatalf("expected 2 instructions, got %d", len(result.Instructions))
+	}
+
+	if got := result.Instructions[0].Canonical; got != "MOVEQ.L #$1,D0" {
+		t.Fatalf("unexpected first canonical instruction: %q", got)
+	}
+
+	if got := result.Instructions[1].Canonical; got != "BRA.W $1002" {
+		t.Fatalf("unexpected second canonical instruction: %q", got)
+	}
+}
+
+func TestProgramBuilder(t *testing.T) {
+	builder := NewProgramBuilder().
+		Origin(0x1000).
+		VectorTable(map[uint32]string{
+			0: "STACK_TOP",
+			1: "reset",
+			3: "handler",
+		}).
+		Label("reset").
+		Instruction("NOP").
+		Label("handler").
+		Instruction("RTS")
+
+	result, err := builder.AssembleWithOptions(ParseOptions{
+		Symbols: map[string]uint32{"STACK_TOP": 0x2000},
+	})
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	wantSource := ".org $1000\n.long STACK_TOP,reset,0,handler\nreset:\nNOP\nhandler:\nRTS\n"
+	if got := builder.String(); got != wantSource {
+		t.Fatalf("unexpected builder source:\n%s\nwant:\n%s", got, wantSource)
+	}
+
+	wantBytes := []byte{
+		0x00, 0x00, 0x20, 0x00,
+		0x00, 0x00, 0x10, 0x10,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x10, 0x12,
+		0x4E, 0x71,
+		0x4E, 0x75,
+	}
+	if !bytes.Equal(result.Bytes, wantBytes) {
+		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, wantBytes)
+	}
+
+	if got, ok := result.AddressOf("reset"); !ok || got != 0x1010 {
+		t.Fatalf("unexpected reset label: got 0x%X ok=%v", got, ok)
+	}
+
+	if got, ok := result.AddressOf("handler"); !ok || got != 0x1012 {
+		t.Fatalf("unexpected handler label: got 0x%X ok=%v", got, ok)
+	}
+}
+
+func TestAssembleInstructionString(t *testing.T) {
+	result, err := AssembleInstructionString("MOVEQ #1,D0\n")
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	if want := []byte{0x70, 0x01}; !bytes.Equal(result.Bytes, want) {
+		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, want)
+	}
+
+	if result.EncodedSize != 2 || result.Words != 1 {
+		t.Fatalf("unexpected size metadata: %+v", result)
+	}
+
+	if result.Canonical != "MOVEQ.L #$1,D0" {
+		t.Fatalf("unexpected canonical instruction: %q", result.Canonical)
+	}
+}
+
+func TestAssembleInstructionStringWithAbsoluteBranchTarget(t *testing.T) {
+	result, err := AssembleInstructionString(".org $1000\nBRA.W $1004\n")
+	if err != nil {
+		t.Fatalf("assemble failed: %v", err)
+	}
+
+	want := []byte{0x60, 0x00, 0x00, 0x00}
+	if !bytes.Equal(result.Bytes, want) {
+		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, want)
+	}
+
+	if result.PC != 0x1000 {
+		t.Fatalf("unexpected pc: got 0x%X want 0x1000", result.PC)
+	}
+
+	if result.Canonical != "BRA.W $1004" {
+		t.Fatalf("unexpected canonical instruction: %q", result.Canonical)
+	}
+}
+
+func TestCanonicalizeInstructionString(t *testing.T) {
+	got, err := CanonicalizeInstructionString("  move.w  (a0)+ , d1 \n")
+	if err != nil {
+		t.Fatalf("canonicalize failed: %v", err)
+	}
+
+	if got != "MOVE.W (A0)+,D1" {
+		t.Fatalf("unexpected canonical form: %q", got)
+	}
+}
+
+func TestNormalizeError(t *testing.T) {
+	_, err := AssembleString(".align 0\n")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	if got := NormalizeError(err); got != ".align expects value >= 1, got 0" {
+		t.Fatalf("unexpected normalized error: %q", got)
+	}
+
+	var asmErr *Error
+	if !errors.As(err, &asmErr) {
+		t.Fatalf("expected structured Error, got %T", err)
+	}
+	if strings.Contains(asmErr.Message(), "line 1") {
+		t.Fatalf("normalized message unexpectedly includes location: %q", asmErr.Message())
+	}
+	if strings.Count(err.Error(), "line 1") != 1 {
+		t.Fatalf("formatted error duplicated location unexpectedly: %q", err.Error())
+	}
+}
+
+func TestNormalizeErrorForUndefinedExpressionLabel(t *testing.T) {
+	_, err := AssembleString(".word missing+1\n")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	if got := NormalizeError(err); got != "undefined label in expression: missing" {
+		t.Fatalf("unexpected normalized error: %q", got)
+	}
+}
+
 func TestAssembleSRecordVariants(t *testing.T) {
 	src := ".org 0x1000\n.byte 0x11,0x22,0x33\n"
 

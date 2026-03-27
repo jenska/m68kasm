@@ -2,12 +2,14 @@ package asm
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
 type Instr struct {
 	Def     *instructions.InstrDef
+	Form    *instructions.FormDef
 	Args    instructions.Args
 	PC      uint32
 	Line    int
@@ -192,10 +194,19 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 
 	p.SizeBits = sizeToBits(ins.Args.Size)
 
-	if ins.Args.Target != "" {
-		addr, ok := sym[ins.Args.Target]
-		if !ok {
-			return nil, fmt.Errorf("undefined label: %s", ins.Args.Target)
+	if ins.Args.Target != "" || ins.Args.HasTargetAddr {
+		var addr uint32
+		if ins.Args.Target != "" {
+			resolved, ok := sym[ins.Args.Target]
+			if !ok {
+				return nil, fmt.Errorf("undefined label: %s", ins.Args.Target)
+			}
+			addr = resolved
+		} else {
+			if ins.Args.TargetAddr < 0 || ins.Args.TargetAddr > math.MaxUint32 {
+				return nil, fmt.Errorf("branch target out of 32-bit range: %d", ins.Args.TargetAddr)
+			}
+			addr = uint32(ins.Args.TargetAddr)
 		}
 		p.TargetPC = addr
 		basePC := p.PC + 2

@@ -20,6 +20,7 @@ type Program struct {
 type DefinedLabel struct {
 	Name    string
 	Addr    uint32
+	Line    int
 	Section SectionKind
 }
 
@@ -191,7 +192,7 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	} else if a.Src.Kind != instructions.EAkNone {
 		kinds[n] = operandKindFromEA(a.Src)
 		n++
-	} else if a.Target != "" {
+	} else if a.Target != "" || a.HasTargetAddr {
 		kinds[n] = instructions.OpkDispRel
 		n++
 		haveTarget = true
@@ -205,7 +206,7 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 		n++
 	}
 
-	if a.Target != "" && !haveTarget {
+	if (a.Target != "" || a.HasTargetAddr) && !haveTarget {
 		kinds[n] = instructions.OpkDispRel
 		n++
 	}
