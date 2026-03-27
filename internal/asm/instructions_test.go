@@ -235,6 +235,28 @@ func TestBranchPCIncludesExtensionWords(t *testing.T) {
 	}
 }
 
+func TestImmediateToEAExtensionWordOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []byte
+	}{
+		{"AddImmediateDisp16", "ADDI.W #$1234,(4,A0)\n", []byte{0x06, 0x68, 0x12, 0x34, 0x00, 0x04}},
+		{"CompareImmediateAbsWord", "CMPI.B #$12,$1234.W\n", []byte{0x0C, 0x38, 0x00, 0x12, 0x12, 0x34}},
+		{"BitSetImmediateDisp16", "BSET #1,(4,A0)\n", []byte{0x08, 0xE8, 0x00, 0x01, 0x00, 0x04}},
+		{"OrImmediateAbsWord", "ORI.W #$1234,$2000.W\n", []byte{0x00, 0x78, 0x12, 0x34, 0x20, 0x00}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := assembleSource(t, tt.src)
+			if !bytes.Equal(got, tt.want) {
+				t.Fatalf("unexpected encoding for %s: got %x want %x", tt.src, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAddSubQuickAndMoveQValidation(t *testing.T) {
 	tests := []struct {
 		name    string

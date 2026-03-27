@@ -30,7 +30,7 @@ func newBitSetDef(name string, op1, op2 uint16) *InstrDef {
 				Validate:    func(a *Args) error { return validateBitImm(name, a) },
 				Steps: []EmitStep{
 					{WordBits: op2, Fields: []FieldRef{FDstEA}},
-					{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
+					{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
 				},
 			},
 		},
@@ -58,7 +58,7 @@ var defBTST = InstrDef{
 			Validate:    validateBitTestImm,
 			Steps: []EmitStep{
 				{WordBits: 0x0800, Fields: []FieldRef{FDstEA}},
-				{Trailer: []TrailerItem{TDstEAExt, TSrcImm}},
+				{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
 			},
 		},
 	},
