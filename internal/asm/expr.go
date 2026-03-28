@@ -2,16 +2,37 @@ package asm
 
 import (
 	"fmt"
+	"strings"
 )
 
-func (p *Parser) parseExpr() (int64, error) { return p.parseExprUntil(COMMA, NEWLINE, EOF) }
+type exprInfo struct {
+	Value     int64
+	HasSymbol bool
+}
+
+func (p *Parser) parseExpr() (int64, error) {
+	info, err := p.parseExprInfoUntil(COMMA, NEWLINE, EOF)
+	if err != nil {
+		return 0, err
+	}
+	return info.Value, nil
+}
 
 func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
+	info, err := p.parseExprInfoUntil(stops...)
+	if err != nil {
+		return 0, err
+	}
+	return info.Value, nil
+}
+
+func (p *Parser) parseExprInfoUntil(stops ...Kind) (exprInfo, error) {
 	stop := newKindSet(stops...)
 
 	out := []int64{}
 	ops := []Kind{}
 	wantValue := true
+	hasSymbol := false
 
 	apply := func(op Kind) error {
 		if isUnaryOperator(op) && (op == TILDE || op == BANG) {
@@ -52,8 +73,9 @@ loop:
 		case NUMBER:
 			if name, ok, err := p.consumeLocalLabelRef(); ok {
 				if err != nil {
-					return 0, err
+					return exprInfo{}, err
 				}
+				hasSymbol = true
 				if v, ok := p.labels[name]; ok {
 					out = append(out, int64(v))
 					wantValue = false
@@ -64,21 +86,41 @@ loop:
 					wantValue = false
 					continue
 				}
-				return 0, fmt.Errorf("undefined label in expression: %s", name)
+				return exprInfo{}, fmt.Errorf("undefined label in expression: %s", name)
 			}
 			p.next()
 			out = append(out, t.Val)
 			wantValue = false
+		case DOLLAR:
+			p.next()
+			hasSymbol = true
+			out = append(out, int64(p.pc))
+			wantValue = false
 		case IDENT:
 			p.next()
-			if v, ok := p.labels[t.Text]; ok {
+			text := t.Text
+			if p.peek().Kind == DOT {
+				p.next() // consume .
+				if p.peek().Kind == IDENT {
+					sizeTok := p.next()
+					size := strings.ToLower(sizeTok.Text)
+					if size != "w" && size != "l" {
+						return exprInfo{}, fmt.Errorf("invalid size suffix: %s", size)
+					}
+					// For PC-relative addressing, .w/.l is allowed but ignored
+				} else {
+					return exprInfo{}, fmt.Errorf("expected size after .")
+				}
+			}
+			hasSymbol = true
+			if v, ok := p.labels[text]; ok {
 				out = append(out, int64(v))
 				wantValue = false
 			} else if p.allowForwardRefs {
 				out = append(out, 0)
 				wantValue = false
 			} else {
-				return 0, fmt.Errorf("undefined label in expression: %s", t.Text)
+				return exprInfo{}, fmt.Errorf("undefined label in expression: %s", text)
 			}
 		case LPAREN:
 			p.next()
@@ -93,11 +135,11 @@ loop:
 				op := ops[len(ops)-1]
 				ops = ops[:len(ops)-1]
 				if err := apply(op); err != nil {
-					return 0, err
+					return exprInfo{}, err
 				}
 			}
 			if len(ops) == 0 {
-				return 0, fmt.Errorf("expected ')'")
+				return exprInfo{}, fmt.Errorf("expected ')'")
 			}
 			ops = ops[:len(ops)-1]
 			wantValue = false
@@ -105,13 +147,13 @@ loop:
 			p.next()
 			if isUnaryOperator(t.Kind) && wantValue && t.Kind != TILDE && t.Kind != BANG {
 				if err := pushOp(t.Kind); err != nil {
-					return 0, err
+					return exprInfo{}, err
 				}
 			} else if t.Kind == TILDE || t.Kind == BANG {
 				ops = append(ops, t.Kind)
 			} else {
 				if err := pushOp(t.Kind); err != nil {
-					return 0, err
+					return exprInfo{}, err
 				}
 				wantValue = true
 			}
@@ -123,16 +165,16 @@ loop:
 		op := ops[len(ops)-1]
 		ops = ops[:len(ops)-1]
 		if op == LPAREN {
-			return 0, fmt.Errorf("expected '('")
+			return exprInfo{}, fmt.Errorf("expected '('")
 		}
 		if err := apply(op); err != nil {
-			return 0, err
+			return exprInfo{}, err
 		}
 	}
 	if len(out) != 1 {
-		return 0, fmt.Errorf("invalid expression")
+		return exprInfo{}, fmt.Errorf("invalid expression")
 	}
-	return out[0], nil
+	return exprInfo{Value: out[0], HasSymbol: hasSymbol}, nil
 }
 
 type kindSet map[Kind]struct{}

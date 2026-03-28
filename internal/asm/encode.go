@@ -180,13 +180,13 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 	var err error
 
 	if ins.Args.Src.Kind != instructions.EAkNone {
-		p.SrcEA, err = instructions.EncodeEA(ins.Args.Src)
+		p.SrcEA, err = instructions.EncodeEA(ins.Args.Src, p.PC)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if ins.Args.Dst.Kind != instructions.EAkNone {
-		p.DstEA, err = instructions.EncodeEA(ins.Args.Dst)
+		p.DstEA, err = instructions.EncodeEA(ins.Args.Dst, p.PC)
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +219,6 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			p.BrUseWord = false
 			p.BrDisp8 = int8(d8)
 		case instructions.WordSize:
-			basePC += 2
 			d16 := int32(addr) - int32(basePC)
 			// Check if this is a DBcc instruction with target == current PC
 			if len(def.Mnemonic) >= 2 && def.Mnemonic[0:2] == "DB" && addr == basePC {

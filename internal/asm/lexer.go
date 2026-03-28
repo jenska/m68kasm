@@ -43,6 +43,7 @@ const (
 	PIPE
 	CARET
 	TILDE
+	DOLLAR
 	NEWLINE
 )
 
@@ -255,11 +256,17 @@ func (lx *Lexer) next() Token {
 			return lx.scanString()
 		case '\'':
 			return lx.scanChar()
+		case '$':
+			if isHex(lx.peekRune()) {
+				return lx.scanNumber('$')
+			} else {
+				return lx.tok(DOLLAR, "$", 0)
+			}
 		default:
 			if isIdentStart(ch) {
 				return lx.scanIdent(ch)
 			}
-			if unicode.IsDigit(ch) || ch == '$' || ch == '%' || ch == '@' {
+			if unicode.IsDigit(ch) || ch == '%' || ch == '@' {
 				return lx.scanNumber(ch)
 			}
 			return lx.errToken(fmt.Errorf("unexpected char: %q", ch))

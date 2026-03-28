@@ -30,7 +30,7 @@ var eaTable = []eaEntry{
 }
 
 // EncodeEA converts an addressing expression into the mode/reg pair and any extension words.
-func EncodeEA(e EAExpr) (EAEncoded, error) {
+func EncodeEA(e EAExpr, pc uint32) (EAEncoded, error) {
 	if int(e.Kind) < 0 || int(e.Kind) >= len(eaTable) {
 		return EAEncoded{}, fmt.Errorf("unsupported EA kind: %d", e.Kind)
 	}
@@ -44,6 +44,15 @@ func EncodeEA(e EAExpr) (EAEncoded, error) {
 	if entry.regFromExpr {
 		out.Reg = e.Reg
 	}
+
+	// Adjust displacements for PC-relative addressing
+	switch e.Kind {
+	case EAkPCDisp16:
+		e.Disp16 -= int32(pc + 2)
+	case EAkIdxPCBrief:
+		e.Index.Disp8 -= int8(pc + 2)
+	}
+
 	if entry.ext != nil {
 		ext, err := entry.ext(e)
 		if err != nil {

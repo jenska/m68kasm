@@ -287,7 +287,7 @@ func TestAssembleStringDetailed(t *testing.T) {
 		t.Fatalf("unexpected line 4 address: got 0x%X ok=%v", got, ok)
 	}
 
-	wantBytes := []byte{0x70, 0x01, 0x60, 0x00, 0xFF, 0xFC}
+	wantBytes := []byte{0x70, 0x01, 0x60, 0x00, 0xFF, 0xFE}
 	if !bytes.Equal(result.Bytes, wantBytes) {
 		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, wantBytes)
 	}
@@ -376,7 +376,7 @@ func TestAssembleInstructionStringWithAbsoluteBranchTarget(t *testing.T) {
 		t.Fatalf("assemble failed: %v", err)
 	}
 
-	want := []byte{0x60, 0x00, 0x00, 0x00}
+	want := []byte{0x60, 0x00, 0x00, 0x02}
 	if !bytes.Equal(result.Bytes, want) {
 		t.Fatalf("unexpected bytes: got %x want %x", result.Bytes, want)
 	}

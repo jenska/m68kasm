@@ -227,7 +227,7 @@ General form:
 Supported 68000-style forms:
 
 | Form | Syntax | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | Data register | `D0` .. `D7` | Data register direct |
 | Address register | `A0` .. `A7`, `SP`, `SSP` | Address register direct |
 | Indirect | `(A0)` | Address register indirect |

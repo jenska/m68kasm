@@ -431,13 +431,13 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 	var err error
 
 	if args.Src.Kind != instructions.EAkNone {
-		srcEA, err = instructions.EncodeEA(args.Src)
+		srcEA, err = instructions.EncodeEA(args.Src, 0)
 		if err != nil {
 			return 0, err
 		}
 	}
 	if args.Dst.Kind != instructions.EAkNone {
-		dstEA, err = instructions.EncodeEA(args.Dst)
+		dstEA, err = instructions.EncodeEA(args.Dst, 0)
 		if err != nil {
 			return 0, err
 		}
@@ -1069,6 +1069,17 @@ func indexedEA(base Token, disp int64, ix instructions.EAIndex) (instructions.EA
 	return instructions.EAExpr{}, parserError(base, "base must be An or PC for indexed addressing")
 }
 
+func (p *Parser) pcRelativeDisp(expr exprInfo, min, max int64) (int64, error) {
+	if !expr.HasSymbol {
+		return expr.Value, nil
+	}
+	disp := expr.Value - int64(p.pc) - 2
+	if disp < min || disp > max {
+		return 0, errorAtLine(p.line, fmt.Errorf("PC-relative displacement out of range: %d", disp))
+	}
+	return disp, nil
+}
+
 // ---------- EA parsing helpers ----------
 
 func (p *Parser) parseEAPreDecrement() (instructions.EAExpr, error) {
@@ -1101,7 +1112,7 @@ func (p *Parser) parseEADisplacementOrAbsolute() (instructions.EAExpr, error) {
 	// This handles two cases that can start with an expression:
 	// 1. Displacement modes: d(An), d(PC), d(An,ix), d(PC,ix)
 	// 2. Absolute modes: addr.W, addr.L
-	expr, err := p.parseExprUntil(LPAREN, DOT, COMMA, NEWLINE, EOF)
+	expr, err := p.parseExprInfoUntil(LPAREN, DOT, COMMA, NEWLINE, EOF)
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
@@ -1115,7 +1126,7 @@ func (p *Parser) parseEADisplacementOrAbsolute() (instructions.EAExpr, error) {
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
-	return parseAbsoluteEA(kind, expr), nil
+	return parseAbsoluteEA(kind, expr.Value), nil
 }
 
 func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
@@ -1155,7 +1166,7 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 	}
 
 	// Case 3: (disp, ...), (abs).W, or (abs).L
-	expr, err := p.parseExprUntil(COMMA, RPAREN)
+	expr, err := p.parseExprInfoUntil(COMMA, RPAREN)
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
@@ -1171,16 +1182,41 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 	}
 	kind, err := p.parseAbsoluteSuffix(0, "expected .W or .L after (absolute address)")
 	if err == nil && kind != 0 {
-		return parseAbsoluteEA(kind, expr), nil
+		return parseAbsoluteEA(kind, expr.Value), nil
 	}
 	return instructions.EAExpr{}, errorAtLine(p.line, fmt.Errorf("invalid effective address form, expected (abs).W or (abs).L"))
 }
 
-func (p *Parser) parseEADisplacementBody(disp int64) (instructions.EAExpr, error) {
+func (p *Parser) parseEADisplacementBody(expr exprInfo) (instructions.EAExpr, error) {
 	// We are inside the parentheses of d(...) or (d,...)
 	base, err := p.want(IDENT)
 	if err != nil {
 		return instructions.EAExpr{}, err
+	}
+	disp := expr.Value
+	if isPC(base.Text) {
+		if p.accept(COMMA) {
+			ix, err := p.parseEAIndex()
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			if _, err := p.want(RPAREN); err != nil {
+				return instructions.EAExpr{}, err
+			}
+			disp, err = p.pcRelativeDisp(expr, -128, 127)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			return indexedEA(base, disp, ix)
+		}
+		if _, err := p.want(RPAREN); err != nil {
+			return instructions.EAExpr{}, err
+		}
+		disp, err = p.pcRelativeDisp(expr, -32768, 32767)
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		return displacementEA(base, disp)
 	}
 
 	// Is it an indexed mode, d(An,ix) or d(PC,ix)?
