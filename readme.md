@@ -1,18 +1,18 @@
 # m68kasm
 
 [![CI](https://github.com/jenska/m68kasm/actions/workflows/ci.yml/badge.svg)](../../actions)
-![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-informational)
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v1.3.0
+**Current version:** v1.3.1
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
 ---
 
-## 🚀 Features (as of v2.0.1)
+## 🚀 Features
 
 - Two-pass macro assembler with deterministic binary output
 - Supports all mnemonics of 68000 CPU
@@ -58,7 +58,7 @@ The assembler implements core principles of assembler construction:
 
 ## 🛠️ Installation
 
-You can install the CLI directly from GitHub using Go 1.22+:
+You can install the CLI directly from GitHub using Go 1.26+:
 
 ```bash
 go install github.com/jenska/m68kasm/cmd/m68kasm@latest
@@ -217,30 +217,6 @@ Make sure the CI passes before submitting.
 
 ---
 
-## 🧭 Roadmap Overview
-
-| Milestone | Description |
-|------------|--------------|
-| **v0.2** | Expand core instruction set (`MOVE`, `ADD`, `SUB`, `CMP`) |
-| **v0.3** | Implement Bcc/BSR and pseudo-ops `.word`, `.long`, `.align` |
-| **v0.4** | Introduce listing and S-record output |
-| **v0.5** | Add ELF format and richer symbol handling |
-| **v1.2.0** | Full assembler with macros, richer expressions, improved diagnostics, ELF section/symbol metadata, and documented pseudo-ops |
-| **v1.2.1 (current)** | Adds source-level `.text`/`.data`/`.bss`/`.section` support with ELF-aware section and symbol placement |
-
----
-
-## 🔧 Recent Improvements (v1.2.1)
-
-### ELF Section Directives
-
-- Added source-level `.text`, `.data`, `.bss`, and `.section` pseudo-ops
-- Propagated section metadata into ELF section headers and symbol table entries
-- Enforced the current forward-only section layout: `.text` -> `.data` -> `.bss`
-- Kept `.bss` zero-initialized and emitted as `SHT_NOBITS` in ELF output
-
-## 🔧 Previous Improvements (v1.2.0)
-
 ### Code Quality & Performance
 
 **Instruction Pattern Matching**
@@ -268,7 +244,7 @@ Make sure the CI passes before submitting.
 
 ---
 
-## 🔭 Next up (post-v1.2.x)
+## 🔭 Next up (post-v1.3.x)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
