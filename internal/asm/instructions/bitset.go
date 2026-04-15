@@ -66,12 +66,12 @@ var defBTST = InstrDef{
 
 func validateBitReg(name string, a *Args) error {
 	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
+	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
 		return nil
 	case EAkNone:
 		return fmt.Errorf("%s requires destination", name)
 	default:
-		return fmt.Errorf("%s destination must be data alterable EA", name)
+		return fmt.Errorf("%s destination must be data register or memory EA", name)
 	}
 }
 
@@ -80,12 +80,12 @@ func validateBitImm(name string, a *Args) error {
 		return err
 	}
 	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL:
+	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
 		return nil
 	case EAkNone:
 		return fmt.Errorf("%s requires destination", name)
 	default:
-		return fmt.Errorf("%s destination must be data alterable EA", name)
+		return fmt.Errorf("%s destination must be data register or memory EA", name)
 	}
 }
 
