@@ -95,10 +95,10 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"BitChangeRegisterSource", "BCHG D2,(A3)\n", []byte{0x05, 0x53}},
 		{"BitTestImmediate", "BTST #3,D1\n", []byte{0x08, 0x01, 0x00, 0x03}},
 		{"BitTestRegisterToMemory", "BTST D2,(A3)\n", []byte{0x05, 0x13}},
-		{"BitSetImmediatePCDisp", "BSET #1,(10,PC)\n", []byte{0x08, 0xFA, 0x00, 0x01, 0x00, 0x08}},
-		{"BitClearRegisterPCDisp", "BCLR D1,(10,PC)\n", []byte{0x03, 0xBA, 0x00, 0x08}},
-		{"BitChangeImmediatePCIndex", "BCHG #2,(4,PC,D1.W)\n", []byte{0x08, 0x7B, 0x00, 0x02, 0x10, 0x02}},
-		{"BitTestRegisterPCIndex", "BTST D2,(4,PC,D1.W)\n", []byte{0x05, 0x3B, 0x10, 0x02}},
+		{"BitSetImmediatePCDisp", "BSET #1,(10,PC)\n", []byte{0x08, 0xFA, 0x00, 0x01, 0x00, 0x0A}},
+		{"BitClearRegisterPCDisp", "BCLR D1,(10,PC)\n", []byte{0x03, 0xBA, 0x00, 0x0A}},
+		{"BitChangeImmediatePCIndex", "BCHG #2,(4,PC,D1.W)\n", []byte{0x08, 0x7B, 0x00, 0x02, 0x10, 0x04}},
+		{"BitTestRegisterPCIndex", "BTST D2,(4,PC,D1.W)\n", []byte{0x05, 0x3B, 0x10, 0x04}},
 		{"CompareImmediateByte", "CMPI.B #1,D2\n", []byte{0x0C, 0x02, 0x00, 0x01}},
 		{"SetIfNotEqual", "SNE (A1)\n", []byte{0x56, 0xD1}},
 		{"BranchAlwaysShort", "BRA target\n.WORD 0\ntarget:\n", []byte{0x60, 0x02, 0x00, 0x00}},
@@ -119,7 +119,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"AddExtendByteRegisters", "ADDX.B D4,D5\n", []byte{0xDB, 0x04}},
 		{"AddExtendLongPredec", "ADDX.L -(A6),-(A7)\n", []byte{0xDF, 0x8E}},
 		{"JumpToSubroutine", "JSR (A2)\n", []byte{0x4E, 0x92}},
-		{"JumpToSubroutinePCDisp", "JSR (12,PC)\n", []byte{0x4E, 0xBA, 0x00, 0x0A}},
+		{"JumpToSubroutinePCDisp", "JSR (12,PC)\n", []byte{0x4E, 0xBA, 0x00, 0x0C}},
 		{"PushEffectiveAddress", "PEA (A1)\n", []byte{0x48, 0x51}},
 		{"LinkFrame", "LINK A6,#-4\n", []byte{0x4E, 0x56, 0xFF, 0xFC}},
 		{"UnlinkFrame", "UNLK A6\n", []byte{0x4E, 0x5E}},
@@ -143,29 +143,29 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"MoveAbsLong", "MOVE.W $20000.L,D0\n", []byte{0x30, 0x39, 0x00, 0x02, 0x00, 0x00}},
 		{"MoveParenAbsWord", "MOVE.W ($2000).W,D0\n", []byte{0x30, 0x38, 0x20, 0x00}},
 		{"MoveParenAbsLong", "MOVE.W ($20000).L,D0\n", []byte{0x30, 0x39, 0x00, 0x02, 0x00, 0x00}},
-		{"MovePCDisp", "MOVE.W (16,PC),D0\n", []byte{0x30, 0x3A, 0x00, 0x0E}},
-		{"MovePCIndex", "MOVE.W (4,PC,D1.W),D0\n", []byte{0x30, 0x3B, 0x10, 0x02}},
-		{"MovePCIndexExprDisp", "MOVE.W (2+2,PC,D0.W),D0\n", []byte{0x30, 0x3B, 0x00, 0x02}},
+		{"MovePCDisp", "MOVE.W (16,PC),D0\n", []byte{0x30, 0x3A, 0x00, 0x10}},
+		{"MovePCIndex", "MOVE.W (4,PC,D1.W),D0\n", []byte{0x30, 0x3B, 0x10, 0x04}},
+		{"MovePCIndexExprDisp", "MOVE.W (2+2,PC,D0.W),D0\n", []byte{0x30, 0x3B, 0x00, 0x04}},
 		{"MoveToAbsWord", "MOVE.W D0,$2000.W\n", []byte{0x31, 0xC0, 0x20, 0x00}},
 		{"MoveToAbsLong", "MOVE.W D0,$20000.L\n", []byte{0x33, 0xC0, 0x00, 0x02, 0x00, 0x00}},
 		{"LeaIndex", "LEA (4,A0,D1.L),A1\n", []byte{0x43, 0xF0, 0x18, 0x04}},
 		{"PeaIndirect", "PEA (A2)\n", []byte{0x48, 0x52}},
-		{"JmpPCIndex", "JMP (4,PC,D0.W)\n", []byte{0x4E, 0xFB, 0x00, 0x02}},
+		{"JmpPCIndex", "JMP (4,PC,D0.W)\n", []byte{0x4E, 0xFB, 0x00, 0x04}},
 		{"ClrAbs", "CLR.B $1000.W\n", []byte{0x42, 0x38, 0x10, 0x00}},
 		{"TstIndex", "TST.B (2,A0,D1.W)\n", []byte{0x4A, 0x30, 0x10, 0x02}},
 		{"MoveMemPostInc", "MOVE.L (A0)+,(A1)+\n", []byte{0x22, 0xD8}},
 		{"MoveMemPreDec", "MOVE.W -(A0),-(A1)\n", []byte{0x33, 0x20}},
-		{"AddPCRel", "ADD.W (10,PC),D0\n", []byte{0xD0, 0x7A, 0x00, 0x08}},
-		{"SubPCIndex", "SUB.L (4,PC,D1.W),D0\n", []byte{0x90, 0xBB, 0x10, 0x02}},
+		{"AddPCRel", "ADD.W (10,PC),D0\n", []byte{0xD0, 0x7A, 0x00, 0x0A}},
+		{"SubPCIndex", "SUB.L (4,PC,D1.W),D0\n", []byte{0x90, 0xBB, 0x10, 0x04}},
 		{"CmpImmPostInc", "CMPI.B #$FF,(A0)+\n", []byte{0x0C, 0x18, 0x00, 0xFF}},
 		{"EorMem", "EOR.W D0,(A1)\n", []byte{0xB1, 0x51}},
 		{"AndMemIndex", "AND.B (4,A0,D1.W),D2\n", []byte{0xC4, 0x30, 0x10, 0x04}},
 		{"OrMemPreDec", "OR.L D2,-(A7)\n", []byte{0x85, 0xA7}},
 		{"JmpIndex", "JMP (4,A0,D1.W)\n", []byte{0x4E, 0xF0, 0x10, 0x04}},
 		{"JsrAbsLong", "JSR $123456.L\n", []byte{0x4E, 0xB9, 0x00, 0x12, 0x34, 0x56}},
-		{"LeaPCRel", "LEA (10,PC),A0\n", []byte{0x41, 0xFA, 0x00, 0x08}},
-		{"LeaPCRelLabel", "LEA target(PC),A0\n.WORD 0\ntarget:\n", []byte{0x41, 0xFA, 0x00, 0x02, 0x00, 0x00}},
-		{"PeaPCIndex", "PEA (4,PC,D1.W)\n", []byte{0x48, 0x7B, 0x10, 0x02}},
+		{"LeaPCRel", "LEA (10,PC),A0\n", []byte{0x41, 0xFA, 0x00, 0x0A}},
+		{"LeaPCRelLabel", "LEA target(PC),A0\n.WORD 0\ntarget:\n", []byte{0x41, 0xFA, 0x00, 0x04, 0x00, 0x00}},
+		{"PeaPCIndex", "PEA (4,PC,D1.W)\n", []byte{0x48, 0x7B, 0x10, 0x04}},
 		{"BSetPostInc", "BSET #0,(A0)+\n", []byte{0x08, 0xD8, 0x00, 0x00}},
 		{"BSetRegPostInc", "BSET D1,(A0)+\n", []byte{0x03, 0xD8}},
 		{"MovemStoreControl", "MOVEM.L D0/A0,(A1)\n", []byte{0x48, 0xD1, 0x01, 0x01}},
@@ -194,7 +194,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"Dbf", "DBF D0,loop\nloop:\n", []byte{0x51, 0xC8, 0x00, 0x02}},
 		{"MoveToSR", "MOVE D0,SR\n", []byte{0x46, 0xC0}},
 		{"TasMem", "TAS (A0)\n", []byte{0x4A, 0xD0}},
-		{"JmpPCDist", "JMP (10,PC)\n", []byte{0x4E, 0xFA, 0x00, 0x08}},
+		{"JmpPCDist", "JMP (10,PC)\n", []byte{0x4E, 0xFA, 0x00, 0x0A}},
 		{"JmpAbsWord", "JMP $1234.W\n", []byte{0x4E, 0xF8, 0x12, 0x34}},
 		{"JmpAbsLong", "JMP $123456.L\n", []byte{0x4E, 0xF9, 0x00, 0x12, 0x34, 0x56}},
 		{"JsrDisp", "JSR (4,A0)\n", []byte{0x4E, 0xA8, 0x00, 0x04}},
@@ -206,7 +206,7 @@ func TestAssembleCoreInstructions(t *testing.T) {
 		{"OrImmMem", "ORI.W #$100, (A0)\n", []byte{0x00, 0x50, 0x01, 0x00}},
 		{"EorImmLong", "EORI.L #$10000, D1\n", []byte{0x0A, 0x81, 0x00, 0x01, 0x00, 0x00}},
 		{"MoveIndexAn", "MOVE.L (4,A0,A1.L), D2\n", []byte{0x24, 0x30, 0x98, 0x04}},
-		{"MoveIndexPC", "MOVE.W ($12,PC,D0.W), D0\n", []byte{0x30, 0x3B, 0x00, 0x10}},
+		{"MoveIndexPC", "MOVE.W ($12,PC,D0.W), D0\n", []byte{0x30, 0x3B, 0x00, 0x12}},
 		{"LinkShort", "LINK A0, #-16\n", []byte{0x4E, 0x50, 0xFF, 0xF0}},
 	}
 
@@ -250,6 +250,28 @@ func TestImmediateToEAExtensionWordOrder(t *testing.T) {
 		{"CompareImmediateAbsWord", "CMPI.B #$12,$1234.W\n", []byte{0x0C, 0x38, 0x00, 0x12, 0x12, 0x34}},
 		{"BitSetImmediateDisp16", "BSET #1,(4,A0)\n", []byte{0x08, 0xE8, 0x00, 0x01, 0x00, 0x04}},
 		{"OrImmediateAbsWord", "ORI.W #$1234,$2000.W\n", []byte{0x00, 0x78, 0x12, 0x34, 0x20, 0x00}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := assembleSource(t, tt.src)
+			if !bytes.Equal(got, tt.want) {
+				t.Fatalf("unexpected encoding for %s: got %x want %x", tt.src, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPCRelativeOperandsUseExtensionWordBase(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []byte
+	}{
+		{"NumericDisp16", "LEA (4,PC),A0\n", []byte{0x41, 0xFA, 0x00, 0x04}},
+		{"LabelDisp16", "LEA target(PC),A0\nNOP\ntarget:\n", []byte{0x41, 0xFA, 0x00, 0x04, 0x4E, 0x71}},
+		{"NumericIndex", "MOVE.W (4,PC,D0.W),D1\n", []byte{0x32, 0x3B, 0x00, 0x04}},
+		{"LabelIndex", "MOVE.W target(PC,D0.W),D1\nNOP\ntarget:\n", []byte{0x32, 0x3B, 0x00, 0x04, 0x4E, 0x71}},
 	}
 
 	for _, tt := range tests {

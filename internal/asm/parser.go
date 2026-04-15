@@ -1070,10 +1070,11 @@ func indexedEA(base Token, disp int64, ix instructions.EAIndex) (instructions.EA
 }
 
 func (p *Parser) pcRelativeDisp(expr exprInfo, min, max int64) (int64, error) {
-	if !expr.HasSymbol {
-		return expr.Value, nil
+	disp := expr.Value
+	if expr.HasSymbol {
+		// 68000 PC-relative addressing uses the extension-word address as the base.
+		disp -= int64(p.pc) + 2
 	}
-	disp := expr.Value - int64(p.pc) - 2
 	if disp < min || disp > max {
 		return 0, errorAtLine(p.line, fmt.Errorf("PC-relative displacement out of range: %d", disp))
 	}

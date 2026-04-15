@@ -45,14 +45,6 @@ func EncodeEA(e EAExpr, pc uint32) (EAEncoded, error) {
 		out.Reg = e.Reg
 	}
 
-	// Adjust displacements for PC-relative addressing
-	switch e.Kind {
-	case EAkPCDisp16:
-		e.Disp16 -= int32(pc + 2)
-	case EAkIdxPCBrief:
-		e.Index.Disp8 -= int8(pc + 2)
-	}
-
 	if entry.ext != nil {
 		ext, err := entry.ext(e)
 		if err != nil {
