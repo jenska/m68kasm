@@ -1,7 +1,7 @@
 # m68kasm
 
 [![CI](https://github.com/jenska/m68kasm/actions/workflows/ci.yml/badge.svg)](../../actions)
-![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-informational)
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
@@ -58,7 +58,7 @@ The assembler implements core principles of assembler construction:
 
 ## 🛠️ Installation
 
-You can install the CLI directly from GitHub using Go 1.26+:
+You can install the CLI directly from GitHub using Go 1.27+:
 
 ```bash
 go install github.com/jenska/m68kasm/cmd/m68kasm@latest

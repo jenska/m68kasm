@@ -281,7 +281,7 @@ func readSectionHeaders(t *testing.T, elf []byte) []elfSectionHeader {
 	shoff := int(binary.BigEndian.Uint32(elf[32:36]))
 	shnum := int(binary.BigEndian.Uint16(elf[48:50]))
 	headers := make([]elfSectionHeader, shnum)
-	for i := 0; i < shnum; i++ {
+	for i := range shnum {
 		base := shoff + i*sectionHeaderSize
 		headers[i] = elfSectionHeader{
 			name:      binary.BigEndian.Uint32(elf[base:]),

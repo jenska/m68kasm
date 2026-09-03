@@ -134,13 +134,13 @@ func TestFileAndFormatWrappers(t *testing.T) {
 
 	elfSrc := ".org 0x1000\nstart:\n.byte 0xAA\nMOVEQ #1,D0\n"
 	for name, fn := range map[string]func() ([]byte, error){
-		"AssembleELF":                func() ([]byte, error) { return AssembleELF(strings.NewReader(elfSrc)) },
-		"AssembleBytesELF":           func() ([]byte, error) { return AssembleBytesELF([]byte(elfSrc)) },
+		"AssembleELF":      func() ([]byte, error) { return AssembleELF(strings.NewReader(elfSrc)) },
+		"AssembleBytesELF": func() ([]byte, error) { return AssembleBytesELF([]byte(elfSrc)) },
 		"AssembleBytesELFWithOptions": func() ([]byte, error) {
 			return AssembleBytesELFWithOptions([]byte(".org 0x1000\n.byte FOO\n"), opts)
 		},
-		"AssembleStringELF":       func() ([]byte, error) { return AssembleStringELF(elfSrc) },
-		"AssembleFileELF":         func() ([]byte, error) { return AssembleFileELF(writeTempSource(t, elfSrc)) },
+		"AssembleStringELF": func() ([]byte, error) { return AssembleStringELF(elfSrc) },
+		"AssembleFileELF":   func() ([]byte, error) { return AssembleFileELF(writeTempSource(t, elfSrc)) },
 		"AssembleFileELFWithOptions": func() ([]byte, error) {
 			return AssembleFileELFWithOptions(writeTempSource(t, ".org 0x1000\n.byte FOO\n"), opts)
 		},

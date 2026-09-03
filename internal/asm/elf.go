@@ -3,6 +3,7 @@ package asm
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 )
 
 const (
@@ -93,9 +94,9 @@ func FormatELFWithLabels(code []byte, origin uint32, labels []DefinedLabel) []by
 		entry:         origin,
 		segmentAddr:   origin,
 		textAddr:      origin,
-		textBytes:     append([]byte(nil), code...),
+		textBytes:     slices.Clone(code),
 		textPresent:   len(code) > 0,
-		definedLabels: append([]DefinedLabel(nil), labels...),
+		definedLabels: slices.Clone(labels),
 	}
 	for i := range layout.definedLabels {
 		layout.definedLabels[i].Section = SectionText
@@ -123,7 +124,7 @@ func assembleELFLayout(p *Program) (elfLayout, error) {
 	layout := elfLayout{
 		entry:         p.Origin,
 		segmentAddr:   p.Origin,
-		definedLabels: append([]DefinedLabel(nil), p.DefinedLabels...),
+		definedLabels: slices.Clone(p.DefinedLabels),
 	}
 
 	var initializedEnd uint32 = p.Origin
@@ -436,7 +437,7 @@ func (t *elfStringTable) add(name string) uint32 {
 }
 
 func (t *elfStringTable) bytes() []byte {
-	return append([]byte(nil), t.buf...)
+	return slices.Clone(t.buf)
 }
 
 func elfStInfo(bind, typ byte) byte {

@@ -196,7 +196,11 @@ func formatIndexRegister(ix instructions.EAIndex) string {
 	if ix.IsA {
 		reg = formatAddrRegister(ix.Reg)
 	}
-	out := reg + "." + map[bool]string{false: "W", true: "L"}[ix.Long]
+	width := "W"
+	if ix.Long {
+		width = "L"
+	}
+	out := reg + "." + width
 	if ix.Scale > 1 {
 		out += fmt.Sprintf("*%d", ix.Scale)
 	}

@@ -3,6 +3,7 @@ package asm
 import (
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
@@ -169,14 +170,11 @@ func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.Op
 	return nil, fmt.Errorf("no form matches operands/size for %s", def.Mnemonic)
 }
 
-func sizeAllowed(list []instructions.Size, sz instructions.Size) bool {
-	// Most forms allow 1-3 sizes, so linear search is efficient here
-	for _, v := range list {
-		if v == sz {
-			return true
-		}
-	}
-	return false
+// sizeAllowed reports whether sz is permitted by allowed. An empty allowed list
+// means the form places no constraint on the size. Forms allow 1-3 sizes, so a
+// linear scan is the right call here.
+func sizeAllowed(allowed []instructions.Size, sz instructions.Size) bool {
+	return len(allowed) == 0 || slices.Contains(allowed, sz)
 }
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {

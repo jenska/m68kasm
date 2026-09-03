@@ -31,10 +31,7 @@ func FormatSRecords(entries []ListingEntry, origin uint32, header string) []byte
 	lines = append(lines, srecHeader(header))
 	for _, seg := range segments {
 		for offset := 0; offset < len(seg.Data); offset += srecDataBytesPerRecord {
-			end := offset + srecDataBytesPerRecord
-			if end > len(seg.Data) {
-				end = len(seg.Data)
-			}
+			end := min(offset+srecDataBytesPerRecord, len(seg.Data))
 			lines = append(lines, s3Record(seg.Addr+uint32(offset), seg.Data[offset:end]))
 		}
 	}
