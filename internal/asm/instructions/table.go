@@ -1,6 +1,9 @@
 package instructions
 
-import "sync"
+import (
+	"maps"
+	"sync"
+)
 
 // Table is a read-only lookup structure for instruction definitions.
 //
@@ -37,8 +40,6 @@ func (t *Table) Lookup(mnemonic string) *InstrDef {
 
 func cloneDefs(src map[string]*InstrDef) map[string]*InstrDef {
 	dst := make(map[string]*InstrDef, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }

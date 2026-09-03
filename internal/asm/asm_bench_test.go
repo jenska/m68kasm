@@ -92,7 +92,7 @@ func buildBenchmarkSource(blocks int) string {
 	sb.Grow(blocks * 64)
 
 	sb.WriteString(".org 0\n")
-	for i := 0; i < blocks; i++ {
+	for i := range blocks {
 		sb.WriteString(fmt.Sprintf("label%d: moveq #%d,d0\n", i, i%8))
 		sb.WriteString("nop\n")
 

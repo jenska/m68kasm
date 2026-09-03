@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 
 	internal "github.com/jenska/m68kasm/internal/asm"
 )
@@ -57,8 +58,7 @@ func NormalizeError(err error) string {
 	if err == nil {
 		return ""
 	}
-	var asmErr *Error
-	if errors.As(err, &asmErr) {
+	if asmErr, ok := errors.AsType[*Error](err); ok {
 		return asmErr.Message()
 	}
 	return err.Error()
@@ -124,7 +124,7 @@ func buildAssemblyResult(prog *internal.Program) (*AssemblyResult, error) {
 		Bytes:         out,
 		Origin:        prog.Origin,
 		Labels:        make(map[string]uint32, len(prog.DefinedLabels)),
-		DefinedLabels: append([]DefinedLabel(nil), prog.DefinedLabels...),
+		DefinedLabels: slices.Clone(prog.DefinedLabels),
 		Listing:       cloneListing(listing),
 		LineAddresses: make(map[int]uint32, len(listing)+len(prog.DefinedLabels)),
 	}
@@ -155,7 +155,7 @@ func cloneListing(listing []ListingEntry) []ListingEntry {
 		out[i] = ListingEntry{
 			Line:  entry.Line,
 			PC:    entry.PC,
-			Bytes: append([]byte(nil), entry.Bytes...),
+			Bytes: slices.Clone(entry.Bytes),
 		}
 	}
 	return out
@@ -183,7 +183,7 @@ func collectInstructionMetadata(items []any, listing []ListingEntry) []Instructi
 		md := InstructionMetadata{
 			Line:      ins.Line,
 			PC:        ins.PC,
-			Bytes:     append([]byte(nil), entry.Bytes...),
+			Bytes:     slices.Clone(entry.Bytes),
 			Size:      len(entry.Bytes),
 			Words:     len(entry.Bytes) / 2,
 			Canonical: canonicalInstruction(ins),

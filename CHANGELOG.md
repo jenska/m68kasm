@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Raised the minimum supported Go version to 1.27 and aligned CI with the new toolchain target
+- Adopted Go 1.21+/1.27 standard-library idioms across the codebase (`slices`, `maps`, `min`, `strings.Cut`, `errors.AsType`, range-over-int)
+- Split the monolithic parser into focused files (labels, statements, macros, operands, effective addresses) and de-duplicated the size-validation helper
+
 ## [1.3.2] - 2026-06-13
 
 ### Fixed
