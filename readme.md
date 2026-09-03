@@ -6,7 +6,7 @@
 
 A compact, **table-driven Motorola 68000 assembler** written in Go.
 
-**Current version:** v1.3.2
+**Current version:** v1.4.0
 
 The goal of this project is to provide a clean, maintainable, and easily extensible assembler for the 68k family — focusing on clarity, modularity, and full control over binary output. It is particularly well suited for educational use, embedded projects, and retro computing enthusiasts who prefer a minimal toolchain.
 
@@ -244,7 +244,7 @@ Make sure the CI passes before submitting.
 
 ---
 
-## 🔭 Next up (post-v1.3.x)
+## 🔭 Next up (post-v1.4.x)
 
 - **Diagnostics and listing upgrades:** Enhance listings with symbol resolutions, relocation notes, and per-instruction metadata, while improving error spans and suggestion text for a friendlier workflow.
 - **Additional output conveniences:** Support formats like Intel HEX or extended S-record variants, and explore a “linkable object” mode with separated sections/symbols to integrate with broader toolchains.
