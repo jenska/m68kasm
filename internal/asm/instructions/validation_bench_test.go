@@ -17,7 +17,7 @@ func BenchmarkValidateAddSubToDn(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := form.Validate(args); err != nil {
 			b.Fatal(err)
 		}
@@ -39,7 +39,7 @@ func BenchmarkValidateAddSubDnToEA(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := form.Validate(args); err != nil {
 			b.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func BenchmarkValidateAddSubX(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if form.Validate != nil {
 			if err := form.Validate(args); err != nil {
 				b.Fatal(err)
@@ -85,7 +85,7 @@ func BenchmarkValidateAddSubQuick(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := form.Validate(args); err != nil {
 			b.Fatal(err)
 		}

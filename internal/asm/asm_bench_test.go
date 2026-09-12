@@ -12,7 +12,7 @@ func BenchmarkParseAndAssemble(b *testing.B) {
 	b.SetBytes(int64(len(src)))
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		prog, err := Parse(strings.NewReader(src))
 		if err != nil {
 			b.Fatalf("parse error: %v", err)
@@ -29,7 +29,7 @@ func BenchmarkParseOnly(b *testing.B) {
 	b.SetBytes(int64(len(src)))
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Parse(strings.NewReader(src)); err != nil {
 			b.Fatalf("parse error: %v", err)
 		}
@@ -47,7 +47,7 @@ func BenchmarkAssembleOnly(b *testing.B) {
 	b.SetBytes(int64(len(src)))
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Assemble(prog); err != nil {
 			b.Fatalf("assemble error: %v", err)
 		}
@@ -79,7 +79,7 @@ start:
 	b.SetBytes(int64(len(src)))
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := Assemble(prog); err != nil {
 			b.Fatalf("assemble error: %v", err)
 		}

@@ -46,10 +46,6 @@ func errorAtLine(line int, err error) error {
 	return &Error{Line: line, Err: err}
 }
 
-func contextualize(line int, err error) error {
-	return contextualizeAt(line, 0, err)
-}
-
 func contextualizeAt(line, col int, err error) error {
 	if err == nil {
 		return nil

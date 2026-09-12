@@ -97,14 +97,3 @@ func (p *Parser) consumeLocalLabelRef() (string, bool, error) {
 	name, err := p.resolveLocalLabel(int(numTok.Val), dir == "f")
 	return name, true, err
 }
-
-func (p *Parser) parseLabelReference() (string, error) {
-	if p.peek().Kind == IDENT {
-		return p.next().Text, nil
-	}
-	if name, ok, err := p.consumeLocalLabelRef(); ok {
-		return name, err
-	}
-	t := p.next()
-	return "", parserError(t, "expected label")
-}

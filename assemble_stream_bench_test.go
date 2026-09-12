@@ -11,7 +11,7 @@ func BenchmarkAssembleStream(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(src)))
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var buf bytes.Buffer
 		if _, err := AssembleStream(&buf, strings.NewReader(src)); err != nil {
 			b.Fatalf("assemble stream failed: %v", err)
