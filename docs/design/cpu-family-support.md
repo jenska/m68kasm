@@ -729,6 +729,90 @@ need a separate phase.
     - **Every other PMMU form** (`Pcc`, `PFLUSH`'s non-`PMOVE`-adjacent
       variants, and `PMOVE`'s `CRP`/`SRP`/`TT0`/`TT1`/`MMUSR` forms)
       remains explicitly open for a future, separately-scoped milestone.
+13. ✅ **Done, plus an unplanned but necessary detour: a real encoding
+    bug found and fixed in already-shipped milestone-6 code.** More FPU
+    coverage (§6), chosen by the maintainer from the open items list
+    after milestone 12: `FBcc`/`FDBcc`/`FScc`/`FTRAPcc` (the FPU's own
+    32-condition branch/set/trap family), `FMOVECR` (ROM constant load),
+    and `FSAVE`/`FRESTORE` (state-frame save/restore).
+    - **The detour, found first, before any new code was written:**
+      researching `FBcc`'s exact word1 layout required reading
+      `tc-m68k.c`'s handling of the `'I'` argument-type letter, which
+      every FPU "general instruction" mnemonic's args string starts
+      with. That code (`m68k_ip`'s "fake a first entry of type COP#1"
+      comment) showed GAS always synthesizes an *implicit* coprocessor-
+      ID operand — value 1 (`COP1`) — for every plain float mnemonic,
+      installed via `install_operand`'s case `'i'`/`'d'` as `opcode[0]
+      |= val << 9`, i.e. bits 11-9 of word1 must be `001` (`0x0200`).
+      Milestone 6's shipped code used a bare `0xF000` base for every
+      EA-carrying FPU word1 (`FMOVE`/`FADD`/`FSUB`/`FMUL`/`FDIV`/`FCMP`/
+      `FABS`/`FNEG`/`FSQRT`/`FTST`) — cpid 0, not 1. Two independent
+      pieces of evidence confirmed this was wrong, not just a stylistic
+      difference: GAS's disassembler (`m68k-dis.c`) only prints
+      `"(cpid=N)"` when N isn't 1, treating 1 as the silent expected
+      default; and `FNOP`'s own opcode table entry (`0xF280`, a fully
+      fixed literal already copied verbatim into this codebase, so
+      untouched by the bug) already has that same `0x0200` bit set,
+      which is what first exposed the discrepancy against the EA-based
+      forms' `0xF000`. Fixed by introducing a named `fpuWord1Base =
+      0xF200` constant (`cpu020_fpu.go`) and re-deriving every affected
+      test's expected bytes (`cpu020_fpu_test.go`) — GAS-standard tools
+      reading output from before this fix would flag it as using a
+      non-default, unusual coprocessor ID.
+    - **`FBcc`'s two forms (word/long displacement) needed no shared-
+      Steps trick** the way integer `Bcc.L`/`BSR.L` (milestone 3) did:
+      FPU branches never inline an 8-bit displacement in the opcode
+      (the condition already occupies those bits), so word1 itself
+      differs per size (`0xF280|cc` vs `0xF2C0|cc`) and each form just
+      carries its own single, size-matched trailer
+      (`TBranchWordIfNeeded`/`TBranchLongIfNeeded`) — simpler than the
+      integer case, not harder. GAS spells the long form as a
+      completely separate mnemonic (`fbeql`, not `fbeq.l`); this
+      codebase again commits to its own `.L`-suffix convention instead
+      (as milestone 3 already did for `BRA.L`/`BSR.L`), consistent
+      rather than chasing GAS's exact spelling.
+    - **One condition-suffix table serves all four families.** Unlike
+      the integer ISA's `branchConditions`/`dbConditions`/
+      `sccConditions` (`xcc.go`), which duplicate 16 near-identical
+      names three times because each integer family happens to use
+      slightly different mnemonic conventions, the FPU's 32 condition
+      names are spelled identically across `FBcc`/`FDBcc`/`FScc`/
+      `FTRAPcc` — only the family prefix (`FB`/`FDB`/`FS`/`FTRAP`)
+      changes. One `fpConditions` table plus prefix concatenation in
+      the registration loop avoids retyping 32 names four times without
+      losing the "index == condition code" property the integer tables
+      rely on.
+    - **`FSAVE`/`FRESTORE` don't need two `Form`s per mnemonic, even
+      though GAS's own opcode table lists two rows each** (a general
+      memory form and one restricted to the specific addressing mode
+      real hardware needs — `-(An)` for `FSAVE`, `(An)+` for
+      `FRESTORE`). Working out the two literals by hand (`0xF100`
+      general / `0xF120` predecrement for `FSAVE`) showed the
+      "dedicated" literal is exactly the general literal with that
+      EA's own mode bits already OR'd in — precisely what `FSrcEA`
+      computes at encode time for *any* EA, predecrement/postincrement
+      included. So a single `Form` with the general literal, plus a
+      `Validate` accepting the union of both GAS rows' restrictions,
+      reproduces GAS's output exactly (confirmed: assembling `FSAVE
+      -(A0)` through this one `Form` produces `0xF120`, GAS's own
+      "dedicated" literal, byte-for-byte). Two separate `Form`s would
+      have been actively wrong here, not just redundant: `selectForm`
+      matches on `OperKinds`/`Sizes` alone before `Validate` ever runs,
+      and both forms would share identical `OperKinds` (`[OpkEA]`) and
+      `Sizes` — so whichever form came first would silently swallow
+      every operand, valid or not, exactly the milestone-5 hazard
+      `selectForm`'s own comment already warns about.
+    - **Deliberately deferred again: `FMOVEM`.** Unlike everything else
+      in this milestone, `FMOVEM` needs its own register-list
+      infrastructure comparable in size to a new milestone on its own —
+      a list syntax for `FPn`/`FPCR`/`FPSR`/`FPIAR` distinct from
+      integer `MOVEM`'s `Dn`/`An` mask, a genuinely *dynamic* list form
+      (the register set named by a `Dn` at runtime, not fixed at
+      assembly time), and three separate EA-class/bit-pattern splits
+      (control-alterable, predecrement, postincrement) each with their
+      own static-vs-dynamic-list bit and register-order rules. Also
+      still open: the transcendental function set, packed BCD (`.p`),
+      and `FPCR`/`FPSR`/`FPIAR` as general operands.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

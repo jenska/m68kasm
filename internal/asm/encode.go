@@ -174,6 +174,8 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | (uint16(p.AuxReg&7) << 12) | (uint16(p.DstReg&7) << 6) | uint16(p.SrcReg&7)
 	case instructions.FCas2Word3:
 		return wordVal | (uint16(p.AuxReg2&7) << 12) | (uint16(p.DstReg2&7) << 6) | uint16(p.SrcReg2&7)
+	case instructions.FFPRomConst:
+		return wordVal | (uint16(p.Imm) & 0x7F)
 	default:
 		return wordVal
 	}

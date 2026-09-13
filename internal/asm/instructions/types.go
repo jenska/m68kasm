@@ -86,6 +86,9 @@ const (
 	// FCas2Word3 is FCas2Word2 for the second of each pair (Aux.Reg2,
 	// Dst.Reg2, Src.Reg2).
 	FCas2Word3
+	// FFPRomConst places FMOVECR's 7-bit ROM constant offset (Src.Imm)
+	// into bits 6-0 of the current word — GAS's "C" install code.
+	FFPRomConst
 )
 
 type TrailerItem uint16

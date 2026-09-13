@@ -22,22 +22,22 @@ func TestAssembleFPUInstructions(t *testing.T) {
 		src  string
 		want []byte
 	}{
-		{"AddMemorySourceExtended", "FADD.X (A0),FP0\n", []byte{0xF0, 0x10, 0x08, 0x22}},
-		{"AddRegisterToRegister", "FADD FP1,FP0\n", []byte{0xF0, 0x00, 0x04, 0x22}},
-		{"MoveIntegerLongFromDn", "FMOVE.L D0,FP0\n", []byte{0xF0, 0x00, 0x00, 0x00}},
-		{"MoveExtendedToMemory", "FMOVE.X FP2,(A0)\n", []byte{0xF0, 0x10, 0x29, 0x00}},
-		{"AbsSingleOperandShorthand", "FABS FP0\n", []byte{0xF0, 0x00, 0x00, 0x18}},
-		{"TstMemoryExtended", "FTST.X (A0)\n", []byte{0xF0, 0x10, 0x08, 0x3A}},
+		{"AddMemorySourceExtended", "FADD.X (A0),FP0\n", []byte{0xF2, 0x10, 0x08, 0x22}},
+		{"AddRegisterToRegister", "FADD FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x22}},
+		{"MoveIntegerLongFromDn", "FMOVE.L D0,FP0\n", []byte{0xF2, 0x00, 0x00, 0x00}},
+		{"MoveExtendedToMemory", "FMOVE.X FP2,(A0)\n", []byte{0xF2, 0x10, 0x29, 0x00}},
+		{"AbsSingleOperandShorthand", "FABS FP0\n", []byte{0xF2, 0x00, 0x00, 0x18}},
+		{"TstMemoryExtended", "FTST.X (A0)\n", []byte{0xF2, 0x10, 0x08, 0x3A}},
 		{"Nop", "FNOP\n", []byte{0xF2, 0x80, 0x00, 0x00}},
-		{"SubRegisterToRegister", "FSUB FP1,FP0\n", []byte{0xF0, 0x00, 0x04, 0x28}},
-		{"MulRegisterToRegister", "FMUL FP1,FP0\n", []byte{0xF0, 0x00, 0x04, 0x23}},
-		{"DivRegisterToRegister", "FDIV FP1,FP0\n", []byte{0xF0, 0x00, 0x04, 0x20}},
-		{"CmpRegisterToRegister", "FCMP FP1,FP0\n", []byte{0xF0, 0x00, 0x04, 0x38}},
-		{"NegSingleOperandShorthand", "FNEG FP0\n", []byte{0xF0, 0x00, 0x00, 0x1A}},
-		{"SqrtSingleOperandShorthand", "FSQRT FP0\n", []byte{0xF0, 0x00, 0x00, 0x04}},
-		{"AddLongImmediate", "FADD.L #100,FP0\n", []byte{0xF0, 0x3C, 0x00, 0x22, 0x00, 0x00, 0x00, 0x64}},
-		{"MoveWordImmediate", "FMOVE.W #5,FP0\n", []byte{0xF0, 0x3C, 0x10, 0x00, 0x00, 0x05}},
-		{"AddExtendedWithDisplacement", "FADD.X (100,A0),FP0\n", []byte{0xF0, 0x28, 0x08, 0x22, 0x00, 0x64}},
+		{"SubRegisterToRegister", "FSUB FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x28}},
+		{"MulRegisterToRegister", "FMUL FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x23}},
+		{"DivRegisterToRegister", "FDIV FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x20}},
+		{"CmpRegisterToRegister", "FCMP FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x38}},
+		{"NegSingleOperandShorthand", "FNEG FP0\n", []byte{0xF2, 0x00, 0x00, 0x1A}},
+		{"SqrtSingleOperandShorthand", "FSQRT FP0\n", []byte{0xF2, 0x00, 0x00, 0x04}},
+		{"AddLongImmediate", "FADD.L #100,FP0\n", []byte{0xF2, 0x3C, 0x00, 0x22, 0x00, 0x00, 0x00, 0x64}},
+		{"MoveWordImmediate", "FMOVE.W #5,FP0\n", []byte{0xF2, 0x3C, 0x10, 0x00, 0x00, 0x05}},
+		{"AddExtendedWithDisplacement", "FADD.X (100,A0),FP0\n", []byte{0xF2, 0x28, 0x08, 0x22, 0x00, 0x64}},
 	}
 
 	for _, tc := range tests {
@@ -72,7 +72,7 @@ func TestFPUFixedZeroWordEmitted(t *testing.T) {
 // word instead of after it.
 func TestFPUOpmodeWordBeforeEAExtension(t *testing.T) {
 	got := assembleForTarget(t, "FADD.X (100,A0),FP0\n", targetFPU)
-	want := []byte{0xF0, 0x28, 0x08, 0x22, 0x00, 0x64}
+	want := []byte{0xF2, 0x28, 0x08, 0x22, 0x00, 0x64}
 	if !bytes.Equal(got, want) {
 		t.Fatalf("got % X want % X (opmode word 0822 must precede the displacement word 0064)", got, want)
 	}
@@ -109,4 +109,19 @@ func TestFPUAllowsIntegerImmediate(t *testing.T) {
 
 func TestFPURejectsDnForFloatingSize(t *testing.T) {
 	mustAssembleErr(t, "FADD.X D0,FP0\n", targetFPU)
+}
+
+// TestFPUCoprocessorIDBit guards a real encoding bug found while
+// researching FBcc's condition-code layout: every FPU instruction's
+// word1 must carry coprocessor ID 1 in bits 11-9 (0x0200), not 0 — GAS's
+// tc-m68k.c always synthesizes an implicit COP1 operand for plain float
+// mnemonics (m68k_ip's "fake a first entry of type COP#1"), and its
+// disassembler treats cpid=1 as the silent default, printing "(cpid=N)"
+// only when it differs. This was originally shipped as a bare 0xF000
+// base (cpid=0) — see fpuWord1Base's doc comment in cpu020_fpu.go.
+func TestFPUCoprocessorIDBit(t *testing.T) {
+	got := assembleForTarget(t, "FADD.X (A0),FP0\n", targetFPU)
+	if len(got) < 1 || got[0] != 0xF2 {
+		t.Fatalf("word1 high byte = %02X, want F2 (coprocessor ID 1 in bits 11-9)", got[0])
+	}
 }

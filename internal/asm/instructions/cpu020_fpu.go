@@ -27,6 +27,24 @@ import "fmt"
 
 var requireFPU = Target{Features: FeatFPU}
 
+// fpuWord1Base is the fixed high nibble/coprocessor-ID portion of every
+// FPU "general instruction" word1 (the word carrying <ea>, before the
+// opmode/format word). It is 0xF200, not the more obvious-looking
+// 0xF000: bits 15-12 = 1111 (the coprocessor-instruction line), and bits
+// 11-9 = the coprocessor ID, which GAS's tc-m68k.c always synthesizes as
+// COP1 (value 1, i.e. bits 11-9 = 001 = 0x0200) for every plain float
+// mnemonic — see m68k_ip's "fake a first entry of type COP#1" comment,
+// and install_operand's case 'i' (`opcode[0] |= val << 9`). This was
+// originally shipped as a bare 0xF000 (cpID = 0) and silently wrong:
+// GAS's disassembler confirms 1 is the expected default by only
+// printing "(cpid=N)" when N isn't 1, and FNOP's own literal opcode
+// (0xF280, unaffected since it's a fully-fixed word already copied
+// verbatim from the table) has the same 0x0200 bit set, which is what
+// exposed the discrepancy. Found and fixed while researching FBcc's
+// encoding for the FPU-conditional-branch milestone — see
+// docs/design/cpu-family-support.md and TestFPUCoprocessorIDBit.
+const fpuWord1Base = 0xF200
+
 func init() {
 	registerInstrDef(newFPBinaryDef("FMOVE", 0x00, true))
 	registerInstrDef(newFPBinaryDef("FADD", 0x22, false))
@@ -111,7 +129,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			Validate:    validate,
 			Requires:    requireFPU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
+				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
 				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
@@ -123,7 +141,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			OperKinds:   []OperandKind{OpkFPn, OpkFPn},
 			Requires:    requireFPU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000},
+				{WordBits: fpuWord1Base},
 				{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},
 			},
 		},
@@ -143,7 +161,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			Validate:    storeValidate,
 			Requires:    requireFPU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000, Fields: []FieldRef{FDstEA}},
+				{WordBits: fpuWord1Base, Fields: []FieldRef{FDstEA}},
 				{WordBits: 0x2000 | opBase, Fields: []FieldRef{FFPFormat, FFPSrcReg7}},
 				{Trailer: []TrailerItem{TDstEAExt}},
 			},
@@ -180,7 +198,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Validate:    validateEA,
 				Requires:    requireFPU,
 				Steps: []EmitStep{
-					{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
+					{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 					{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
 					{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 				},
@@ -192,7 +210,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Validate:    validateReg,
 				Requires:    requireFPU,
 				Steps: []EmitStep{
-					{WordBits: 0xF000},
+					{WordBits: fpuWord1Base},
 					{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},
 				},
 			},
@@ -203,7 +221,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Validate:    validateReg,
 				Requires:    requireFPU,
 				Steps: []EmitStep{
-					{WordBits: 0xF000},
+					{WordBits: fpuWord1Base},
 					{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},
 				},
 			},
@@ -231,7 +249,7 @@ var defFTST = InstrDef{
 			Validate:    func(a *Args) error { return validateFPUOperand("FTST", false, a.Src.Kind, a.Size) },
 			Requires:    requireFPU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
+				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: 0x3A, Fields: []FieldRef{FFPFormat}},
 				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
@@ -242,7 +260,7 @@ var defFTST = InstrDef{
 			OperKinds:   []OperandKind{OpkFPn},
 			Requires:    requireFPU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000},
+				{WordBits: fpuWord1Base},
 				{WordBits: 0x3A, Fields: []FieldRef{FFPSrcReg10}},
 			},
 		},
