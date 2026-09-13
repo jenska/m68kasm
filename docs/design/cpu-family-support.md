@@ -889,6 +889,65 @@ need a separate phase.
       rarely real code saves/restores the FPU's control registers
       compared to its data registers, this is left for a dedicated
       follow-up rather than folding it in here.
+15. ✅ **Done.** 68040/68060 support (§5.4), chosen by the maintainer
+    from the open items list after milestone 14: `MOVE16`, the
+    cache-control instructions (`CINVA`/`CINVL`/`CINVP`, `CPUSHA`/
+    `CPUSHL`/`CPUSHP`), and a non-fatal warning for 68060's
+    trap-emulated subset.
+    - **A critical `operandKindByEA` gap, caught before it shipped:**
+      giving `EAkAddrPostinc` its own `OpkPostincAn` (needed so
+      `MOVE16`'s register-to-register form, `"(An)+,(An)+"`, is
+      distinguishable from its other forms at the `OperandKind` level —
+      see below) meant postincrement operands stopped falling through
+      to the generic `OpkEA` bucket. `operandKindCompatible`'s "a form
+      expecting `OpkEA` also accepts `OpkPredecAn`" special case already
+      existed for `-(An)`, but nothing analogous existed for `(An)+` —
+      without adding `OpkPostincAn` to that same list, *every* existing
+      instruction taking a generic `<ea>` operand would have silently
+      stopped accepting postincrement addressing the moment the new
+      mapping landed. Caught immediately (before running any tests) by
+      re-reading `operandKindCompatible` right after adding the mapping,
+      rather than after a regression surfaced; the full suite was run
+      immediately afterward specifically because this class of change
+      (touching the shared classification map every instruction's form
+      matching goes through) is exactly the kind of edit where "it
+      compiled" says nothing about correctness.
+    - **`MOVE16`'s "`(An)`,absolute-long" pairing repeats the exact
+      `selectForm` hazard `FFPMovemStoreWord2`/milestone 14 already
+      named**, in a new shape: neither a bare `(An)` nor an absolute
+      address has its own `OperandKind` (unlike `-(An)`/`(An)+`), so
+      both directions — `"(An),$1000"` and `"$1000,(An)"` — classify as
+      identical `[OpkEA, OpkEA]`. One `Form`
+      (`FMove16AbsForm`/`types.go`) picks word1 (`0xF610` vs `0xF618`)
+      from which operand is actually `(An)` at *encode* time, the same
+      fix already used for `FMOVEM`'s store direction. It additionally
+      includes *both* `TSrcEAExt` and `TDstEAExt` unconditionally rather
+      than choosing one: `(An)` always contributes zero extension bytes
+      and the absolute-long side always contributes its four, so both
+      trailers firing is correct regardless of which side is which —
+      no direction-conditional Step needed for that part, only for the
+      word.
+    - **The 68060 trap-emulated-subset warning is a per-`Args` runtime
+      check (`checkEmulatedOn68060`, `internal/asm/emulated060.go`), not
+      wired into `FeatEmulated`'s `Requires`/`Supports` gating at all.**
+      `CAS2`/`CHK2`/`CMP2`/`MOVEP` are unconditionally emulated, but the
+      68020 bit-field instructions and `DIVSL`/`DIVUL` are emulated only
+      for specific *operand shapes* — a register-specified bit-field
+      offset/width, or the wide `Dr:Dq` dividend form — that the *same*
+      `Form` handles both natively and emulated for. A static per-`Form`
+      flag genuinely cannot express that distinction; only inspecting
+      the resolved `Args` after a successful `Encode` can. `Program`
+      gained an additive `Warnings []string` field (populated by
+      `assemble()`, printed by the CLI to stderr as `warning: ...`)
+      rather than changing any existing function's return signature —
+      assembly still succeeds and produces identical bytes; the warning
+      is purely informational, matching §5.4's original framing of this
+      as "assembles correctly but traps" rather than an error.
+    - **`Target{CPU: CPU68040}` alone was enough to grant 68060 too**,
+      via `Supports`' existing floor comparison (`CPU68060` sits above
+      `CPU68040` in `CPUKind`'s enum order) — no new gating mechanism
+      needed, confirmed against GNU binutils' own `m68040up` tag
+      (`m68040 | m68060`, `include/opcode/m68k.h`).
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

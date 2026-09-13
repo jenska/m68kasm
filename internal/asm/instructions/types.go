@@ -119,6 +119,32 @@ const (
 	// split, but placing the Dn register number (bits 7-4) instead of a
 	// static mask.
 	FFPMovemDynStoreWord2
+	// FCacheSel6 places the Src operand's cache-selector value
+	// (EAkCacheSel's Reg, 0-3) into bits 7-6 of the current word —
+	// CINV/CPUSH's "e" install code.
+	FCacheSel6
+	// FMove16Reg2_12 places the Dst operand's An register number into
+	// bits 14-12 of the current word — MOVE16's register-to-register
+	// form's second register ("(An1)+,(An2)+"; An1 sits in word1's low
+	// 3 bits via the ordinary FSrcDnReg, reused for its generic "low 3
+	// bits of SrcReg" shape).
+	FMove16Reg2_12
+	// FMove16AbsForm computes MOVE16's entire word1 for the "(An),
+	// absolute-long" pairing from which side is actually (An) at
+	// *runtime* (p.SrcEA.Mode == 2 selects "(An),ABS.L", word1 0xF610;
+	// otherwise "ABS.L,(An)", word1 0xF618) — both directions classify
+	// as plain OpkEA on both operands (neither -(An)/(An)+ nor a bare
+	// (An) that's paired only with an absolute address has its own
+	// OperandKind distinguishing which side is which), so two Forms
+	// here would hit the identical selectForm hazard FFPMovemStoreWord2
+	// documents above. TSrcEAExt and TDstEAExt are both included
+	// unconditionally in this Form's Steps rather than choosing one:
+	// (An) always contributes zero extension bytes (EncodeEA gives it
+	// an empty Ext slice) and the absolute-long side always contributes
+	// its 4-byte address, so including both trailers is correct
+	// regardless of which side is which — no per-direction Step choice
+	// needed there, only for this word.
+	FMove16AbsForm
 )
 
 type TrailerItem uint16
@@ -210,6 +236,16 @@ const (
 	// into a different Args field (FPRegMaskSrc/Dst, not RegMaskSrc/Dst)
 	// and encodes into a different bit width/position.
 	OpkFPRegList
+	// OpkPostincAn matches "(An)+" exactly (rejecting every other
+	// addressing mode) — the postincrement analogue of OpkPredecAn,
+	// needed so MOVE16's register-to-register form ("(An)+,(An)+") is
+	// distinguishable, at the OperandKind level, from its other forms
+	// that pair a postincrement or plain (An) operand with an absolute
+	// long address (see cpu040_misc.go and operandKindByEA).
+	OpkPostincAn
+	// OpkCacheSel matches CINV/CPUSH's cache-selector operand (NC/DC/
+	// IC/BC).
+	OpkCacheSel
 )
 
 type InstrDef struct {
@@ -363,6 +399,11 @@ const (
 	// unnumbered special register like EAkSR/EAkCCR/EAkUSP, not one of
 	// several numbered instances.
 	EAkTC
+	// EAkCacheSel is one of CINV/CPUSH's cache-selector pseudo-registers
+	// (NC/DC/IC/BC — none/data/instruction/both), with the numeric
+	// selector (0-3, GAS's own encoding) held directly in Reg, the same
+	// "numbered instance" shape EAkFPn uses.
+	EAkCacheSel
 )
 
 type EAExpr struct {

@@ -15,6 +15,14 @@ type Program struct {
 	Origin        uint32
 	SourceLines   []string
 	Target        instructions.Target
+
+	// Warnings collects non-fatal messages produced while assembling —
+	// currently just checkEmulatedOn68060's "traps and is software-
+	// emulated" notices, one per matching instruction, each already
+	// prefixed with its source line. Populated by Assemble and its
+	// variants; empty unless Target.CPU is CPU68060. Existing callers
+	// that don't look at this field see no change in behavior.
+	Warnings []string
 }
 
 // DefinedLabel captures a named label defined in source so that output formats
@@ -91,9 +99,16 @@ func assemble(dst []byte, w io.Writer, p *Program, wantListing bool) ([]byte, []
 
 	for _, it := range p.Items {
 		var err error
-		itemBuf, err = assembleItem(itemBuf[:0], it, p.Labels)
+		var warning string
+		itemBuf, warning, err = assembleItem(itemBuf[:0], it, p.Labels, p.Target.CPU)
 		if err != nil {
 			return nil, nil, written, withSourceLines(err, p.SourceLines)
+		}
+		if warning != "" {
+			if _, line, ok := itemLocation(it); ok {
+				warning = fmt.Sprintf("line %d: %s", line, warning)
+			}
+			p.Warnings = append(p.Warnings, warning)
 		}
 
 		if w != nil {
@@ -117,7 +132,7 @@ func assemble(dst []byte, w io.Writer, p *Program, wantListing bool) ([]byte, []
 	return out, listing, written, nil
 }
 
-func assembleItem(dst []byte, it any, labels map[string]uint32) ([]byte, error) {
+func assembleItem(dst []byte, it any, labels map[string]uint32, cpu instructions.CPUKind) ([]byte, string, error) {
 	switch x := it.(type) {
 	case *Instr:
 		ins := *x
@@ -125,31 +140,35 @@ func assembleItem(dst []byte, it any, labels map[string]uint32) ([]byte, error) 
 
 		def := x.Def
 		if def == nil {
-			return nil, &Error{Line: x.Line, Col: x.Col, Err: fmt.Errorf("no definition for opcode")}
+			return nil, "", &Error{Line: x.Line, Col: x.Col, Err: fmt.Errorf("no definition for opcode")}
 		}
 
 		actualKinds := operandKinds(&ins.Args)
 		form, err := selectForm(def, &ins, actualKinds)
 		if err != nil {
-			return nil, contextualizeAt(x.Line, x.Col, err)
+			return nil, "", contextualizeAt(x.Line, x.Col, err)
 		}
 		if form.Validate != nil {
 			if err := form.Validate(&ins.Args); err != nil {
-				return nil, contextualizeAt(x.Line, x.Col, err)
+				return nil, "", contextualizeAt(x.Line, x.Col, err)
 			}
 		}
 
 		bytes, err := Encode(def, form, &ins, labels)
 		if err != nil {
-			return nil, contextualizeAt(x.Line, x.Col, err)
+			return nil, "", contextualizeAt(x.Line, x.Col, err)
 		}
-		return append(dst, bytes...), nil
+		var warning string
+		if cpu == instructions.CPU68060 {
+			warning = checkEmulatedOn68060(def.Mnemonic, &ins.Args)
+		}
+		return append(dst, bytes...), warning, nil
 
 	case *DataBytes:
-		return append(dst, x.Bytes...), nil
+		return append(dst, x.Bytes...), "", nil
 
 	default:
-		return nil, fmt.Errorf("unknown item type in program")
+		return nil, "", fmt.Errorf("unknown item type in program")
 	}
 }
 
@@ -229,21 +248,23 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 }
 
 var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
-	instructions.EAkNone:       instructions.OpkNone,
-	instructions.EAkImm:        instructions.OpkImm,
-	instructions.EAkDn:         instructions.OpkDn,
-	instructions.EAkAn:         instructions.OpkAn,
-	instructions.EAkAddrPredec: instructions.OpkPredecAn,
-	instructions.EAkSR:         instructions.OpkSR,
-	instructions.EAkCCR:        instructions.OpkCCR,
-	instructions.EAkUSP:        instructions.OpkUSP,
-	instructions.EAkSFC:        instructions.OpkCtrlReg,
-	instructions.EAkDFC:        instructions.OpkCtrlReg,
-	instructions.EAkVBR:        instructions.OpkCtrlReg,
-	instructions.EAkFPn:        instructions.OpkFPn,
-	instructions.EAkRegPair:    instructions.OpkRegPair,
-	instructions.EAkAnIndPair:  instructions.OpkAnIndPair,
-	instructions.EAkTC:         instructions.OpkTC,
+	instructions.EAkNone:        instructions.OpkNone,
+	instructions.EAkImm:         instructions.OpkImm,
+	instructions.EAkDn:          instructions.OpkDn,
+	instructions.EAkAn:          instructions.OpkAn,
+	instructions.EAkAddrPredec:  instructions.OpkPredecAn,
+	instructions.EAkAddrPostinc: instructions.OpkPostincAn,
+	instructions.EAkSR:          instructions.OpkSR,
+	instructions.EAkCCR:         instructions.OpkCCR,
+	instructions.EAkUSP:         instructions.OpkUSP,
+	instructions.EAkSFC:         instructions.OpkCtrlReg,
+	instructions.EAkDFC:         instructions.OpkCtrlReg,
+	instructions.EAkVBR:         instructions.OpkCtrlReg,
+	instructions.EAkFPn:         instructions.OpkFPn,
+	instructions.EAkRegPair:     instructions.OpkRegPair,
+	instructions.EAkAnIndPair:   instructions.OpkAnIndPair,
+	instructions.EAkTC:          instructions.OpkTC,
+	instructions.EAkCacheSel:    instructions.OpkCacheSel,
 }
 
 // operandKindFromEA classifies an EA expression into the broader operand kind categories
@@ -273,7 +294,7 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 	}
 	if expect == instructions.OpkEA {
 		switch actual {
-		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn:
+		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn, instructions.OpkPostincAn:
 			return true
 		}
 	}

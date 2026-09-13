@@ -138,6 +138,25 @@ func controlRegisterKind(name string) (instructions.EAExprKind, bool) {
 	}
 }
 
+// cacheSelectorKind recognizes CINV/CPUSH's cache-selector pseudo-
+// registers (NC/DC/IC/BC — none/data/instruction/both), returning GAS's
+// own numeric encoding (gas/config/tc-m68k.c's install_operand case
+// 'c': NC=0, DC=1, IC=2, BC=3).
+func cacheSelectorKind(name string) (int, bool) {
+	switch strings.ToUpper(name) {
+	case "NC":
+		return 0, true
+	case "DC":
+		return 1, true
+	case "IC":
+		return 2, true
+	case "BC":
+		return 3, true
+	default:
+		return 0, false
+	}
+}
+
 // parseFPRegister recognizes an FPU data register name, FP0-FP7.
 func parseFPRegister(s string) (int, bool) {
 	if len(s) == 3 && (s[0] == 'F' || s[0] == 'f') && (s[1] == 'P' || s[1] == 'p') && s[2] >= '0' && s[2] <= '7' {

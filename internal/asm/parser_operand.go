@@ -191,6 +191,28 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = ea
 
+	case instructions.OpkPostincAn:
+		ea, err := p.parseEA()
+		if err != nil {
+			return eaExpr, err
+		}
+		if ea.Kind != instructions.EAkAddrPostinc {
+			return eaExpr, errorAtLine(mn.Line, fmt.Errorf("expected (An)+"))
+		}
+		eaExpr = ea
+
+	case instructions.OpkCacheSel:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		sel, ok := cacheSelectorKind(tok.Text)
+		if !ok {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected a cache selector (NC, DC, IC, or BC), got %s", tok.Text))
+		}
+		eaExpr.Kind = instructions.EAkCacheSel
+		eaExpr.Reg = sel
+
 	case instructions.OpkRegList:
 		mask, err := p.parseRegList()
 		if err != nil {

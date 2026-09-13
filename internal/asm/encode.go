@@ -193,6 +193,15 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 			return wordVal | 0xE800 | (uint16(p.SrcReg&7) << 4)
 		}
 		return wordVal | 0xF800 | (uint16(p.SrcReg&7) << 4)
+	case instructions.FCacheSel6:
+		return wordVal | (uint16(p.SrcReg&3) << 6)
+	case instructions.FMove16Reg2_12:
+		return wordVal | (uint16(p.DstReg&7) << 12)
+	case instructions.FMove16AbsForm:
+		if p.SrcEA.Mode == 2 { // (An),ABS.L
+			return wordVal | 0xF610 | uint16(p.SrcEA.Reg&7)
+		}
+		return wordVal | 0xF618 | uint16(p.DstEA.Reg&7) // ABS.L,(An)
 	default:
 		return wordVal
 	}

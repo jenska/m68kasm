@@ -80,6 +80,9 @@ func main() {
 		fmt.Println("assemble error:", err)
 		os.Exit(3)
 	}
+	for _, w := range prog.Warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
+	}
 	switch fmtFormat {
 
 	case "srec":

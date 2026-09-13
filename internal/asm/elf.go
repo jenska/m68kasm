@@ -136,7 +136,7 @@ func assembleELFLayout(p *Program) (elfLayout, error) {
 			continue
 		}
 
-		itemBuf, err := assembleItem(itemBuf[:0], it, p.Labels)
+		itemBuf, _, err := assembleItem(itemBuf[:0], it, p.Labels, p.Target.CPU)
 		if err != nil {
 			return elfLayout{}, withSourceLines(err, p.SourceLines)
 		}
