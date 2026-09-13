@@ -142,3 +142,20 @@ func TestMovemLoadStoreOpcodes(t *testing.T) {
 		})
 	}
 }
+
+// TestMovemRejectsPredecrementAsLoadSource guards a real bug found while
+// researching FMOVEM's load/store EA restrictions: movemLoadEA's own
+// doc comment said predecrement wasn't a valid MOVEM load source, but
+// the map itself listed EAkAddrPredec as true, silently letting
+// "MOVEM -(A0),D0-D7" assemble. Real 68k hardware only accepts -(An) as
+// a MOVEM destination (store direction); as a source it isn't a legal
+// addressing mode for this instruction.
+func TestMovemRejectsPredecrementAsLoadSource(t *testing.T) {
+	prog, err := asm.Parse(strings.NewReader("MOVEM.L -(A0),D0-D7\n"))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if _, err := asm.Assemble(prog); err == nil {
+		t.Fatalf("expected an error for MOVEM -(A0),D0-D7 (predecrement is not a valid load source)")
+	}
+}

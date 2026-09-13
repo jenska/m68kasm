@@ -127,14 +127,20 @@ func isReadableDataEA(k EAExprKind) bool {
 	return readableDataEA[k]
 }
 
-// movemLoadEA kinds: memory addresses that can be sources for MOVEM (includes PC-relative and postincrement, but not predecrement)
+// movemLoadEA kinds: memory addresses that can be sources for MOVEM
+// (includes PC-relative and postincrement, but not predecrement — real
+// 68k hardware only accepts -(An) as a MOVEM *destination*; using it as
+// a load source is not a legal addressing mode for this instruction).
+// EAkAddrPredec was previously (and incorrectly) included here, letting
+// "MOVEM -(A0),D0-D7" silently assemble with no error and no test
+// covering it — found while researching FMOVEM's own load/store EA
+// restrictions, which mirror MOVEM's real-hardware asymmetry exactly.
 var movemLoadEA = map[EAExprKind]bool{
 	EAkPCDisp16:    true,
 	EAkIdxPCBrief:  true,
 	EAkAddrInd:     true,
 	EAkAddrPostinc: true,
 	EAkAddrDisp16:  true,
-	EAkAddrPredec:  true,
 	EAkIdxAnBrief:  true,
 	EAkAbsW:        true,
 	EAkAbsL:        true,
