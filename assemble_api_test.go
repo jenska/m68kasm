@@ -488,7 +488,11 @@ func TestAssembleELFWithOptions(t *testing.T) {
 }
 
 func TestAssembleFileVariants(t *testing.T) {
-	path := filepath.Join("tests", "testdata", "api_sample.s")
+	path := filepath.Join(t.TempDir(), "api_sample.s")
+	src := ".org 0x1000\n.byte 0x12,0x34\nMOVEQ #1,D0\nMULU #2, D0\nDIVS #2, D0\n"
+	if err := os.WriteFile(path, []byte(src), 0644); err != nil {
+		t.Fatalf("write temp source failed: %v", err)
+	}
 
 	bytesOut, err := AssembleFile(path)
 	if err != nil {

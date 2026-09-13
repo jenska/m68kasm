@@ -222,8 +222,7 @@ Each instruction `FormDef` specifies expected operand kinds:
 ## Testing Strategy
 
 ### Test Organization
-- **Unit tests** in `*_test.go` files test specific subsystems (parsing, encoding, macros)
-- **E2E tests** in `tests/e2e/` test complete assembly workflows
+- **Unit tests** in `*_test.go` files test specific subsystems (parsing, encoding, macros), including full assembly workflows exercised via the public API
 - **Benchmarks** measure parse/assemble/stream performance
 
 ### Common Test Patterns
@@ -242,7 +241,6 @@ _, err := internal.Parse(strings.NewReader(src))
 
 ### Test Data
 - Small test programs in test functions
-- Larger examples in `examples/` and `tests/testdata/` (hello.s, qsort.s)
 
 ## Development Workflow
 
@@ -275,4 +273,3 @@ staticcheck ./...        # Run staticcheck (if installed)
 ## References
 - Grammar: `docs/grammar.ebnf`
 - Instruction syntax: `docs/syntax.md`
-- Example programs: `examples/`

@@ -68,6 +68,11 @@ the following operators:
 Results are truncated to the destination field width where appropriate, with
 range validation for directives and instruction fields that require it.
 
+The lexer has no floating-point literal syntax — only integers. FPU
+instructions that take an immediate (e.g. `FADD.L #100,FP0`) therefore only
+accept integer immediates; a floating-point literal such as `#1.5` is
+rejected.
+
 ## 4. Pseudo-Ops
 
 All currently implemented pseudo-ops are documented below.
@@ -217,14 +222,25 @@ General form:
 <mnemonic><.size> [operand[, operand]]
 ```
 
-- Size suffixes are instruction-dependent: `.b`, `.w`, `.l`
+- Size suffixes are instruction-dependent: `.b`, `.w`, `.l` for the base
+  integer ISA.
 - Some instructions also accept `.s` as a short-byte synonym where the parser
-  maps it to byte-sized branch encoding
-- Operand legality is validated by the instruction table and EA validators
+  maps it to byte-sized branch encoding.
+- FPU mnemonics (any mnemonic starting with `F`) use a separate size
+  namespace: `.b`/`.w`/`.l` still select an integer conversion size, and
+  `.s`/`.d`/`.x` select single/double/extended-precision floating formats —
+  `.s` means "single-precision", not "short branch", when it follows an FPU
+  mnemonic (§7.3).
+- Operand legality is validated by the instruction table and EA validators.
+- This assembler targets more than the base 68000 — see §7 for the CPU
+  family, FPU, and PMMU instructions the `--cpu`/`--fpu`/`--mmu` flags
+  unlock, and for size/displacement conventions (like `.W`/`.L` branch
+  suffixes) that this codebase settled on itself rather than copying GNU
+  `as`'s exact mnemonic spelling.
 
 ## 6. Effective Address Forms
 
-Supported 68000-style forms:
+Supported 68000-baseline forms (available on every CPU tier):
 
 | Form | Syntax | Meaning |
 | --- | --- | --- |
@@ -245,16 +261,177 @@ Supported 68000-style forms:
 Notes:
 
 - Indexed forms accept `Dn` or `An` index registers with `.W` or `.L`.
-- Index scale factors `*1`, `*2`, `*4`, and `*8` are parsed.
-- Register lists for `MOVEM` support `/` or commas and ascending ranges such as `D0-D3/A6`.
+- Index scale factors `*1`, `*2`, `*4`, and `*8` are parsed on the brief
+  indexed form (`(disp,A0,D1.W*2)`), but only assemble on `--cpu 68020` or
+  later (or `cpu32`) — a bare 68000 target rejects a scale factor other than
+  `*1`. The classic brief form's displacement stays limited to a signed byte
+  on every CPU tier; it never auto-upgrades to a wider encoding.
+- Register lists for `MOVEM` support `/` or commas and ascending ranges such
+  as `D0-D3/A6`.
 
-## 7. Diagnostics
+See §7 for every effective-address and register form the CPU-family,
+FPU, and PMMU extensions add on top of this baseline (memory-indirect
+addressing, `FPn`, coprocessor control registers, bit-field specifiers,
+register pairs, and more).
+
+## 7. CPU Family, Coprocessors, and Extended Syntax
+
+`m68kasm` targets the full 68000-through-68060 family plus CPU32, an
+attached or integrated FPU, and a PMMU, selected via CLI flags
+(`--cpu <name>`, `--fpu`, `--mmu`) or the equivalent `Target` value through
+the public API. The default target is a bare 68000 with no coprocessors,
+so every example elsewhere in this document keeps working unchanged.
+Everything in this section is additive syntax gated behind one of those
+flags; see [`README.md`](../README.md) for the exact instruction lists and
+scope caveats, and
+[`docs/design/cpu-family-support.md`](design/cpu-family-support.md) for the
+full milestone-by-milestone design history.
+
+### 7.1 CPU tiers (`--cpu`)
+
+`--cpu` accepts `68000` (default), `68008`, `68010`, `68012`, `cpu32`,
+`68020`, `68030`, `68040`, and `68060`. Each tier is additive over the
+previous one except `cpu32`, which sits in its own branch: it gets the full
+68010 tier plus the specific 68020-era additions Motorola backported to it
+(`BRA.L`/`BSR.L`/`Bcc.L`, scale factors, `CHK2`/`CMP2`, `EXTB.L`, `TRAPcc`),
+but not 68020's memory-indirect addressing, bit-field instructions,
+`CAS`/`CAS2`, or the coprocessor interface.
+
+```asm
+MOVEC VBR,A0          ; 68010+
+BRA.L faraway          ; 68020+ or cpu32
+CHK2.B (A0),D1          ; 68020+ or cpu32
+MOVE.L (0,A0,D1.W*2),D2 ; 68020+ scale factor
+CAS.B D0,D1,(A0)         ; 68020+
+TBLS.B (A0),D0            ; cpu32 only
+MOVE16 (A0)+,(A1)+         ; 68040+ (also 68060)
+```
+
+### 7.2 68020+ memory-indirect addressing
+
+```text
+([bd,An],Xn,od)     pre-indexed
+([bd,An,Xn],od)      post-indexed
+```
+
+plus PC-relative equivalents (`([bd,PC],Xn,od)`, `([bd,PC,Xn],od)`). Notes:
+
+- A base register is always required — register suppression is not
+  supported.
+- `bd` must always be written explicitly inside the brackets; there is no
+  `([An],...)` shorthand for a zero base displacement.
+- A `bd`/`od` that references a symbol must carry an explicit `.w`/`.l`
+  size, since a symbol's value can change between the assembler's two
+  passes and its encoded length can never be auto-detected from it.
+
+```asm
+MOVE.L ([0,A0],D1,0),D2
+MOVE.L ([0,A0,D1],4),D2
+LEA ([100.L,PC],A0,2.W),A1
+```
+
+### 7.3 FPU (`--fpu`)
+
+`FPn` (`FP0`-`FP7`) is a new register class, usable as either operand of
+`FMOVE`/`FADD`/`FSUB`/`FMUL`/`FDIV`/`FCMP`/`FABS`/`FNEG`/`FSQRT`/`FTST`. FPU
+size suffixes are `.b`/`.w`/`.l` (integer conversion) and `.s`/`.d`/`.x`
+(single/double/extended-precision) — see §5.
+
+```asm
+FADD.X (A0),FP0
+FMOVE.L D0,FP0
+FMOVE.X FP2,(A0)
+FABS FP0                 ; single-operand shorthand: FP0 = |FP0|
+```
+
+The FPU's own 32-condition branch/set/trap family mirrors the integer ISA's
+`Bcc`/`Scc`/`DBcc`/`TRAPcc`, just with `F`-prefixed mnemonics, 32 conditions
+instead of 16, and this codebase's own `.W`/`.L` suffix convention (not GNU
+`as`'s separately-spelled `fbeq`/`fbeql` mnemonics) for the branch
+displacement size:
+
+```asm
+FBEQ.W target             ; word displacement
+FBEQ.L target              ; 32-bit displacement — no 8-bit inline form exists
+FDBEQ D0,target              ; word displacement only
+FSEQ D0                        ; data-alterable destination, like Scc
+FTRAPEQ                          ; bare, .W, or .L immediate forms
+```
+
+`FMOVECR #<0-127>,FPn` loads one of the FPU's built-in ROM constants by
+numeric index (named aliases like `fp_pi` are not implemented).
+`FSAVE`/`FRESTORE <ea>` save/restore the FPU's internal state frame
+(`FSAVE` accepts `-(An)`, not `(An)+`; `FRESTORE` the reverse).
+
+`FMOVEM` covers two distinct register-list operands:
+
+```asm
+FMOVEM.X FP0-FP7,-(SP)          ; static FPn list — range/slash syntax like MOVEM
+FMOVEM.X D0,-(SP)                ; dynamic list: the mask is read from D0 at runtime
+FMOVEM FPIAR,D0                    ; a single named control register may target Dn/An too
+FMOVEM FPCR/FPSR,(A0)                ; a genuine multi-register combination needs memory
+```
+
+`FPCR`, `FPSR`, and `FPIAR` are also valid as plain register operands
+elsewhere `--fpu` accepts a control register.
+
+### 7.4 PMMU (`--mmu`)
+
+`PMOVE` moves one of several PMMU registers to or from memory, `Dn`, or
+`An` (restrictions vary by register — see the README):
+
+```asm
+PMOVE.L (A0),TC             ; enable/configure address translation
+PMOVE.L CRP,(A0)              ; root pointer descriptor (memory only, 64-bit)
+PMOVE.L (A0),TT0                ; transparent translation window
+PMOVE.B D0,CAL                    ; access-level register, byte-sized
+PMOVE.W (A0),MMUSR                  ; or PMOVE.W (A0),PSR — same register, two names
+```
+
+`PFLUSHA` flushes the entire address translation cache and takes no
+operands. The PMMU's own 16-condition branch/set/trap family mirrors §7.3's
+FPU family and the integer ISA, with its own `PBcc`/`PDBcc`/`PScc`/`PTRAPcc`
+mnemonics, conditions, and (for `PBcc`) `.W`/`.L` suffix convention.
+
+A cache selector (`NC`, `DC`, `IC`, or `BC`) is `CINV`/`CPUSH`'s first
+operand on `--cpu 68040` or later:
+
+```asm
+CINVA BC
+CINVL DC,(A0)
+CPUSHP IC,(A3)
+```
+
+### 7.5 Register pairs and multi-part operands
+
+A handful of 68020+ instructions take a colon-joined register pair or a
+bit-field specifier rather than a single register or plain `<ea>`:
+
+```asm
+DIVSL.L (A0),D0:D1            ; Dr:Dq — 64-bit dividend; "D0" alone means Dq only
+CAS2.L D0:D1,D2:D3,(A0):(A1)    ; compare/update pairs, plus a memory-pointer pair
+BFEXTU (A0){0:8},D2               ; bit-field {offset:width} — either half can be
+BFINS D3,(A0){D1:D2}                 ; a literal or a Dn register
+TBLS.B D0:D1,D2                        ; cpu32 table-lookup register form
+```
+
+Bit-field offset/width syntax is available on any data-alterable or
+readable EA (including `Dn`, but not `(An)+`/`-(An)`) for
+`BFTST`/`BFCHG`/`BFCLR`/`BFSET`/`BFEXTU`/`BFEXTS`/`BFFFO`/`BFINS`; a
+literal offset is `0`-`31` and a literal width is `1`-`32`.
+
+## 8. Diagnostics
 
 Parse and assembly failures are reported with source location context.
 
 - Errors include line numbers.
 - When column information is available, errors include a caret.
 - The public API exposes these as `m68kasm.Error`.
+- `--cpu 68060` also produces non-fatal `warning:` messages (to stderr, not
+  `m68kasm.Error`) for a handful of 68020-era forms real 68060 silicon
+  traps and software-emulates instead of executing natively — see the
+  README for the exact list. Assembly still succeeds; this is purely
+  informational.
 
 Example shape:
 
@@ -264,7 +441,7 @@ line 1, col 1: unknown mnemonic
     ^
 ```
 
-## 8. Practical Examples
+## 9. Practical Examples
 
 ```asm
 .org $1000
@@ -284,9 +461,15 @@ BRA 1f
 1:
 ```
 
-## 9. Notes
+## 10. Notes
 
-- The assembler targets the Motorola 68000 instruction set.
-- The parser accepts Motorola-style syntax, not GAS/AT&T syntax.
+- The assembler's default target is the Motorola 68000 instruction set;
+  `--cpu`/`--fpu`/`--mmu` extend it up through 68060, CPU32, an attached or
+  integrated FPU, and a PMMU (§7). Every 68000-only example elsewhere in
+  this document keeps working unchanged on every tier.
+- The parser accepts Motorola-style syntax, not GAS/AT&T syntax. Where this
+  codebase's own convention diverges from GNU binutils' `as` (e.g. `.W`/`.L`
+  suffixes on branch instructions instead of separately-spelled mnemonics),
+  that choice is called out explicitly in §7 and in the README.
 - ELF output is executable-oriented: one flat load segment plus `.text`/`.data`/`.bss` metadata, not relocatable object generation.
 - Section directives are intentionally lightweight and currently support only forward-only `.text` -> `.data` -> `.bss` layout.

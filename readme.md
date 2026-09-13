@@ -114,7 +114,13 @@ m68kasm [options] <source-files>
 
 **Example:**
 ```bash
-m68kasm -o hello.bin tests/e2e/testdata/hello.s
+cat > hello.s <<'EOF'
+        MOVEQ   #1,D0
+        LEA     $2000,A0
+        BRA     start
+start:
+EOF
+m68kasm -i hello.s -o hello.bin
 hexdump -C hello.bin
 ```
 
@@ -152,21 +158,25 @@ Errors returned by the public API include source location context and, when
 available, the original source line with a caret marker. Type-assert to
 `m68kasm.Error` when you want structured access to line and column data.
 
-### Quick start: assemble and run the sample program
+### Quick start: build and run from a fresh clone
 
-If you want to see the assembler in action immediately, clone the repository and build the CLI, then assemble the bundled
-`hello.s` example. The following commands will produce a binary and print it as hexadecimal bytes:
+If you want to see the assembler in action immediately, clone the repository, build the CLI, and assemble a small source
+file. The following commands will produce a binary and print it as hexadecimal bytes:
 
 ```bash
 git clone https://github.com/jenska/m68kasm.git
 cd m68kasm
-go build ./cmd/m68kasm
-./m68kasm -o hello.bin tests/e2e/testdata/hello.s
+go build -o m68kasm ./cmd/m68kasm
+
+cat > hello.s <<'EOF'
+        MOVEQ   #1,D0
+        LEA     $2000,A0
+        BRA     start
+start:
+EOF
+./m68kasm -i hello.s -o hello.bin
 hexdump -C hello.bin
 ```
-
-The `tests/e2e/testdata/hello.s` file demonstrates the currently implemented instructions (`MOVEQ`, `LEA`, and `BRA`) and is
-exercised by the automated end-to-end tests.
 
 ---
 
@@ -176,8 +186,6 @@ exercised by the automated end-to-end tests.
 cmd/m68kasm/              # Command-line frontend
 internal/asm/             # Assembler pipeline (lexer, parser, evaluation, encoding)
 internal/asm/instructions # Declarative instruction tables and helpers
-tests/e2e/                # End-to-end tests for the CLI
-tests/e2e/testdata/       # Sample assembly sources and expected binaries used by the tests
 docs/                     # Reference material including grammar and opcode tables
 ```
 
@@ -202,7 +210,7 @@ A ready-to-use **GitHub Actions** workflow (`.github/workflows/ci.yml`) is provi
 It performs:
 - Module verification (`go mod verify`)  
 - Vetting (`go vet`)  
-- Unit and E2E tests (`go test ./...`)  
+- Unit tests (`go test ./...`)  
 - CLI build validation
 
 ---
@@ -259,7 +267,6 @@ Make sure the CI passes before submitting.
 
 **Testing & Benchmarks**
 - All 200+ unit tests pass
-- All e2e tests pass
 - All benchmarks pass with improved performance metrics
 - Fixed validation benchmark tests
 
@@ -301,12 +308,12 @@ You are free to use, modify, and distribute the project with attribution.
 
 ## 🧱 Example Output
 
-For the included `hello.s` example, assembling yields:
+For the `hello.s` example from the Quick Start section above, assembling yields:
 
 ```
 $ hexdump -C hello.bin
-00000000  76 07 41 e9 00 10 43 fb  22 08 60 00 f4 aa bb cc  |v.A...C.".`.....|
-00000010
+00000000  70 01 41 f9 00 00 20 00  60 00                    |p.A... .`.|
+0000000a
 ```
 ---
 
