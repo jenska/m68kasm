@@ -20,6 +20,10 @@ var controlAlterableEA = map[EAExprKind]bool{
 	EAkAbsL:       true,
 	EAkPCDisp16:   true,
 	EAkIdxPCBrief: true,
+	EAkMemPreAn:   true,
+	EAkMemPrePC:   true,
+	EAkMemPostAn:  true,
+	EAkMemPostPC:  true,
 }
 
 func validateControlEA(name string, a *Args) error {
@@ -54,6 +58,8 @@ func checkImmediateRange(v int64, sz Size) error {
 var pcRelativeEA = map[EAExprKind]bool{
 	EAkPCDisp16:   true,
 	EAkIdxPCBrief: true,
+	EAkMemPrePC:   true,
+	EAkMemPostPC:  true,
 }
 
 func isPCRelativeKind(k EAExprKind) bool {
@@ -69,6 +75,8 @@ var memoryAlterableEA = map[EAExprKind]bool{
 	EAkIdxAnBrief:  true,
 	EAkAbsW:        true,
 	EAkAbsL:        true,
+	EAkMemPreAn:    true,
+	EAkMemPostAn:   true,
 }
 
 // Data alterable EA kinds: Dn, plus memory alterable
@@ -81,6 +89,8 @@ var dataAlterableEA = map[EAExprKind]bool{
 	EAkIdxAnBrief:  true,
 	EAkAbsW:        true,
 	EAkAbsL:        true,
+	EAkMemPreAn:    true,
+	EAkMemPostAn:   true,
 }
 
 // isMemoryAlterable checks if an EA kind is memory-alterable (but not Dn/An).
@@ -106,6 +116,10 @@ var readableDataEA = map[EAExprKind]bool{
 	EAkPCDisp16:    true,
 	EAkIdxPCBrief:  true,
 	EAkImm:         true,
+	EAkMemPreAn:    true,
+	EAkMemPrePC:    true,
+	EAkMemPostAn:   true,
+	EAkMemPostPC:   true,
 }
 
 // isReadableDataEA checks if EA can be used as a source for data operations (like MOVE to SR/CCR).
@@ -124,6 +138,10 @@ var movemLoadEA = map[EAExprKind]bool{
 	EAkIdxAnBrief:  true,
 	EAkAbsW:        true,
 	EAkAbsL:        true,
+	EAkMemPreAn:    true,
+	EAkMemPrePC:    true,
+	EAkMemPostAn:   true,
+	EAkMemPostPC:   true,
 }
 
 // isMovemLoadEA checks if EA can be used as a source for MOVEM.

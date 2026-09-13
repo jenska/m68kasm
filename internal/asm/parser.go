@@ -40,6 +40,7 @@ type (
 		allowForwardRefs bool
 		macros           map[string]macroDef
 		instrs           *instructions.Table
+		target           instructions.Target
 		pc               uint32
 		origin           uint32
 		hasOrg           bool
@@ -70,9 +71,16 @@ func copySymbols(src map[string]uint32) map[string]uint32 {
 	return dst
 }
 
+// ParseOptions controls parser customization for all public assembly
+// helpers. Symbols predefines label values, InstrTable lets advanced
+// callers supply an alternate instruction table, and Target selects the
+// CPU tier (and, in later milestones, coprocessor features) to assemble
+// for. The zero value targets a bare 68000, matching this assembler's
+// behavior before Target existed.
 type ParseOptions struct {
 	Symbols    map[string]uint32
 	InstrTable *instructions.Table
+	Target     instructions.Target
 }
 
 func Parse(r io.Reader) (*Program, error) {
@@ -90,13 +98,14 @@ func ParseWithOptions(r io.Reader, opts ParseOptions) (*Program, error) {
 	if table == nil {
 		table = instructions.DefaultTable()
 	}
+	table = table.ForTarget(opts.Target)
 
-	firstPass, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, opts.Symbols, true)
+	firstPass, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, opts.Symbols, true, opts.Target)
 	if err != nil {
 		return nil, withSourceLines(err, lines)
 	}
 
-	prog, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, firstPass.Labels, false)
+	prog, err := parseWithLexer(NewLexer(bytes.NewReader(src)), table, firstPass.Labels, false, opts.Target)
 	if err != nil {
 		return nil, withSourceLines(err, lines)
 	}
@@ -113,7 +122,7 @@ func splitSourceLines(src []byte) []string {
 	return strings.Split(text, "\n")
 }
 
-func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint32, allowForward bool) (*Program, error) {
+func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint32, allowForward bool, target instructions.Target) (*Program, error) {
 	p := &Parser{
 		lx:               lx,
 		labels:           copySymbols(symbols),
@@ -123,6 +132,7 @@ func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint
 		allowForwardRefs: allowForward,
 		macros:           map[string]macroDef{},
 		instrs:           table,
+		target:           target,
 		section:          SectionText,
 	}
 	for {
@@ -170,7 +180,7 @@ func parseWithLexer(lx lexer, table *instructions.Table, symbols map[string]uint
 	}
 
 	definedLabels := slices.Clone(p.definedLabels)
-	return &Program{Items: p.items, Labels: p.labels, DefinedLabels: definedLabels, Origin: origin}, nil
+	return &Program{Items: p.items, Labels: p.labels, DefinedLabels: definedLabels, Origin: origin, Target: target}, nil
 }
 
 func ParseFile(path string) (*Program, error) {

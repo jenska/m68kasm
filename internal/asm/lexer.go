@@ -44,6 +44,10 @@ const (
 	CARET
 	TILDE
 	DOLLAR
+	LBRACKET
+	RBRACKET
+	LBRACE
+	RBRACE
 	NEWLINE
 )
 
@@ -132,6 +136,14 @@ func (k Kind) String() string {
 		return "caret"
 	case TILDE:
 		return "tilde"
+	case LBRACKET:
+		return "left bracket"
+	case RBRACKET:
+		return "right bracket"
+	case LBRACE:
+		return "left brace"
+	case RBRACE:
+		return "right brace"
 	case NEWLINE:
 		return "newline"
 	default:
@@ -198,6 +210,14 @@ func (lx *Lexer) next() Token {
 			return lx.tok(LPAREN, "(", 0)
 		case ')':
 			return lx.tok(RPAREN, ")", 0)
+		case '[':
+			return lx.tok(LBRACKET, "[", 0)
+		case ']':
+			return lx.tok(RBRACKET, "]", 0)
+		case '{':
+			return lx.tok(LBRACE, "{", 0)
+		case '}':
+			return lx.tok(RBRACE, "}", 0)
 		case '.':
 			return lx.tok(DOT, ".", 0)
 		case '+':

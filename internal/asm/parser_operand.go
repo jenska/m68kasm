@@ -28,7 +28,7 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 	args.Size = sz
 
 	for i, operandKind := range form.OperKinds {
-		if i == 1 {
+		if i > 0 {
 			if _, err := p.want(COMMA); err != nil {
 				return args, err
 			}
@@ -39,10 +39,15 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 			return args, err
 		}
 
-		if i == 0 {
+		switch i {
+		case 0:
 			args.Src = eaExpr
-		} else {
+		case 1:
 			args.Dst = eaExpr
+		default:
+			// A third operand (CAS's <ea>, PACK/UNPK's #adjustment) —
+			// every other instruction in this codebase has at most two.
+			args.Aux = eaExpr
 		}
 	}
 
@@ -125,6 +130,50 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = special
 
+	case instructions.OpkTC:
+		special, err := p.parseExpectedSpecialRegister("TC", instructions.EAkTC)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkCtrlReg:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		ctrlKind, ok := controlRegisterKind(tok.Text)
+		if !ok {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected a control register (SFC, DFC, USP, or VBR), got %s", tok.Text))
+		}
+		eaExpr.Kind = ctrlKind
+
+	case instructions.OpkFPn:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		n, ok := parseFPRegister(tok.Text)
+		if !ok {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected an FPU register (FP0-FP7), got %s", tok.Text))
+		}
+		eaExpr.Kind = instructions.EAkFPn
+		eaExpr.Reg = n
+
+	case instructions.OpkRegPair:
+		pair, err := p.parseRegPair()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = pair
+
+	case instructions.OpkAnIndPair:
+		pair, err := p.parseAnIndPair()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = pair
+
 	case instructions.OpkEA:
 		ea, err := p.parseEA()
 		if err != nil {
@@ -187,12 +236,22 @@ func (p *Parser) parseSizeSpec(mn Token, def instructions.Size, allowed []instru
 		return instructions.WordSize, nil
 	}
 
+	// FPU mnemonics ("F..." — FADD, FMOVE, etc.) use .s/.d/.x for single/
+	// double/extended precision, which collides with the plain ".s" =
+	// byte-branch alias every other mnemonic uses: the same letter means
+	// something different depending on which instruction family it
+	// follows, so the lookup itself must be mnemonic-aware.
+	parseSuffix := sizeFromIdent
+	if len(mn.Text) > 0 && (mn.Text[0] == 'F' || mn.Text[0] == 'f') {
+		parseSuffix = fpSizeFromIdent
+	}
+
 	if idx := strings.IndexRune(mn.Text, '.'); idx > 0 {
 		suf := mn.Text[idx+1:]
 		if suf == "" {
 			return 0, parserError(mn, "unknown size suffix")
 		}
-		sz, ok := sizeFromIdent(suf)
+		sz, ok := parseSuffix(suf)
 		if !ok {
 			return 0, parserError(mn, "unknown size suffix "+suf)
 		}
@@ -237,6 +296,31 @@ func sizeFromIdent(s string) (instructions.Size, bool) {
 		return instructions.WordSize, true
 	case "l":
 		return instructions.LongSize, true
+	default:
+		return 0, false
+	}
+}
+
+// fpSizeFromIdent is sizeFromIdent for FPU mnemonics: same integer sizes
+// (.b/.w/.l, for FPU instructions that convert to/from an integer EA),
+// plus .s/.d/.x for the IEEE single/double and Motorola extended
+// floating-point formats. ".s" means byte-sized-branch for every other
+// mnemonic (sizeFromIdent) but single-precision here — see
+// parseSizeSpec's dispatch and Size's doc comment on SingleSize.
+func fpSizeFromIdent(s string) (instructions.Size, bool) {
+	switch strings.ToLower(s) {
+	case "b":
+		return instructions.ByteSize, true
+	case "w":
+		return instructions.WordSize, true
+	case "l":
+		return instructions.LongSize, true
+	case "s":
+		return instructions.SingleSize, true
+	case "d":
+		return instructions.DoubleSize, true
+	case "x":
+		return instructions.ExtendedSize, true
 	default:
 		return 0, false
 	}

@@ -143,7 +143,7 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 func instructionWords(form *instructions.FormDef, args instructions.Args) (int, error) {
 	words := 0
 
-	var srcEA, dstEA instructions.EAEncoded
+	var srcEA, dstEA, auxEA instructions.EAEncoded
 	var err error
 
 	if args.Src.Kind != instructions.EAkNone {
@@ -158,9 +158,19 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 			return 0, err
 		}
 	}
+	if args.Aux.Kind != instructions.EAkNone {
+		auxEA, err = instructions.EncodeEA(args.Aux, 0)
+		if err != nil {
+			return 0, err
+		}
+	}
 
 	for _, step := range form.Steps {
-		haveWord := (step.WordBits != 0) || (len(step.Fields) > 0)
+		// Must match encode.go's identical haveWord computation exactly
+		// (see its comment) — a mismatch here would silently miscount
+		// PC advancement for any all-zero fixed word (e.g. FNOP's
+		// second word, 0x0000).
+		haveWord := step.WordBits != 0 || len(step.Fields) > 0 || len(step.Trailer) == 0
 		if haveWord {
 			words++
 		}
@@ -185,7 +195,15 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 				if args.Size == instructions.WordSize {
 					words++
 				}
+			case instructions.TBranchLongIfNeeded:
+				if args.Size == instructions.LongSize {
+					words += 2
+				}
 			case instructions.TSrcRegMask, instructions.TDstRegMask:
+				words++
+			case instructions.TAuxEAExt:
+				words += len(auxEA.Ext)
+			case instructions.TAuxImmWord:
 				words++
 			}
 		}

@@ -21,6 +21,21 @@ func init() {
 		if b == "BSR" {
 			sz = WordSize
 		}
+		// Byte/word and 32-bit-displacement forms share identical Steps:
+		// FBranchLow8 and the two "IfNeeded" trailers each key off which of
+		// BrUseWord/BrUseLong Encode resolved, so the same EmitStep values
+		// work correctly regardless of which form matched. Only Sizes and
+		// the gate on the long form differ. The long form is tagged
+		// Target{CPU: CPU32} rather than CPU68020: GNU binutils'
+		// gas/config/tc-m68k.c HAVE_LONG_BRANCH macro confirms CPU32 also
+		// has 32-bit branch displacements, and Supports' plain CPU-floor
+		// comparison grants this to CPU32 *and* every 68020+ tier from
+		// that one tag (CPU32's enum value sits below CPU68020) — no
+		// special-casing needed, unlike a form CPU32 alone supports.
+		steps := []EmitStep{
+			{WordBits: 0x6000 | uint16(c)<<8, Fields: []FieldRef{FBranchLow8}},
+			{Trailer: []TrailerItem{TBranchWordIfNeeded, TBranchLongIfNeeded}},
+		}
 		registerInstrDef(&InstrDef{
 			Mnemonic: b,
 			Forms: []FormDef{
@@ -28,11 +43,14 @@ func init() {
 					DefaultSize: sz,
 					Sizes:       []Size{ByteSize, WordSize},
 					OperKinds:   []OperandKind{OpkDispRel},
-					Validate:    nil,
-					Steps: []EmitStep{
-						{WordBits: 0x6000 | uint16(c)<<8, Fields: []FieldRef{FBranchLow8}},
-						{Trailer: []TrailerItem{TBranchWordIfNeeded}},
-					},
+					Steps:       steps,
+				},
+				{
+					DefaultSize: LongSize,
+					Sizes:       []Size{LongSize},
+					OperKinds:   []OperandKind{OpkDispRel},
+					Requires:    Target{CPU: CPU32},
+					Steps:       steps,
 				},
 			},
 		})

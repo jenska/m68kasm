@@ -14,6 +14,7 @@ type Program struct {
 	DefinedLabels []DefinedLabel
 	Origin        uint32
 	SourceLines   []string
+	Target        instructions.Target
 }
 
 // DefinedLabel captures a named label defined in source so that output formats
@@ -160,10 +161,14 @@ func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.Op
 				continue
 			}
 		}
-		if len(form.OperKinds) > 0 {
-			if !operKindsMatch(form.OperKinds, actual) {
-				continue
-			}
+		// operKindsMatch already treats a zero-length expected list as
+		// "match only a zero-length actual list" correctly on its own, so
+		// this must not be skipped when form.OperKinds is empty: doing so
+		// let a zero-operand form (e.g. TRAPcc's bare form) swallow a
+		// same-size form that does take operands, silently discarding
+		// them (see docs/design/cpu-family-support.md, milestone 5).
+		if !operKindsMatch(form.OperKinds, actual) {
+			continue
 		}
 		return form, nil
 	}
@@ -178,7 +183,7 @@ func sizeAllowed(allowed []instructions.Size, sz instructions.Size) bool {
 }
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
-	var kinds [3]instructions.OperandKind
+	var kinds [4]instructions.OperandKind
 	n := 0
 	haveTarget := false
 	if a.HasImmQuick {
@@ -204,6 +209,11 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 		n++
 	}
 
+	if a.Aux.Kind != instructions.EAkNone {
+		kinds[n] = operandKindFromEA(a.Aux)
+		n++
+	}
+
 	if (a.Target != "" || a.HasTargetAddr) && !haveTarget {
 		kinds[n] = instructions.OpkDispRel
 		n++
@@ -221,6 +231,13 @@ var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
 	instructions.EAkSR:         instructions.OpkSR,
 	instructions.EAkCCR:        instructions.OpkCCR,
 	instructions.EAkUSP:        instructions.OpkUSP,
+	instructions.EAkSFC:        instructions.OpkCtrlReg,
+	instructions.EAkDFC:        instructions.OpkCtrlReg,
+	instructions.EAkVBR:        instructions.OpkCtrlReg,
+	instructions.EAkFPn:        instructions.OpkFPn,
+	instructions.EAkRegPair:    instructions.OpkRegPair,
+	instructions.EAkAnIndPair:  instructions.OpkAnIndPair,
+	instructions.EAkTC:         instructions.OpkTC,
 }
 
 // operandKindFromEA classifies an EA expression into the broader operand kind categories
@@ -253,6 +270,12 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn:
 			return true
 		}
+	}
+	// USP is also a MOVEC control register (EAkUSP maps to OpkUSP so
+	// MOVE USP,An/An,USP keep working unchanged), so a form requiring
+	// OpkCtrlReg must accept an OpkUSP operand too.
+	if expect == instructions.OpkCtrlReg && actual == instructions.OpkUSP {
+		return true
 	}
 	return false
 }
