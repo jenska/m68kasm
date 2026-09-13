@@ -44,6 +44,12 @@ var eaTable = []eaEntry{
 	/* EAkTT0 */ {mode: 0, reg: 0, valid: true},
 	/* EAkTT1 */ {mode: 0, reg: 0, valid: true},
 	/* EAkMMUSR */ {mode: 0, reg: 0, valid: true},
+	/* EAkDRP */ {mode: 0, reg: 0, valid: true},
+	/* EAkCAL */ {mode: 0, reg: 0, valid: true},
+	/* EAkVAL */ {mode: 0, reg: 0, valid: true},
+	/* EAkSCC */ {mode: 0, reg: 0, valid: true},
+	/* EAkAC */ {mode: 0, reg: 0, valid: true},
+	/* EAkPCSR */ {mode: 0, reg: 0, valid: true},
 }
 
 // EncodeEA converts an addressing expression into the mode/reg pair and any extension words.

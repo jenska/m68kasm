@@ -1134,6 +1134,58 @@ need a separate phase.
       `Sizes: [LongSize]`, word1 literals `0xF080|cc` and `0xF0C0|cc`)
       — the same choice already made for `BRA.L`/`BSR.L` (milestone 3)
       and `FBcc.L` (milestone 13).
+20. ✅ **Done.** `PMOVE`'s remaining registers (§5.3) — `DRP`, `CAL`,
+    `VAL`, `SCC`, `AC`, `PSR`, `PCSR` — chosen by the maintainer from
+    the open items list after milestone 19, completing `PMOVE` except
+    for `BAD`/`BAC`.
+    - **Sizes turned out to genuinely differ by register, not assumed
+      uniform with `TC`'s own `.L`**: re-reading `gas/config/tc-m68k.c`'s
+      type-check switch (not just its `install_operand` dispatch, which
+      is shared and identical across `TC`/`AC`/`CAL`/`VAL`/`SCC`) showed
+      three *separate* opcode-table rows restricting `TC` to `.L`, `AC`
+      to `.W`, and `CAL`/`VAL`/`SCC` to `.B` — despite all five sharing
+      the exact same selector-value computation. `newPmmuFixedReg`
+      (milestone 18) gained an explicit `sz Size` parameter rather than
+      inferring it, since inference (as milestone 18's own version did,
+      hard-coding `MMUSR` as the one `.W` exception) would have
+      silently gotten `AC`/`CAL`/`VAL`/`SCC` wrong.
+    - **`CAL`/`VAL`/`SCC` needed no new mechanism at all, despite GAS
+      giving them one shared opcode-table row with a runtime-computed
+      selector**: since each of the three has its own `OperandKind` in
+      this codebase (unlike GAS, which distinguishes them only via
+      `opP->reg` at parse time within one shared row), each one's
+      *individual* selector value (`4`/`5`/`6`) can just be folded into
+      its own literal at write time — the same `newPmmuFixedReg` helper
+      every other fixed-selector register already uses, no different
+      from how `CRP`/`SRP`/`TT0`/`TT1` needed no shared dispatch despite
+      also having one word2 base each.
+    - **"PSR" added as a second accepted name for the already-shipped
+      `MMUSR` encoding, not a new register.** The 68851 calls this
+      register "PSR"; the 68030 calls the identical encoding "MMUSR" —
+      real hardware, not two different things (confirmed via GAS's own
+      comment on the register enum). Handled as a small addition to the
+      existing `OpkMMUSR` parser case (accept either spelling, same
+      `EAkMMUSR` result) rather than a new `EAExprKind`/`Form` pair.
+    - **`PCSR` is store-only**, matching GAS's own table: there is no
+      `"<ea>,PCSR"` row at all, only `"PCSR,<ea>"` — confirmed rather
+      than assumed symmetric with every other `PMOVE` register.
+    - **Deliberately still deferred: `BAD0`-`BAD7`/`BAC0`-`BAC7`**
+      (breakpoint address/access registers, 8 numbered instances each).
+      Their encoding turned out to need a register-*number* field (bits
+      4-2) in addition to the usual selector, and — confirmed while
+      researching this milestone, not assumed — an INVERTED load/store
+      direction bit relative to every other `PMOVE` register (GAS's own
+      table: load word2 `0x6200`, store `0x6000`, the reverse of the
+      `0x...00`-load/`0x...200`-store convention every other register in
+      this file follows). Different enough in shape, and obscure enough
+      even among an already-rare instruction family, to warrant its own
+      milestone rather than folding it in here.
+    - **A second milestone-N test premise went stale, caught and
+      updated the same way milestone 18's was**: `TestPmoveRejectsUnknownSecondRegister`
+      (retargeted to `DRP` in milestone 18) needed retargeting again,
+      this time to `BAD0` — the pattern of "this test's specific choice
+      of still-unsupported register will keep going stale as PMOVE
+      grows" is now expected and unsurprising, not a recurring bug.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

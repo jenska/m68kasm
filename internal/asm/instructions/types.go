@@ -280,6 +280,15 @@ const (
 	OpkTT0
 	OpkTT1
 	OpkMMUSR
+	// OpkDRP, OpkCAL, OpkVAL, OpkSCC, OpkAC, and OpkPCSR match PMOVE's
+	// remaining fixed-selector PMMU registers (see cpu030_pmmu3.go) —
+	// same shape as OpkCRP/OpkSRP/etc. above.
+	OpkDRP
+	OpkCAL
+	OpkVAL
+	OpkSCC
+	OpkAC
+	OpkPCSR
 )
 
 type InstrDef struct {
@@ -455,6 +464,16 @@ const (
 	EAkTT0
 	EAkTT1
 	EAkMMUSR
+	// EAkDRP, EAkCAL, EAkVAL, EAkSCC, EAkAC, and EAkPCSR are PMOVE's
+	// remaining fixed, unnumbered PMMU registers (see cpu030_pmmu3.go).
+	// EAkMMUSR itself now also matches the 68851's own name for the
+	// same register, "PSR" — see the OpkMMUSR parser case.
+	EAkDRP
+	EAkCAL
+	EAkVAL
+	EAkSCC
+	EAkAC
+	EAkPCSR
 )
 
 type EAExpr struct {

@@ -42,25 +42,25 @@ import "fmt"
 //     broad restriction TC's own Forms already use — readableDataEA
 //     for the load direction, dataAlterableEA for the store direction.
 func init() {
-	newPmmuFixedReg("CRP", OpkCRP, 0x4000|(3<<10), 0x4200|(3<<10), memoryAlterableEA, memoryAlterableEA)
-	newPmmuFixedReg("SRP", OpkSRP, 0x4000|(2<<10), 0x4200|(2<<10), memoryAlterableEA, memoryAlterableEA)
-	newPmmuFixedReg("TT0", OpkTT0, 0x0800, 0x0A00, nil, nil)
-	newPmmuFixedReg("TT1", OpkTT1, 0x0C00, 0x0E00, nil, nil)
-	newPmmuFixedReg("MMUSR", OpkMMUSR, 0x6000, 0x6200, nil, nil)
+	newPmmuFixedReg("CRP", OpkCRP, LongSize, 0x4000|(3<<10), 0x4200|(3<<10), memoryAlterableEA, memoryAlterableEA)
+	newPmmuFixedReg("SRP", OpkSRP, LongSize, 0x4000|(2<<10), 0x4200|(2<<10), memoryAlterableEA, memoryAlterableEA)
+	newPmmuFixedReg("TT0", OpkTT0, LongSize, 0x0800, 0x0A00, nil, nil)
+	newPmmuFixedReg("TT1", OpkTT1, LongSize, 0x0C00, 0x0E00, nil, nil)
+	newPmmuFixedReg("MMUSR", OpkMMUSR, WordSize, 0x6000, 0x6200, nil, nil) // GAS's own "*w.../ ...%s" size hint — MMUSR is 16 bits
 }
 
 // newPmmuFixedReg appends a load Form ("PMOVE.<sz> <ea>,REG") and a
 // store Form ("PMOVE.<sz> REG,<ea>") to the existing PMOVE InstrDef for
-// one PMMU register whose word2 is fully known at compile time.
-// loadEA/storeEA are the destination-EA-kind sets to validate against;
-// nil means "use TC's own existing readableDataEA/dataAlterableEA
-// restriction" (TT0/TT1/MMUSR), non-nil overrides it (CRP/SRP's
-// stricter memory-only restriction).
-func newPmmuFixedReg(name string, opk OperandKind, loadWord2, storeWord2 uint16, loadEA, storeEA map[EAExprKind]bool) {
-	sz := LongSize
-	if name == "MMUSR" {
-		sz = WordSize // GAS's own "*w.../ ...%s" size hint — MMUSR is 16 bits
-	}
+// one PMMU register whose word2 is fully known at compile time. sz is
+// explicit, not inferred, because GAS's own per-register type-check
+// restricts different PMOVE registers to different sizes (confirmed
+// per-register, not assumed uniform — see cpu030_pmmu3.go's own header
+// comment for the full breakdown: TC is .L, AC is .W, CAL/VAL/SCC are
+// .B). loadEA/storeEA are the destination-EA-kind sets to validate
+// against; nil means "use TC's own existing readableDataEA/
+// dataAlterableEA restriction" (TT0/TT1/MMUSR), non-nil overrides it
+// (CRP/SRP's stricter memory-only restriction).
+func newPmmuFixedReg(name string, opk OperandKind, sz Size, loadWord2, storeWord2 uint16, loadEA, storeEA map[EAExprKind]bool) {
 	loadValidate := func(a *Args) error {
 		set := loadEA
 		if set == nil {

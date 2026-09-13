@@ -166,7 +166,55 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		eaExpr = special
 
 	case instructions.OpkMMUSR:
-		special, err := p.parseExpectedSpecialRegister("MMUSR", instructions.EAkMMUSR)
+		// "PSR" is the 68851's own name for this exact register and
+		// encoding; "MMUSR" is the 68030's name for it. Real hardware,
+		// not two different things — see cpu030_pmmu3.go.
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		if !strings.EqualFold(tok.Text, "MMUSR") && !strings.EqualFold(tok.Text, "PSR") {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected MMUSR or PSR"))
+		}
+		eaExpr = instructions.EAExpr{Kind: instructions.EAkMMUSR}
+
+	case instructions.OpkDRP:
+		special, err := p.parseExpectedSpecialRegister("DRP", instructions.EAkDRP)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkCAL:
+		special, err := p.parseExpectedSpecialRegister("CAL", instructions.EAkCAL)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkVAL:
+		special, err := p.parseExpectedSpecialRegister("VAL", instructions.EAkVAL)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkSCC:
+		special, err := p.parseExpectedSpecialRegister("SCC", instructions.EAkSCC)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkAC:
+		special, err := p.parseExpectedSpecialRegister("AC", instructions.EAkAC)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkPCSR:
+		special, err := p.parseExpectedSpecialRegister("PCSR", instructions.EAkPCSR)
 		if err != nil {
 			return eaExpr, err
 		}
