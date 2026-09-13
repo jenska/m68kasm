@@ -137,6 +137,41 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = special
 
+	case instructions.OpkCRP:
+		special, err := p.parseExpectedSpecialRegister("CRP", instructions.EAkCRP)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkSRP:
+		special, err := p.parseExpectedSpecialRegister("SRP", instructions.EAkSRP)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkTT0:
+		special, err := p.parseExpectedSpecialRegister("TT0", instructions.EAkTT0)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkTT1:
+		special, err := p.parseExpectedSpecialRegister("TT1", instructions.EAkTT1)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
+	case instructions.OpkMMUSR:
+		special, err := p.parseExpectedSpecialRegister("MMUSR", instructions.EAkMMUSR)
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = special
+
 	case instructions.OpkCtrlReg:
 		tok, err := p.want(IDENT)
 		if err != nil {

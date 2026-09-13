@@ -93,10 +93,12 @@ func TestPmoveOnlySupportsLongSize(t *testing.T) {
 }
 
 func TestPmoveRejectsUnknownSecondRegister(t *testing.T) {
-	// Only the TC register form is implemented; CRP/SRP/etc. must fail
-	// cleanly rather than silently mis-assemble.
-	_, err := asm.ParseWithOptions(strings.NewReader("PMOVE.L (A0),CRP\n"), asm.ParseOptions{Target: targetPMMU})
+	// TC, CRP, SRP, TT0, TT1, and MMUSR are implemented (see
+	// cpu030_pmmu2.go); every other PMMU register PMOVE can move
+	// (CAL/VAL/SCC/AC/DRP/PSR/PCSR/BAD/BAC) must still fail cleanly
+	// rather than silently mis-assemble.
+	_, err := asm.ParseWithOptions(strings.NewReader("PMOVE.L (A0),DRP\n"), asm.ParseOptions{Target: targetPMMU})
 	if err == nil {
-		t.Fatalf("expected an error for unsupported PMOVE register CRP")
+		t.Fatalf("expected an error for unsupported PMOVE register DRP")
 	}
 }

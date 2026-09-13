@@ -266,6 +266,20 @@ const (
 	// named register may target Dn/An, but a genuine multi-register
 	// combination may not).
 	OpkFPCtrlRegList
+	// OpkCRP, OpkSRP, OpkTT0, OpkTT1, and OpkMMUSR match PMOVE's other
+	// PMMU registers (see cpu030_pmmu2.go), each parsed the same way
+	// OpkTC already is — a fixed name via parseExpectedSpecialRegister.
+	// Kept as separate kinds, one per register, rather than a shared
+	// "any PMMU register" kind: each ends up needing its own Form with
+	// its own fully-fixed word2 literal (every one of these registers
+	// has a compile-time-known selector value, so — like OpkTC's own
+	// existing Forms — no runtime FieldRef is needed at all), and nothing
+	// is gained by routing them through one dynamic dispatch point.
+	OpkCRP
+	OpkSRP
+	OpkTT0
+	OpkTT1
+	OpkMMUSR
 )
 
 type InstrDef struct {
@@ -433,6 +447,14 @@ const (
 	// selector (0-3, GAS's own encoding) held directly in Reg, the same
 	// "numbered instance" shape EAkFPn uses.
 	EAkCacheSel
+	// EAkCRP, EAkSRP, EAkTT0, EAkTT1, and EAkMMUSR are PMOVE's other
+	// PMMU registers (see cpu030_pmmu2.go) — each a fixed, unnumbered
+	// special register like EAkTC, not a numbered instance.
+	EAkCRP
+	EAkSRP
+	EAkTT0
+	EAkTT1
+	EAkMMUSR
 )
 
 type EAExpr struct {

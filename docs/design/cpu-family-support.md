@@ -1042,6 +1042,60 @@ need a separate phase.
       combination — no range syntax, since FPIAR/FPSR/FPCR have no
       numeric ordering to range over, unlike FP0-FP7 or D0-D7) mirrors
       `parseFPRegList`'s structure without its range-parsing code.
+18. ✅ **Done, narrowed from a very large surface.** `PMOVE`'s remaining
+    registers (§5.3), chosen by the maintainer after being shown the
+    full scale of what's left: `PBcc`/`PDBcc`/`PScc`/`PTRAPcc` (112
+    condition-family instructions), `PFLUSH`'s ~15 variants, `PLOAD`
+    (6), `PMOVE`'s ~11 other registers, `PMOVEFD`, `PSAVE`, and
+    `PTEST`'s ~14 variants — comparable in size to the entire FPU
+    condition family plus `FMOVEM` combined. Scoped to `CRP`/`SRP`/
+    `TT0`/`TT1`/`MMUSR`: the registers actually needed to configure
+    address translation beyond `TC` (milestone 12), completing basic
+    MMU table setup, while deferring the condition-branch family and
+    the finer cache/TLB-management instructions.
+    - **Every one of these five registers turned out to need no
+      `FieldRef` at all — simpler than initially feared.** Each has a
+      compile-time-known selector value (`gas/config/tc-m68k.c`'s
+      `"case 'W':"` gives `DRP=1`/`SRP=2`/`CRP=3`; `"case '3':"` gives
+      `TT0=2`/`TT1=3`; `MMUSR`'s row calls no `install_operand` at all,
+      just asserting the register is exactly `PSR`/`MMUSR`), so every
+      Form's word2 is a single fully-fixed literal computed once at
+      write time — exactly like `TC`'s own already-shipped Forms, which
+      already established this was possible rather than something new
+      being discovered here.
+    - **Appended onto the existing `defPMOVE` package-level `var`
+      directly, not through the `Instructions` map** — safer than
+      milestone 17's `FMOVEM` fix for the identical two-InstrDefs-one-
+      mnemonic problem: since `defPMOVE.Forms` is a field on a named
+      package-level variable both files can reference directly (not a
+      lookup that only succeeds after the other file's `init` has run),
+      the append is correct regardless of which file's `init` function
+      executes first — no ordering dependency to document or guard.
+    - **EA restrictions confirmed to genuinely differ by register, not
+      guessed uniform**: `CRP`/`SRP` (GAS's `'|'`/`'~'` argument types)
+      exclude `Dn`/`An`/immediate entirely — cross-checked against a
+      GAS source comment noting these 64-bit "quad word" registers
+      aren't even given immediate-operand support — while `TT0`/`TT1`/
+      `MMUSR` (`'*'`/`'%'`) share `TC`'s own existing, broader
+      `readableDataEA`/`dataAlterableEA` restriction. `MMUSR` is also
+      the one register in this set sized `.W` (16 bits) rather than
+      `.L`, per GAS's own size-hint letter on that row.
+    - **A milestone-12 test's premise quietly went stale and needed
+      updating, not just leaving green by accident**: `cpu030_pmmu_test.go`
+      had `TestPmoveRejectsUnknownSecondRegister`, asserting `PMOVE
+      (A0),CRP` was rejected — true when only `TC` existed, false the
+      moment this milestone landed. Caught immediately by running the
+      full suite (not a passive true-by-luck pass): retargeted to `DRP`,
+      a register still genuinely unimplemented, preserving the test's
+      actual intent (an unsupported `PMOVE` register must fail cleanly)
+      rather than deleting it or leaving it silently checking the wrong
+      thing.
+    - **Still open**: `PBcc`/`PDBcc`/`PScc`/`PTRAPcc`, the rest of
+      `PFLUSH`/`PLOAD`/`PTEST`, `PMOVEFD`, `PSAVE`, and `PMOVE`'s
+      remaining registers (`DRP`, `CAL`, `VAL`, `SCC`, `AC`, `PSR`/
+      `PCSR`, `BAD`/`BAC`) — deliberately deferred again, each its own
+      future milestone rather than one more attempt to fit the whole
+      PMMU surface into a single pass.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
