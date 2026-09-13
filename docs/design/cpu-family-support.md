@@ -1096,6 +1096,44 @@ need a separate phase.
       `PCSR`, `BAD`/`BAC`) — deliberately deferred again, each its own
       future milestone rather than one more attempt to fit the whole
       PMMU surface into a single pass.
+19. ✅ **Done.** The PMMU's own conditional branch/set/trap family —
+    `PBcc`/`PDBcc`/`PScc`/`PTRAPcc`, 112 instructions across 16
+    conditions — chosen by the maintainer from the open items list after
+    milestone 18, and the largest remaining PMMU slice by instruction
+    count.
+    - **Structurally, nothing new: the third time this exact shape has
+      been built.** The integer ISA's `Bcc`/`DBcc`/`Scc`/`TRAPcc`
+      (`xcc.go`, `cpu020_misc.go`) and the FPU's `FBcc`/`FDBcc`/`FScc`/
+      `FTRAPcc` (milestone 13, `cpu020_fpu2.go`) are the same family
+      shape with different condition counts (16 vs 32) and base
+      opcodes; the PMMU family reuses the FPU version's exact
+      architecture (one condition-suffix table, `newPBccDef`/
+      `newPDBccDef`/`newPSccDef`/`newPTrapccDef` builder functions) with
+      the PMMU's own 16 conditions and bases substituted in — no new
+      design decisions were needed, only new data. The one genuine
+      difference: PMMU's word1 base is a bare `0xF0xx` (no coprocessor-
+      ID bit to fold in), unlike the FPU family's `0xF2xx` — confirming,
+      rather than contradicting, that the coprocessor-ID bit really is
+      an FPU-specific requirement (`fpuWord1Base`'s own doc comment) and
+      not something every `0xF`-line coprocessor instruction needs.
+    - **Condition values cross-checked two independent ways before any
+      code was written**: decoded once from `PBcc`'s own mnemonic
+      literals (the low nibble of each opcode, e.g. `"pbac"` = `0xF087`
+      → condition 7), then confirmed a second time against `Pscc`'s
+      completely independent table — both produced the identical
+      16-value assignment, the same cross-check discipline milestone 13
+      used for the FPU's 32 conditions.
+    - **`PBcc`'s bit-6 size flag reused `FBcc`'s own established
+      pattern rather than replicating GAS's own mechanism**: GAS's bare
+      `PBcc` mnemonic auto-upgrades from word to long displacement via a
+      two-pass frag resolution (setting bit 6 only when the assembler
+      later discovers the target doesn't fit in 16 bits), with a
+      separately-spelled `-w`-suffixed mnemonic to force word size
+      unconditionally. This codebase again commits to its own `.W`/`.L`
+      suffix convention instead (two `Form`s, `Sizes: [WordSize]` and
+      `Sizes: [LongSize]`, word1 literals `0xF080|cc` and `0xF0C0|cc`)
+      — the same choice already made for `BRA.L`/`BSR.L` (milestone 3)
+      and `FBcc.L` (milestone 13).
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
