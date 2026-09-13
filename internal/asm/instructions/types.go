@@ -149,6 +149,13 @@ const (
 	// a register-pair's Dn2) into bits 2-0 of the current word — CPU32's
 	// TBLS/TBLU register-to-register form's second source register.
 	FSrcReg2Low
+	// FFPCtrlSelSrc10 places the Src operand's FPCR/FPSR/FPIAR selector
+	// (FPCtrlMaskSrc, bits 0-2) into bits 12-10 of the current word —
+	// FMOVEM's control-register store direction ("FPIAR/FPSR,<ea>").
+	FFPCtrlSelSrc10
+	// FFPCtrlSelDst10 is FFPCtrlSelSrc10 for the Dst operand — FMOVEM's
+	// control-register load direction ("<ea>,FPIAR/FPSR").
+	FFPCtrlSelDst10
 )
 
 type TrailerItem uint16
@@ -250,6 +257,15 @@ const (
 	// OpkCacheSel matches CINV/CPUSH's cache-selector operand (NC/DC/
 	// IC/BC).
 	OpkCacheSel
+	// OpkFPCtrlRegList matches FMOVEM's FPCR/FPSR/FPIAR control-register
+	// list operand (a bare name, or a slash-separated combination) —
+	// the deferred-until-now second half of FMOVEM (see
+	// cpu020_fpu_movem2.go), kept distinct from OpkFPRegList: a
+	// different, 3-bit selector field (bits 12-10 of word2, not the
+	// 8-bit FP0-FP7 mask at bits 7-0) and different EA rules (a *single*
+	// named register may target Dn/An, but a genuine multi-register
+	// combination may not).
+	OpkFPCtrlRegList
 )
 
 type InstrDef struct {
@@ -332,6 +348,15 @@ type Args struct {
 	// Dn/An list" apart when picking an OperandKind.
 	FPRegMaskSrc uint16
 	FPRegMaskDst uint16
+
+	// FPCtrlMaskSrc/FPCtrlMaskDst hold FMOVEM's FPCR/FPSR/FPIAR
+	// control-register selection (bit 0 = FPIAR, bit 1 = FPSR, bit 2 =
+	// FPCR — GAS's own bit assignment), kept separate from
+	// FPRegMaskSrc/Dst for the same reason that field is kept separate
+	// from RegMaskSrc/Dst: a different register namespace needs its own
+	// OperandKind to be distinguishable during form matching.
+	FPCtrlMaskSrc uint16
+	FPCtrlMaskDst uint16
 
 	// Aux is a third operand, for the handful of instructions with more
 	// than the usual Src/Dst pair (CAS's <ea>, PACK/UNPK's #adjustment).

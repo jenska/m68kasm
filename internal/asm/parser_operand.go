@@ -237,6 +237,18 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			args.FPRegMaskDst = mask
 		}
 
+	case instructions.OpkFPCtrlRegList:
+		mask, err := p.parseFPCtrlRegList()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr.Kind = instructions.EAkNone
+		if position == 0 {
+			args.FPCtrlMaskSrc = mask
+		} else {
+			args.FPCtrlMaskDst = mask
+		}
+
 	case instructions.OpkDispRel:
 		if name, ok, err := p.consumeLocalLabelRef(); err != nil {
 			return eaExpr, err
@@ -478,4 +490,47 @@ func (p *Parser) parseFPRegList() (uint16, error) {
 		break
 	}
 	return mask, nil
+}
+
+// parseFPCtrlRegList parses FMOVEM's FPCR/FPSR/FPIAR control-register
+// list operand — a bare name ("FPIAR") or a slash-separated combination
+// ("FPCR/FPSR"). No range syntax: unlike FP0-FP7 or D0-D7, there's no
+// numeric ordering among these three registers to range over.
+func (p *Parser) parseFPCtrlRegList() (uint16, error) {
+	mask := uint16(0)
+	for {
+		regTok, err := p.want(IDENT)
+		if err != nil {
+			return 0, err
+		}
+		bit, ok := fpCtrlRegisterBit(regTok.Text)
+		if !ok {
+			return 0, errorAtToken(regTok, fmt.Errorf("expected FPIAR, FPSR, or FPCR, got %s", regTok.Text))
+		}
+		mask |= bit
+		if p.peek().Kind == SLASH {
+			p.next()
+			continue
+		}
+		break
+	}
+	return mask, nil
+}
+
+// fpCtrlRegisterBit maps one of FMOVEM's control-register names to its
+// selector bit (GAS's own assignment: FPIAR=bit0, FPSR=bit1, FPCR=bit2
+// — gas/config/tc-m68k.c's "case 'l': case 'L':" REGLST conversion for
+// CONTROL-mode FPI/FPS/FPC, reduced from its own 1<<24/1<<25/1<<26
+// internal encoding).
+func fpCtrlRegisterBit(name string) (uint16, bool) {
+	switch strings.ToUpper(name) {
+	case "FPIAR":
+		return 1 << 0, true
+	case "FPSR":
+		return 1 << 1, true
+	case "FPCR":
+		return 1 << 2, true
+	default:
+		return 0, false
+	}
 }

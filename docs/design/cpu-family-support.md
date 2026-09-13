@@ -1001,6 +1001,47 @@ need a separate phase.
       `TBL` plain `cpu32`, with no `m68020up` union, confirming it's not
       available on 68020+ at all — matching `BGND`
       (`cpu020_misc.go`), not `Bcc.L`/`CHK2`/`EXTB`/`TRAPcc`.
+17. ✅ **Done.** `FMOVEM`'s `FPCR`/`FPSR`/`FPIAR` control-register list
+    (§6), deferred at the end of milestone 14, chosen by the maintainer
+    from the open items list after milestone 16. Unlike milestone 16,
+    this one had a full working GAS reference to verify against.
+    - **Two InstrDefs can't share one mnemonic — caught before it ever
+      compiled wrong, by reading `registerInstrDef` first.** `FMOVEM`'s
+      FPn-list forms (milestone 14) and this milestone's control-
+      register-list forms are the same real mnemonic, and
+      `registerInstrDef` panics on a duplicate name. Rather than a
+      second `InstrDef`, `cpu020_fpu_movem2.go`'s `init` looks up the
+      already-registered `"FMOVEM"` `InstrDef` from the package's
+      `Instructions` map and appends its two new `Form`s onto it
+      directly — relying on Go's (spec-recommended, and what `go
+      build`/`go test` actually do) lexical file-name ordering of
+      `init` functions across a package, with an explicit nil check
+      turning a violated assumption into a clear panic rather than a
+      silent nil dereference.
+    - **GAS's own opcode table lists the store direction as two
+      overlapping rows with a FIXME comment stating the intended rule
+      directly**: a bare single register name may target `Dn`/`An` or
+      memory, but real list syntax (two or three registers at once) may
+      only target memory — "we should only permit %dn if the target is
+      a single register." Rather than replicate two rows (which would
+      revisit the exact `selectForm` hazard milestones 14/15/16 already
+      named — both rows share `[OpkFPCtrlRegList, OpkEA]`), one
+      `Validate` counts the parsed selector mask's set bits
+      (`math/bits.OnesCount16`) and enforces the FIXME's rule directly.
+      The load direction has no such split in GAS's table (its `<ea>`
+      source accepts memory, `Dn`, `An`, or an immediate
+      unconditionally), so it needed no equivalent check.
+    - **A new `FPCtrlMaskSrc`/`FPCtrlMaskDst` pair on `Args`**, kept
+      separate from `FPRegMaskSrc`/`Dst` (milestone 14) for the same
+      reason that pair is kept separate from integer `MOVEM`'s
+      `RegMaskSrc`/`Dst`: a different register namespace, encoded into
+      a different bit width and position (a 3-bit selector at bits
+      12-10, not the 8-bit FP0-FP7 mask at bits 7-0), needs its own
+      `OperandKind` to stay distinguishable during form matching. A
+      small `parseFPCtrlRegList` (bare name or slash-separated
+      combination — no range syntax, since FPIAR/FPSR/FPCR have no
+      numeric ordering to range over, unlike FP0-FP7 or D0-D7) mirrors
+      `parseFPRegList`'s structure without its range-parsing code.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

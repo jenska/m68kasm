@@ -214,6 +214,9 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 	} else if a.FPRegMaskSrc != 0 {
 		kinds[n] = instructions.OpkFPRegList
 		n++
+	} else if a.FPCtrlMaskSrc != 0 {
+		kinds[n] = instructions.OpkFPCtrlRegList
+		n++
 	} else if a.Src.Kind != instructions.EAkNone {
 		kinds[n] = operandKindFromEA(a.Src)
 		n++
@@ -228,6 +231,9 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 		n++
 	} else if a.FPRegMaskDst != 0 {
 		kinds[n] = instructions.OpkFPRegList
+		n++
+	} else if a.FPCtrlMaskDst != 0 {
+		kinds[n] = instructions.OpkFPCtrlRegList
 		n++
 	} else if a.Dst.Kind != instructions.EAkNone {
 		kinds[n] = operandKindFromEA(a.Dst)
