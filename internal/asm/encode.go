@@ -45,6 +45,9 @@ type prepared struct {
 	SrcRegMask uint16
 	DstRegMask uint16
 
+	FPRegMaskSrc uint16
+	FPRegMaskDst uint16
+
 	SrcEA  instructions.EAEncoded
 	DstEA  instructions.EAEncoded
 	AuxEA  instructions.EAEncoded
@@ -176,6 +179,20 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | (uint16(p.AuxReg2&7) << 12) | (uint16(p.DstReg2&7) << 6) | uint16(p.SrcReg2&7)
 	case instructions.FFPRomConst:
 		return wordVal | (uint16(p.Imm) & 0x7F)
+	case instructions.FFPRegMaskDst:
+		return wordVal | (p.FPRegMaskDst & 0xFF)
+	case instructions.FFPDynDstReg4:
+		return wordVal | (uint16(p.DstReg&7) << 4)
+	case instructions.FFPMovemStoreWord2:
+		if p.DstEA.Mode == 4 { // -(An): predecrement, list order reversed
+			return wordVal | 0xE000 | (reverse16(p.FPRegMaskSrc&0xFF) >> 8)
+		}
+		return wordVal | 0xF000 | (p.FPRegMaskSrc & 0xFF)
+	case instructions.FFPMovemDynStoreWord2:
+		if p.DstEA.Mode == 4 { // -(An): predecrement
+			return wordVal | 0xE800 | (uint16(p.SrcReg&7) << 4)
+		}
+		return wordVal | 0xF800 | (uint16(p.SrcReg&7) << 4)
 	default:
 		return wordVal
 	}
@@ -290,7 +307,7 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 }
 
 func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
-	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg, SrcRegMask: ins.Args.RegMaskSrc, DstRegMask: ins.Args.RegMaskDst}
+	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg, SrcRegMask: ins.Args.RegMaskSrc, DstRegMask: ins.Args.RegMaskDst, FPRegMaskSrc: ins.Args.FPRegMaskSrc, FPRegMaskDst: ins.Args.FPRegMaskDst}
 	var err error
 
 	if ins.Args.Src.Kind != instructions.EAkNone {

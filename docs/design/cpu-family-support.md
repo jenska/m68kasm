@@ -813,6 +813,82 @@ need a separate phase.
       own static-vs-dynamic-list bit and register-order rules. Also
       still open: the transcendental function set, packed BCD (`.p`),
       and `FPCR`/`FPSR`/`FPIAR` as general operands.
+14. ✅ **Done, plus a second unrelated pre-existing bug found and
+    fixed.** `FMOVEM` (§6), chosen by the maintainer from the open items
+    list after milestone 13 — the FPn (FP0-FP7) register-list save/
+    restore deferred twice already. Scoped to the FP0-FP7 data-register
+    list only, both static and dynamic, both directions; the separate
+    `FPCR`/`FPSR`/`FPIAR` control-register list form remains deferred
+    (see below).
+    - **The unrelated bug, found first, before any new code was
+      written:** working out FMOVEM's load/store EA restrictions meant
+      re-reading integer `MOVEM`'s own `movemLoadEA` map
+      (`validate.go`) for comparison, which turned up a real,
+      pre-existing (predates every milestone in this document —
+      confirmed via `git show` against the commit before milestone 1)
+      bug: the map's own doc comment says predecrement is not a valid
+      MOVEM load source, but `EAkAddrPredec: true` was in the map
+      anyway, silently letting `MOVEM -(A0),D0-D7` assemble — a bit
+      pattern real 68k hardware doesn't support for the load direction
+      (predecrement is store-only, postincrement load-only). No test
+      covered this case. Fixed in its own commit (one map entry plus a
+      regression test) before starting `FMOVEM` itself, since `FMOVEM`
+      needed the *correct* version of this exact restriction anyway.
+    - **The central design problem, solved by extending a pattern
+      milestone 13 had already established for FSAVE/FRESTORE:**
+      GAS's opcode table gives FMOVEM's *load* direction a general-
+      memory row and a postincrement row whose word2 values are
+      identical (`0xD000` general, `0xD000` postincrement) — the same
+      EA-artifact equivalence FSAVE/FRESTORE already rely on, so one
+      `Form` covers both. But the *store* direction's general
+      (`0xF000`) and predecrement (`0xE000`) rows are NOT equivalent —
+      word2 differs by a genuine "direction/mode" bit, not something
+      `FSrcEA`/`FDstEA` computes from the EA alone. Two `Form`s sharing
+      identical `OperKinds` (`[OpkFPRegList, OpkEA]`) would have hit
+      the exact `selectForm` hazard documented for FSAVE/FRESTORE: the
+      first `Form` always wins before `Validate` runs, so the second
+      would be unreachable — and, worse, a naive single-`Form`-with-
+      one-literal design (which is what this file's first draft
+      shipped, before being caught in review before any commit) would
+      have *silently mis-encoded* predecrement stores with the general
+      form's word2, rather than merely rejecting them. The fix: one
+      `Form`, whose word2 is computed entirely from the Dst EA's
+      runtime mode inside a single `FieldRef`
+      (`FFPMovemStoreWord2`/`FFPMovemDynStoreWord2`, `encode.go`) —
+      which turns out to be exactly what integer `MOVEM`'s own
+      `TSrcRegMask` trailer already does for this identical
+      general-vs-predecrement split (`if p.DstEA.Mode == 4 { reverse
+      the mask }`), just applied to a whole word2 value instead of a
+      trailing mask word. Confirmed byte-for-byte against the real CLI:
+      `FMOVEM.X FP0-FP3,-(A7)` and `FMOVEM.X FP0-FP3,(A0)` produce
+      `0xE0F0` and `0xF00F` respectively, both matching hand-derived
+      GAS output.
+    - **List bit order for predecrement matches integer `MOVEM`
+      exactly**: the register list is bit-reversed only for the
+      predecrement store direction (`reverse16(mask&0xFF)>>8`, reusing
+      `encode.go`'s existing 16-bit `reverse16` rather than writing a
+      dedicated 8-bit reversal), for the same real-hardware reason
+      integer `MOVEM` already reverses its own list there.
+    - **A new, separate `FPRegMaskSrc`/`FPRegMaskDst` pair on `Args`**,
+      not a reuse of `RegMaskSrc`/`RegMaskDst`: both are plain `uint16`
+      bitmasks, but integer `MOVEM`'s `Dn`/`An` list and `FMOVEM`'s FPn
+      list are never used on the same instruction, and sharing one
+      field would make `operandKinds` (`assemble.go`) unable to tell
+      which kind of list it was looking at when choosing an
+      `OperandKind`. A new `OpkFPRegList` plus a small `parseFPRegList`
+      (mirroring `parseRegList`'s range/slash/comma syntax over the
+      single FP0-FP7 namespace) was cheaper than generalizing the
+      existing machinery to carry a register-class tag.
+    - **Still deferred: the `FPCR`/`FPSR`/`FPIAR` control-register list
+      form.** GAS encodes it with a real bit-width/position difference
+      (a 3-bit selector at bits 12-10 of word2, not the 8-bit FPn mask
+      at bits 7-0) and its own type-check rules (it allows a bare `Dn`/
+      `An` destination, which the FPn form's EA restriction correctly
+      rejects) — a second, smaller register-list subsystem in its own
+      right, not a natural extension of what's built here. Given how
+      rarely real code saves/restores the FPU's control registers
+      compared to its data registers, this is left for a dedicated
+      follow-up rather than folding it in here.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

@@ -203,6 +203,18 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			args.RegMaskDst = mask
 		}
 
+	case instructions.OpkFPRegList:
+		mask, err := p.parseFPRegList()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr.Kind = instructions.EAkNone
+		if position == 0 {
+			args.FPRegMaskSrc = mask
+		} else {
+			args.FPRegMaskDst = mask
+		}
+
 	case instructions.OpkDispRel:
 		if name, ok, err := p.consumeLocalLabelRef(); err != nil {
 			return eaExpr, err
@@ -392,4 +404,56 @@ func parseRegName(tok Token) (bool, int, error) {
 		return true, an, nil
 	}
 	return false, 0, errorAtToken(tok, fmt.Errorf("expected register in list"))
+}
+
+// parseFPRegList is parseRegList for FMOVEM's FPn register-list operand
+// ("FP0-FP3", "FP1/FP4/FP6", or a bare "FP0") — same range/slash/comma
+// syntax, but over the single FP0-FP7 namespace (no A/D distinction),
+// producing an 8-bit mask (bit N = FPn) rather than RegList's 16-bit
+// Dn/An mask.
+func (p *Parser) parseFPRegList() (uint16, error) {
+	mask := uint16(0)
+	for {
+		regTok, err := p.want(IDENT)
+		if err != nil {
+			return 0, err
+		}
+		reg, ok := parseFPRegister(regTok.Text)
+		if !ok {
+			return 0, errorAtToken(regTok, fmt.Errorf("expected FP0-FP7 in register list, got %s", regTok.Text))
+		}
+		endReg := reg
+		if p.accept(MINUS) {
+			toTok, err := p.want(IDENT)
+			if err != nil {
+				return 0, err
+			}
+			endReg, ok = parseFPRegister(toTok.Text)
+			if !ok {
+				return 0, errorAtToken(toTok, fmt.Errorf("expected FP0-FP7 in register list, got %s", toTok.Text))
+			}
+			if endReg < reg {
+				return 0, errorAtToken(toTok, fmt.Errorf("descending ranges are not allowed"))
+			}
+		}
+		for r := reg; r <= endReg; r++ {
+			mask |= uint16(1 << r)
+		}
+		if p.peek().Kind == SLASH {
+			p.next()
+			continue
+		}
+		if p.peek().Kind == COMMA {
+			nxt := p.peekN(2)
+			if nxt.Kind == IDENT {
+				if _, ok := parseFPRegister(nxt.Text); ok {
+					p.next()
+					continue
+				}
+			}
+			return mask, nil
+		}
+		break
+	}
+	return mask, nil
 }

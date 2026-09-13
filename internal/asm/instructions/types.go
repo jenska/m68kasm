@@ -89,6 +89,36 @@ const (
 	// FFPRomConst places FMOVECR's 7-bit ROM constant offset (Src.Imm)
 	// into bits 6-0 of the current word — GAS's "C" install code.
 	FFPRomConst
+	// FFPRegMaskDst places the Dst operand's FPn register-list mask
+	// (FPRegMaskDst, bits 0-7 = FP0-FP7) into the low byte of the
+	// current word, unreversed — FMOVEM's "ea,list" load direction
+	// (general memory or postincrement; GAS's word2 is identical for
+	// both, so unlike the store direction below there is no runtime
+	// mode check to make and no predecrement-load form to reverse for).
+	FFPRegMaskDst
+	// FFPDynDstReg4 places the Dst operand's Dn register number into
+	// bits 7-4 of the current word — FMOVEM's dynamic-list "ea,Dn" load
+	// form (Dn holds the FPn mask at runtime).
+	FFPDynDstReg4
+	// FFPMovemStoreWord2 computes FMOVEM's entire store-direction word2
+	// (the 0xF000/0xE000 "general vs predecrement" selector bit combined
+	// with the FPn register-list mask, reversed only for predecrement)
+	// from the Dst EA's *runtime* mode — not from which Form matched.
+	// GAS's general-memory and predecrement rows differ in word2 by more
+	// than an EA artifact (unlike FSAVE/FRESTORE's equivalent forms),
+	// so two Forms sharing identical OperKinds ([OpkFPRegList, OpkEA])
+	// would hit the same selectForm hazard FSAVE/FRESTORE's doc comment
+	// describes — the first Form would always win, making the second
+	// unreachable. One Form with this single runtime-computed field
+	// avoids that entirely, mirroring how TSrcRegMask (below) already
+	// resolves integer MOVEM's identical general-vs-predecrement split
+	// by checking p.DstEA.Mode directly instead of via a second Form.
+	FFPMovemStoreWord2
+	// FFPMovemDynStoreWord2 is FFPMovemStoreWord2 for FMOVEM's dynamic
+	// (Dn-specified) store list — same general-vs-predecrement word2
+	// split, but placing the Dn register number (bits 7-4) instead of a
+	// static mask.
+	FFPMovemDynStoreWord2
 )
 
 type TrailerItem uint16
@@ -174,6 +204,12 @@ const (
 	// OpkTC matches the 68030/68851 PMMU Translation Control register,
 	// "TC" — PMOVE's only supported target for now; see cpu030_pmmu.go.
 	OpkTC
+	// OpkFPRegList matches FMOVEM's FPn register-list operand ("FP0-FP3",
+	// "FP1/FP4/FP6", or a bare "FP0") — the FPU analogue of OpkRegList,
+	// kept distinct because it parses a different register namespace
+	// into a different Args field (FPRegMaskSrc/Dst, not RegMaskSrc/Dst)
+	// and encodes into a different bit width/position.
+	OpkFPRegList
 )
 
 type InstrDef struct {
@@ -247,6 +283,15 @@ type Args struct {
 	HasImmQuick bool
 	RegMaskSrc  uint16
 	RegMaskDst  uint16
+
+	// FPRegMaskSrc/FPRegMaskDst hold FMOVEM's FPn register-list mask (one
+	// bit per FP0-FP7), kept separate from RegMaskSrc/RegMaskDst (Dn/An)
+	// even though both are plain uint16 bitmasks — the two are never
+	// used together on one instruction, but sharing a field would make
+	// operandKinds (assemble.go) unable to tell "an FPn list" from "a
+	// Dn/An list" apart when picking an OperandKind.
+	FPRegMaskSrc uint16
+	FPRegMaskDst uint16
 
 	// Aux is a third operand, for the handful of instructions with more
 	// than the usual Src/Dst pair (CAS's <ea>, PACK/UNPK's #adjustment).
