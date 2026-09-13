@@ -145,9 +145,8 @@ docs/                     # Reference material: syntax, grammar, design history,
 ```
 
 - [`docs/syntax.md`](docs/syntax.md) — accepted assembly syntax and directives
-- [`docs/grammar.ebnf`](docs/grammar.ebnf) — EBNF grammar used by the parser
 - [`docs/design/cpu-family-support.md`](docs/design/cpu-family-support.md) — full CPU/FPU/PMMU design history, scope decisions, and open items
-- [`docs/M68kOpcodes.pdf`](docs/M68kOpcodes.pdf) — opcode reference for extending the instruction tables
+the instruction tables
 
 ---
 
