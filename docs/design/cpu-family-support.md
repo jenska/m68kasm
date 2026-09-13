@@ -948,6 +948,59 @@ need a separate phase.
       `CPU68040` in `CPUKind`'s enum order) — no new gating mechanism
       needed, confirmed against GNU binutils' own `m68040up` tag
       (`m68040 | m68060`, `include/opcode/m68k.h`).
+16. ✅ **Done, with a verification caveat unlike any other milestone.**
+    CPU32's `TBLS`/`TBLSN`/`TBLU`/`TBLUN` (table-lookup-and-interpolate),
+    open since milestone 7, chosen by the maintainer from the open items
+    list after milestone 15.
+    - **GAS itself doesn't implement these — flagged to, and confirmed
+      with, the maintainer before writing any code.** Every other
+      instruction in this project was cross-checked against GNU
+      binutils' actual, working parsing (`tc-m68k.c`) and/or
+      disassembly (`m68k-dis.c`) logic. `opcodes/m68k-opc.c`'s `TBL(...)`
+      macro produces four real opcode-table rows with plausible-looking
+      argument-string codes (`` ` `` for the memory form's `<ea>`, plus
+      the already-cross-checked-elsewhere `D`/`s`/`1`/`3` codes for the
+      register form) — but no `` case '`': `` exists anywhere in
+      `tc-m68k.c`'s parser, and `m68k-dis.c` has no TBL-printing logic
+      either. These appear to be dormant table entries binutils never
+      finished wiring into either direction of real tool support. The
+      encoding here instead rests on the raw opcode/mask literals
+      (real hardware bit positions, derived by hand from the `TBL1`
+      macro) plus the generic install-code semantics already confirmed
+      working for `D`/`s`/`1`/`3` elsewhere in this codebase — not on a
+      working reference implementation. This is documented prominently
+      in `cpu32_tbl.go`'s header comment and repeated in the test file
+      and README, rather than presented with the same confidence as
+      every other milestone's GAS-verified encoding.
+    - **A real ambiguity, found and fixed before shipping (not by a
+      user report):** an early draft's memory form accepted `Dn` in its
+      `<ea>` (via `readableDataEA`), and — because `parseInstruction`
+      accepts the first `Form` whose shape matches the token stream
+      (`parser_stmt.go`) — a bare `"TBLS.B D0,D2"` (meant to exercise
+      the register-pair form's mandatory-colon rejection) instead
+      silently matched the *memory* form, parsing `D0` as if it were a
+      memory address. Fixed two ways together: restricting the memory
+      form's `<ea>` to `controlAlterableEA` (genuine memory reference
+      only — also the more defensible semantic choice, matching
+      `CHK2`/`CMP2`'s identical restriction, independent of the
+      ambiguity), and listing the register-pair form *before* the
+      memory form in `Forms` so that a bare two-`Dn` input reaches its
+      specific, informative rejection rather than the memory form's
+      generic one. `selectForm`'s own comment already warns about this
+      class of hazard (two `Form`s that can both syntactically match
+      the same input); this is the first time it showed up as an
+      *ordering* problem between two genuinely different, non-identical
+      `OperKinds` shapes rather than two literally-identical ones.
+    - **This codebase's own `.B`/`.W`/`.L`-suffix convention** was used
+      again (`TBLS`/`TBLSN`/`TBLU`/`TBLUN`, four mnemonics) rather than
+      GAS's twelve separately-spelled `"tblsb"`/`"tblsw"`/`"tblsl"`/…
+      names — the same choice already made for `BRA.L`/`BSR.L`
+      (milestone 3), `FBcc.L` (milestone 13), and `DIVSL`/`DIVUL`'s
+      `Dr:Dq` syntax (milestone 10).
+    - **Gated `requireCPU32Only`, not `require68020orCPU32`**: GAS tags
+      `TBL` plain `cpu32`, with no `m68020up` union, confirming it's not
+      available on 68020+ at all — matching `BGND`
+      (`cpu020_misc.go`), not `Bcc.L`/`CHK2`/`EXTB`/`TRAPcc`.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

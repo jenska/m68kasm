@@ -145,6 +145,10 @@ const (
 	// regardless of which side is which — no per-direction Step choice
 	// needed there, only for this word.
 	FMove16AbsForm
+	// FSrcReg2Low places the Src operand's second register (Reg2, e.g.
+	// a register-pair's Dn2) into bits 2-0 of the current word — CPU32's
+	// TBLS/TBLU register-to-register form's second source register.
+	FSrcReg2Low
 )
 
 type TrailerItem uint16

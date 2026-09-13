@@ -202,6 +202,8 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 			return wordVal | 0xF610 | uint16(p.SrcEA.Reg&7)
 		}
 		return wordVal | 0xF618 | uint16(p.DstEA.Reg&7) // ABS.L,(An)
+	case instructions.FSrcReg2Low:
+		return wordVal | uint16(p.SrcReg2&7)
 	default:
 		return wordVal
 	}
