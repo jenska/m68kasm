@@ -220,6 +220,28 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = special
 
+	case instructions.OpkBAD:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		n, ok := parsePmmuNumberedRegister(tok.Text, "BAD")
+		if !ok {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected BAD0-BAD7, got %s", tok.Text))
+		}
+		eaExpr = instructions.EAExpr{Kind: instructions.EAkBAD, Reg: n}
+
+	case instructions.OpkBAC:
+		tok, err := p.want(IDENT)
+		if err != nil {
+			return eaExpr, err
+		}
+		n, ok := parsePmmuNumberedRegister(tok.Text, "BAC")
+		if !ok {
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected BAC0-BAC7, got %s", tok.Text))
+		}
+		eaExpr = instructions.EAExpr{Kind: instructions.EAkBAC, Reg: n}
+
 	case instructions.OpkCtrlReg:
 		tok, err := p.want(IDENT)
 		if err != nil {

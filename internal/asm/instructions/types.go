@@ -156,6 +156,14 @@ const (
 	// FFPCtrlSelDst10 is FFPCtrlSelSrc10 for the Dst operand — FMOVEM's
 	// control-register load direction ("<ea>,FPIAR/FPSR").
 	FFPCtrlSelDst10
+	// FSrcRegShift2 places the Src operand's register number into bits
+	// 4-2 of the current word — PMOVE's BADn/BACn store direction
+	// ("BADn/BACn,<ea>"), where the register number occupies a
+	// different bit position than every other PMMU register's selector.
+	FSrcRegShift2
+	// FDstRegShift2 is FSrcRegShift2 for the Dst operand — PMOVE's
+	// BADn/BACn load direction ("<ea>,BADn/BACn").
+	FDstRegShift2
 )
 
 type TrailerItem uint16
@@ -289,6 +297,10 @@ const (
 	OpkSCC
 	OpkAC
 	OpkPCSR
+	// OpkBAD and OpkBAC match PMOVE's numbered breakpoint address/access
+	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu4.go).
+	OpkBAD
+	OpkBAC
 )
 
 type InstrDef struct {
@@ -474,6 +486,13 @@ const (
 	EAkSCC
 	EAkAC
 	EAkPCSR
+	// EAkBAD and EAkBAC are PMOVE's numbered breakpoint address/access
+	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu4.go) — a
+	// "numbered instance" shape like EAkFPn, with the register number
+	// (0-7) held directly in Reg, unlike every other PMMU register in
+	// this file (each of which is its own single fixed register).
+	EAkBAD
+	EAkBAC
 )
 
 type EAExpr struct {

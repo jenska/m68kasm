@@ -93,13 +93,16 @@ func TestPmoveOnlySupportsLongSize(t *testing.T) {
 }
 
 func TestPmoveRejectsUnknownSecondRegister(t *testing.T) {
-	// TC, CRP, SRP, TT0, TT1, MMUSR/PSR, DRP, CAL, VAL, SCC, AC, and
-	// PCSR are all implemented now (see cpu030_pmmu2.go, cpu030_pmmu3.go);
-	// BAD/BAC (8 numbered instances each) remain deliberately deferred
-	// — see cpu030_pmmu3.go's header comment — and must still fail
-	// cleanly rather than silently mis-assemble.
-	_, err := asm.ParseWithOptions(strings.NewReader("PMOVE.L (A0),BAD0\n"), asm.ParseOptions{Target: targetPMMU})
+	// PMOVE's register set is complete as of cpu030_pmmu4.go (TC, CRP,
+	// SRP, TT0, TT1, MMUSR/PSR, DRP, CAL, VAL, SCC, AC, PCSR, and
+	// BAD0-7/BAC0-7 are all implemented) — unlike milestones 18/20,
+	// there's no longer a specific real-but-unimplemented register name
+	// to retarget this test to each time PMOVE grows. A clearly bogus
+	// name is the future-proof version of the same check: PMOVE must
+	// still reject an unrecognized register cleanly, not silently
+	// mis-assemble it as something else.
+	_, err := asm.ParseWithOptions(strings.NewReader("PMOVE.L (A0),NOTAREALREGISTER\n"), asm.ParseOptions{Target: targetPMMU})
 	if err == nil {
-		t.Fatalf("expected an error for unsupported PMOVE register BAD0")
+		t.Fatalf("expected an error for an unrecognized PMOVE register name")
 	}
 }

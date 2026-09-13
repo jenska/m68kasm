@@ -282,6 +282,8 @@ var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
 	instructions.EAkSCC:         instructions.OpkSCC,
 	instructions.EAkAC:          instructions.OpkAC,
 	instructions.EAkPCSR:        instructions.OpkPCSR,
+	instructions.EAkBAD:         instructions.OpkBAD,
+	instructions.EAkBAC:         instructions.OpkBAC,
 }
 
 // operandKindFromEA classifies an EA expression into the broader operand kind categories

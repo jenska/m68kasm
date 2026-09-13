@@ -165,6 +165,17 @@ func parseFPRegister(s string) (int, bool) {
 	return 0, false
 }
 
+// parsePmmuNumberedRegister recognizes PMOVE's numbered breakpoint
+// registers, "BAD0"-"BAD7" or "BAC0"-"BAC7" (prefix is "BAD" or "BAC"),
+// the same "fixed prefix plus a single 0-7 digit" shape parseFPRegister
+// uses for FP0-FP7.
+func parsePmmuNumberedRegister(s, prefix string) (int, bool) {
+	if len(s) == len(prefix)+1 && strings.EqualFold(s[:len(prefix)], prefix) && s[len(prefix)] >= '0' && s[len(prefix)] <= '7' {
+		return int(s[len(prefix)] - '0'), true
+	}
+	return 0, false
+}
+
 // parseRegPair parses DIVSL/DIVUL's "Dr:Dq" (or bare "Dq", the
 // 32-bit-dividend shorthand — Dr defaults to the same register). Real
 // 68020 assembler syntax for this construct has no leading '#', and

@@ -1186,6 +1186,48 @@ need a separate phase.
       this time to `BAD0` — the pattern of "this test's specific choice
       of still-unsupported register will keep going stale as PMOVE
       grows" is now expected and unsurprising, not a recurring bug.
+21. ✅ **Done.** `PMOVE`'s numbered breakpoint registers — `BAD0`-`BAD7`
+    and `BAC0`-`BAC7` — chosen by the maintainer from the open items
+    list after milestone 20, the register-shape deferral flagged
+    explicitly at the end of that same milestone. This completes
+    `PMOVE`'s register set entirely.
+    - **The "numbered instance" shape (`EAkFPn`'s own pattern, not
+      `EAkTC`'s) was the right one this time**, confirmed by re-reading
+      the design decision from milestone 18's own header comment before
+      writing code: every other PMMU register in `cpu030_pmmu2.go`/
+      `cpu030_pmmu3.go` is its own single fixed register (one
+      `OperandKind` each, a fully-baked literal, no runtime `FieldRef`),
+      but `BAD`/`BAC` are genuinely 8 numbered instances apiece — the
+      same shape `FPn`/`OpkFPn` already use. Two new kinds
+      (`OpkBAD`/`OpkBAC`), not sixteen, each carrying the register
+      number (0-7) in `Reg`.
+    - **Load and store keep their own separate `Form`s** (unlike
+      `FMOVEM`'s store direction or `MOVE16`'s `"(An),abs"` pairing,
+      milestones 14/15's own `selectForm`-ambiguity fixes): `BAD`/`BAC`'s
+      load and store directions already have distinct `OperKinds`
+      (`[OpkEA, opk]` vs `[opk, OpkEA]`), so only the register *number*
+      needed a runtime `FieldRef` (`FSrcRegShift2`/`FDstRegShift2`,
+      bits 4-2) — the direction and family (`BAD` vs `BAC`) are decided
+      per-`Form` at definition time, the same way `DRP`/`CRP`/`SRP`/etc.
+      already are.
+    - **The inverted direction bit, flagged as a risk at the end of
+      milestone 20, was confirmed exactly as expected**: every other
+      `PMOVE` register in this codebase follows "word2 = base |
+      `0x0000` load / `0x0200` store | selector," but GAS's own table
+      rows for `BAD`/`BAC` (`"*wX3"` load word2 `0x6200`, `"X3%s"`
+      store word2 `0x6000`) have that bit backwards — `0x0200` set
+      means *load* here. Encoded directly per-`Form` (two different
+      word2 bases per register family, not a runtime direction check),
+      so the inversion cost nothing extra once recognized; confirmed
+      against the real CLI (`TestPmoveBadBacDirectionIsInverted`).
+    - **A third milestone-N test premise went stale**, following the
+      exact pattern milestones 18 and 20 already established: with
+      `PMOVE`'s register set now complete, `TestPmoveRejectsUnknownSecondRegister`
+      had no remaining real-but-unimplemented register name to
+      retarget to. Retargeted to a clearly bogus name instead
+      (`NOTAREALREGISTER`) — the future-proof version of the same
+      check, since there's no longer a "next" real register this test
+      can point at as `PMOVE` grows.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

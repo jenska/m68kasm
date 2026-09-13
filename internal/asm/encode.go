@@ -211,6 +211,10 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | ((p.FPCtrlMaskSrc & 7) << 10)
 	case instructions.FFPCtrlSelDst10:
 		return wordVal | ((p.FPCtrlMaskDst & 7) << 10)
+	case instructions.FSrcRegShift2:
+		return wordVal | (uint16(p.SrcReg&7) << 2)
+	case instructions.FDstRegShift2:
+		return wordVal | (uint16(p.DstReg&7) << 2)
 	default:
 		return wordVal
 	}
