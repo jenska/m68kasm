@@ -88,7 +88,13 @@ const (
 	// the reduced FPU integrated into the 68040/68060).
 	FeatFPU Feature = 1 << iota
 	// FeatFPUFull marks the transcendental FPU forms only a discrete
-	// 68881/68882 executes natively (68040/68060 trap-emulate them).
+	// 68881/68882 executes natively (68040/68060 trap-emulate them) —
+	// the --fpu-full CLI flag, combined with FeatFPU via requireFPUFull
+	// below. Unlike FeatEmulated (a runtime-performance warning on an
+	// otherwise-available form, milestone 15), this is a hard
+	// availability gate: assembling FSIN and friends means asserting a
+	// real discrete FPU is present, not just "some FPU, native or
+	// integrated" the way plain --fpu already models.
 	FeatFPUFull
 	// FeatPMMU marks forms that need a paged MMU (68851, or the on-chip
 	// PMMU in the 68030/68040/68060).

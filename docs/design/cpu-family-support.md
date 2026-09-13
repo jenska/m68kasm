@@ -1228,6 +1228,89 @@ need a separate phase.
       (`NOTAREALREGISTER`) — the future-proof version of the same
       check, since there's no longer a "next" real register this test
       can point at as `PMOVE` grows.
+22. ✅ **Done, with a real Args-model extension.** `PFLUSH`, `PLOADR`/
+    `PLOADW`, and `PTESTR`/`PTESTW` (§5.3) — the 68030/68851 PMMU
+    cache/TLB management instructions beyond `PFLUSHA` — chosen by the
+    maintainer from the open items list after milestone 21, scoped
+    deliberately to the 68030|68851 forms only (`PFLUSHR`/`PFLUSHS`,
+    `PFLUSHAN`/`PFLUSHN`, and `PTESTR`/`PTESTW`'s 68040-only single-
+    word forms all remain out of scope — 68040's PMMU interface is a
+    different, differently-encoded design, not a variant of this one).
+    - **Flagged to, and scoped with, the maintainer before writing any
+      code**: `PTEST`'s full form (`"PTESTR FC,<ea>,#level,An"`) is
+      four genuinely separate operands, and this codebase's `Args`
+      struct only had three slots (`Src`/`Dst`/`Aux` — `Aux` itself
+      was milestone 8's own addition to reach three). The maintainer
+      chose to add a fourth slot (`Aux2`) and implement `PTEST` fully,
+      rather than deferring it or dropping its optional `An` result.
+    - **A new three-way operand kind, `OpkFCSpec`/`EAkFCSpec`**: GAS
+      accepts `PFLUSH`/`PLOAD`/`PTEST`'s function-code specifier in
+      three alternate spellings — `SFC`, `DFC`, a plain `Dn`, or
+      `"#<imm>"` — each contributing a 2-bit "mode" marker (confirmed
+      directly from GAS's own opcode-table literals, e.g. `PFLUSH`'s
+      three 2-operand rows sharing base `0x3000`/`0x3008`/`0x3010`,
+      rather than assumed from `tc-m68k.c`'s `"case 'f'"`/`"case
+      'D'"`/`"case 'T'"` install dispatches alone) plus a 3-bit value,
+      combined into one word by a single `FieldRef` (`FFCSpecWord`)
+      rather than three separate ones — since only one sub-form can
+      ever be present on a given instruction, there's no ambiguity to
+      resolve at encode time, just a three-way `switch` on which
+      sub-form was parsed.
+    - **Every one of `PFLUSH`'s optional-`<ea>` and `PTEST`'s optional-
+      `An` forms distinguishes cleanly from its shorter sibling by
+      operand *count* alone** — unlike `FMOVEM`'s store direction or
+      `MOVE16`'s `"(An),abs"` pairing (milestones 14/15), which needed
+      a runtime-computed word because two `Form`s shared identical
+      `OperKinds`, here the longer form's `OperKinds` slice is simply
+      longer, and `operKindsMatch`'s existing length check already
+      separates them — no new `selectForm` hazard to guard against.
+    - **`PFLUSH`'s destination operand is a plain immediate (the
+      address mask), not a writable location** — the one case in this
+      codebase where `Dst` holds a bare value rather than an EA/register
+      destination. Reused `OpkImm` for parsing (already produces
+      exactly `Dst.Kind == EAkImm`, `Dst.Imm == value`) rather than
+      inventing a new operand kind; only the `FieldRef` reading it
+      (`FDstImmShift5`) and the `prepared.DstImm` plumbing to reach it
+      were new.
+23. ✅ **Done.** The FPU's transcendental function set (§6) — chosen by
+    the maintainer from the open items list after milestone 22, the
+    largest remaining item overall at that point.
+    - **Structurally, no new design decisions were needed at all**:
+      every one of these 18 functions (`FSIN`, `FCOS`, `FTAN`, `FATAN`,
+      `FASIN`, `FACOS`, `FATANH`, `FSINH`, `FCOSH`, `FTANH`, `FETOX`,
+      `FETOXM1`, `FLOGN`, `FLOGNP1`, `FLOG10`, `FLOG2`, `FTWOTOX`,
+      `FTENTOX`) is a plain monadic FPU instruction — the exact shape
+      `FABS`/`FNEG`/`FSQRT` already use — so `newFPMonadicDef`
+      (milestone 6) was reused directly rather than duplicated; the
+      only change to that function was adding a `requires Target`
+      parameter (previously hard-coded to `requireFPU`) so this
+      milestone could pass a different one.
+    - **A genuine availability *gate*, not a repeat of milestone 15's
+      warning mechanism.** `FeatFPUFull` already existed as an unused
+      placeholder bit (declared at the very start of this project,
+      never wired to anything). Rather than reusing `FeatEmulated`'s
+      pattern (available always, warn on a specific CPU tier — correct
+      for integer forms a *real* 68060 still executes, just slower),
+      the maintainer's framing treats "a real discrete 68881/68882" as
+      a distinct hardware fact from "some FPU is attached" (`FeatFPU`
+      alone, which already covers an integrated/reduced FPU) — so
+      `--fpu-full` is a new, separate CLI flag setting both `FeatFPU`
+      and `FeatFPUFull`, and `requireFPUFull` (`Target{Features:
+      FeatFPU|FeatFPUFull}`) is a hard gate: without it, these 18
+      mnemonics don't exist at all, the same way `--fpu` itself gates
+      every other FPU instruction.
+    - **Two related groups were identified and deliberately left out,
+      not overlooked**: `FSINCOS` shares every other function's
+      opcode-table argument shape except for a second destination
+      field (`"Ii;bF3F7"` — two `F`-position pairs, not one), needing
+      its own dual-result "`FPa:FPb`" destination syntax; and
+      `FGETEXP`/`FGETMAN`/`FSCALE`/`FMOD`/`FREM` share the identical
+      `"IiF8F7"` bit layout (and `FSCALE`/`FMOD`/`FREM` are actually
+      *binary*, not monadic — matching `FADD`'s shape, not `FABS`'s)
+      but were already tracked in this design doc's own §6 as a
+      separate "math extensions" bucket distinct from "the
+      transcendental set," so were left there rather than folded into
+      this milestone's scope.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

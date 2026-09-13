@@ -164,6 +164,25 @@ const (
 	// FDstRegShift2 is FSrcRegShift2 for the Dst operand — PMOVE's
 	// BADn/BACn load direction ("<ea>,BADn/BACn").
 	FDstRegShift2
+	// FFCSpecWord places the Src operand's function-code specifier
+	// (Src.FCMode/Reg/Imm) into the low bits of the current word:
+	// 0x00|value for named SFC(0)/DFC(1), 0x08|Dn for a data register,
+	// 0x10|value for an immediate FC — PFLUSH/PLOAD/PTEST's first
+	// operand, always Src. See cpu030_pmmu_ptest.go.
+	FFCSpecWord
+	// FDstImmShift5 places the Dst operand's immediate value into bits
+	// 9-5 of the current word — PFLUSH's mask operand ("FC,#mask[,<ea>]"),
+	// the one case in this codebase where Dst holds a plain immediate
+	// rather than a writable location.
+	FDstImmShift5
+	// FAuxImmShift10 places the Aux operand's immediate value into bits
+	// 12-10 of the current word — PTEST's #level operand
+	// ("FC,<ea>,#level[,An]").
+	FAuxImmShift10
+	// FAux2RegShift5 places the Aux2 operand's register number into
+	// bits 9-5 of the current word — PTEST's optional trailing An
+	// result register.
+	FAux2RegShift5
 )
 
 type TrailerItem uint16
@@ -301,6 +320,9 @@ const (
 	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu4.go).
 	OpkBAD
 	OpkBAC
+	// OpkFCSpec matches PFLUSH/PLOAD/PTEST's function-code specifier
+	// operand — SFC, DFC, a plain Dn, or "#<imm>" (see cpu030_pmmu_ptest.go).
+	OpkFCSpec
 )
 
 type InstrDef struct {
@@ -394,11 +416,17 @@ type Args struct {
 	FPCtrlMaskDst uint16
 
 	// Aux is a third operand, for the handful of instructions with more
-	// than the usual Src/Dst pair (CAS's <ea>, PACK/UNPK's #adjustment).
+	// than the usual Src/Dst pair (CAS's <ea>, PACK/UNPK's #adjustment,
+	// PFLUSH's optional <ea>, PTEST's #level).
 	// It is a full EAExpr rather than a plain int64 so it can hold
 	// either an immediate (PACK/UNPK) or a general EA needing its own
 	// extension words (CAS) — see FAuxEA/TAuxEAExt/TAuxImmWord.
 	Aux EAExpr
+
+	// Aux2 is a fourth operand. Only PTEST's optional trailing An
+	// result register ("PTESTR FC,<ea>,#level,An") needs it — no other
+	// instruction in this codebase has more than three operands.
+	Aux2 EAExpr
 }
 
 type EAExprKind uint16
@@ -493,6 +521,9 @@ const (
 	// this file (each of which is its own single fixed register).
 	EAkBAD
 	EAkBAC
+	// EAkFCSpec is PFLUSH/PLOAD/PTEST's function-code specifier operand
+	// (SFC/DFC/Dn/#imm — see FCMode above and cpu030_pmmu_ptest.go).
+	EAkFCSpec
 )
 
 type EAExpr struct {
@@ -535,6 +566,13 @@ type EAExpr struct {
 	// (as opposed to the bare-Dq shorthand, which sets Reg2 == Reg).
 	Reg2        int
 	RegPairWide bool
+
+	// FCMode is used only by EAkFCSpec (PFLUSH/PLOAD/PTEST's function-
+	// code specifier operand), distinguishing which of its three
+	// alternate spellings this is: 0 = named SFC/DFC (the selector, 0
+	// or 1, is in Reg), 1 = Dn (the register number is in Reg), 2 =
+	// immediate (the value is in Imm). See cpu030_pmmu_ptest.go.
+	FCMode int
 }
 
 type EAIndex struct {

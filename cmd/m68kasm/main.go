@@ -20,6 +20,7 @@ func main() {
 	format := flag.String("format", "bin", "output format: bin, srec, or elf")
 	cpu := flag.String("cpu", "68000", "target CPU: 68000, 68008, 68010, 68012, cpu32, 68020, 68030, 68040, or 68060")
 	fpu := flag.Bool("fpu", false, "enable FPU instructions (68881/68882 or an integrated FPU)")
+	fpuFull := flag.Bool("fpu-full", false, "enable the FPU transcendental function set (requires a real discrete 68881/68882, not an integrated FPU)")
 	mmu := flag.Bool("mmu", false, "enable PMMU instructions (68851 or an integrated PMMU)")
 	showVersion := flag.Bool("version", false, "print assembler version and exit")
 	var includePaths multiFlag
@@ -45,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *in == "" {
-		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst] [--format bin|srec|elf] [--cpu 68000|68010|68020|68030|68040|68060|cpu32] [--fpu] [--mmu] [-I path] [-D name[=val]]")
+		fmt.Println("Usage: m68kasm -i input.s [-o out.bin] [--list out.lst] [--format bin|srec|elf] [--cpu 68000|68010|68020|68030|68040|68060|cpu32] [--fpu] [--fpu-full] [--mmu] [-I path] [-D name[=val]]")
 		os.Exit(1)
 	}
 	srcPath, err := resolveInputPath(*in, includePaths)
@@ -57,6 +58,9 @@ func main() {
 	target := m68kasm.Target{CPU: cpuKind}
 	if *fpu {
 		target.Features |= m68kasm.FeatFPU
+	}
+	if *fpuFull {
+		target.Features |= m68kasm.FeatFPU | m68kasm.FeatFPUFull
 	}
 	if *mmu {
 		target.Features |= m68kasm.FeatPMMU

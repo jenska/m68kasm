@@ -44,10 +44,15 @@ func (p *Parser) tryParseForm(mn Token, form *instructions.FormDef, tokens []Tok
 			args.Src = eaExpr
 		case 1:
 			args.Dst = eaExpr
-		default:
-			// A third operand (CAS's <ea>, PACK/UNPK's #adjustment) —
-			// every other instruction in this codebase has at most two.
+		case 2:
+			// A third operand (CAS's <ea>, PACK/UNPK's #adjustment,
+			// PFLUSH's optional <ea>, PTEST's #level).
 			args.Aux = eaExpr
+		default:
+			// A fourth operand — only PTEST's optional trailing An
+			// result register reaches this; every other instruction in
+			// this codebase has at most three.
+			args.Aux2 = eaExpr
 		}
 	}
 
@@ -241,6 +246,13 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 			return eaExpr, errorAtToken(tok, fmt.Errorf("expected BAC0-BAC7, got %s", tok.Text))
 		}
 		eaExpr = instructions.EAExpr{Kind: instructions.EAkBAC, Reg: n}
+
+	case instructions.OpkFCSpec:
+		spec, err := p.parseFCSpec()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = spec
 
 	case instructions.OpkCtrlReg:
 		tok, err := p.want(IDENT)

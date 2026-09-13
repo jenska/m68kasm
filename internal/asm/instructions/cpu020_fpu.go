@@ -27,6 +27,12 @@ import "fmt"
 
 var requireFPU = Target{Features: FeatFPU}
 
+// requireFPUFull gates the transcendental function set
+// (cpu020_fpu_trans.go): both FeatFPU (some FPU attached) and
+// FeatFPUFull (--fpu-full — a real discrete 68881/68882, not just an
+// integrated/reduced one) must be set.
+var requireFPUFull = Target{Features: FeatFPU | FeatFPUFull}
+
 // fpuWord1Base is the fixed high nibble/coprocessor-ID portion of every
 // FPU "general instruction" word1 (the word carrying <ea>, before the
 // opmode/format word). It is 0xF200, not the more obvious-looking
@@ -52,9 +58,9 @@ func init() {
 	registerInstrDef(newFPBinaryDef("FMUL", 0x23, false))
 	registerInstrDef(newFPBinaryDef("FDIV", 0x20, false))
 	registerInstrDef(newFPBinaryDef("FCMP", 0x38, false))
-	registerInstrDef(newFPMonadicDef("FABS", 0x18))
-	registerInstrDef(newFPMonadicDef("FNEG", 0x1A))
-	registerInstrDef(newFPMonadicDef("FSQRT", 0x04))
+	registerInstrDef(newFPMonadicDef("FABS", 0x18, requireFPU))
+	registerInstrDef(newFPMonadicDef("FNEG", 0x1A, requireFPU))
+	registerInstrDef(newFPMonadicDef("FSQRT", 0x04, requireFPU))
 	registerInstrDef(&defFTST)
 	registerInstrDef(&defFNOP)
 }
@@ -170,11 +176,16 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 	return &InstrDef{Mnemonic: name, Forms: forms}
 }
 
-// newFPMonadicDef builds a one-input FPU instruction (FABS/FNEG/FSQRT):
-// "<ea>,FPn", "FPm,FPn", and the single-operand shorthand "FPn" (result
-// in place — copySrcToDstIfNone duplicates the register into Dst before
-// encoding, so it reuses the FPm,FPn form's Steps unchanged).
-func newFPMonadicDef(name string, opBase uint16) *InstrDef {
+// newFPMonadicDef builds a one-input FPU instruction (FABS/FNEG/FSQRT,
+// and — with requires set to requireFPUFull — the transcendental
+// function set, cpu020_fpu_trans.go): "<ea>,FPn", "FPm,FPn", and the
+// single-operand shorthand "FPn" (result in place — copySrcToDstIfNone
+// duplicates the register into Dst before encoding, so it reuses the
+// FPm,FPn form's Steps unchanged). requires is a parameter, not always
+// requireFPU, because a discrete 68881/68882 executes the
+// transcendental subset natively while a bare "some FPU is attached"
+// target (FeatFPU alone) may not — see requireFPUFull's own doc comment.
+func newFPMonadicDef(name string, opBase uint16, requires Target) *InstrDef {
 	validateEA := func(a *Args) error {
 		if err := validateFPUOperand(name, false, a.Src.Kind, a.Size); err != nil {
 			return err
@@ -196,7 +207,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Sizes:       fpSizes,
 				OperKinds:   []OperandKind{OpkEA, OpkFPn},
 				Validate:    validateEA,
-				Requires:    requireFPU,
+				Requires:    requires,
 				Steps: []EmitStep{
 					{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 					{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
@@ -208,7 +219,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Sizes:       []Size{ExtendedSize},
 				OperKinds:   []OperandKind{OpkFPn, OpkFPn},
 				Validate:    validateReg,
-				Requires:    requireFPU,
+				Requires:    requires,
 				Steps: []EmitStep{
 					{WordBits: fpuWord1Base},
 					{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},
@@ -219,7 +230,7 @@ func newFPMonadicDef(name string, opBase uint16) *InstrDef {
 				Sizes:       []Size{ExtendedSize},
 				OperKinds:   []OperandKind{OpkFPn},
 				Validate:    validateReg,
-				Requires:    requireFPU,
+				Requires:    requires,
 				Steps: []EmitStep{
 					{WordBits: fpuWord1Base},
 					{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},

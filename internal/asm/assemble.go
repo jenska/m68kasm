@@ -202,7 +202,7 @@ func sizeAllowed(allowed []instructions.Size, sz instructions.Size) bool {
 }
 
 func operandKinds(a *instructions.Args) []instructions.OperandKind {
-	var kinds [4]instructions.OperandKind
+	var kinds [5]instructions.OperandKind
 	n := 0
 	haveTarget := false
 	if a.HasImmQuick {
@@ -245,6 +245,11 @@ func operandKinds(a *instructions.Args) []instructions.OperandKind {
 		n++
 	}
 
+	if a.Aux2.Kind != instructions.EAkNone {
+		kinds[n] = operandKindFromEA(a.Aux2)
+		n++
+	}
+
 	if (a.Target != "" || a.HasTargetAddr) && !haveTarget {
 		kinds[n] = instructions.OpkDispRel
 		n++
@@ -284,6 +289,7 @@ var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
 	instructions.EAkPCSR:        instructions.OpkPCSR,
 	instructions.EAkBAD:         instructions.OpkBAD,
 	instructions.EAkBAC:         instructions.OpkBAC,
+	instructions.EAkFCSpec:      instructions.OpkFCSpec,
 }
 
 // operandKindFromEA classifies an EA expression into the broader operand kind categories

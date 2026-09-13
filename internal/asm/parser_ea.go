@@ -176,6 +176,40 @@ func parsePmmuNumberedRegister(s, prefix string) (int, bool) {
 	return 0, false
 }
 
+// parseFCSpec parses PFLUSH/PLOAD/PTEST's function-code specifier
+// operand, which GAS itself accepts in three alternate spellings: the
+// named registers SFC/DFC, a plain Dn (holding the function code at
+// runtime), or "#<imm>" (a literal function code, 0-7 — real 68k
+// function codes are always a 3-bit CPU signal). See EAExpr.FCMode's
+// doc comment for how the result is tagged.
+func (p *Parser) parseFCSpec() (instructions.EAExpr, error) {
+	if p.peek().Kind == HASH {
+		p.next()
+		imm, err := p.parseExpr()
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		if imm < 0 || imm > 7 {
+			return instructions.EAExpr{}, fmt.Errorf("function code immediate out of range 0-7: %d", imm)
+		}
+		return instructions.EAExpr{Kind: instructions.EAkFCSpec, FCMode: 2, Imm: imm}, nil
+	}
+	tok, err := p.want(IDENT)
+	if err != nil {
+		return instructions.EAExpr{}, err
+	}
+	switch {
+	case strings.EqualFold(tok.Text, "SFC"):
+		return instructions.EAExpr{Kind: instructions.EAkFCSpec, FCMode: 0, Reg: 0}, nil
+	case strings.EqualFold(tok.Text, "DFC"):
+		return instructions.EAExpr{Kind: instructions.EAkFCSpec, FCMode: 0, Reg: 1}, nil
+	}
+	if ok, dn := isRegDn(tok.Text); ok {
+		return instructions.EAExpr{Kind: instructions.EAkFCSpec, FCMode: 1, Reg: dn}, nil
+	}
+	return instructions.EAExpr{}, errorAtToken(tok, fmt.Errorf("expected SFC, DFC, a data register, or #<imm> (function code specifier), got %s", tok.Text))
+}
+
 // parseRegPair parses DIVSL/DIVUL's "Dr:Dq" (or bare "Dq", the
 // 32-bit-dividend shorthand — Dr defaults to the same register). Real
 // 68020 assembler syntax for this construct has no leading '#', and
