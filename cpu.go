@@ -29,21 +29,43 @@ const (
 )
 
 const (
-	// FeatFPU enables the FPU instructions (FMOVE, FADD, FABS, …) — see
-	// the --fpu CLI flag. Independent of CPUKind: a bare 68020 with an
-	// external 68881/68882 and a 68040's built-in FPU both just need
-	// this bit set.
+	// FeatFPU enables the FPU instructions — FMOVE/FADD/FSUB/FMUL/FDIV/
+	// FCMP/FABS/FNEG/FSQRT/FTST, floating-point immediate literals
+	// (e.g. "#3.14"), all seven data formats including packed BCD
+	// (.p), the F-condition branch/set/trap family, FMOVECR,
+	// FSAVE/FRESTORE, and FMOVEM (both the FPn data-register list and
+	// the FPCR/FPSR/FPIAR control-register list) — see the --fpu CLI
+	// flag. Independent of CPUKind: a bare 68020 with an external
+	// 68881/68882 and a 68040's built-in FPU both just need this bit
+	// set.
 	FeatFPU = instructions.FeatFPU
-	// FeatFPUFull is reserved for the discrete 68881/68882's full
-	// transcendental function set, not yet implemented.
+	// FeatFPUFull additionally enables the transcendental function set
+	// (FSIN, FCOS, FSINCOS, FLOGN, …) and math extensions (FGETEXP,
+	// FGETMAN, FSCALE, FMOD, FREM) — see the --fpu-full CLI flag, which
+	// also sets FeatFPU. A hard availability gate, not a performance
+	// hint: it models "a real discrete 68881/68882 is present," since a
+	// 68040/68060's integrated FPU only trap-emulates this subset.
 	FeatFPUFull = instructions.FeatFPUFull
-	// FeatPMMU enables the PMMU instructions (currently just PMOVE's TC
-	// form and PFLUSHA — see the --mmu CLI flag). Independent of
+	// FeatPMMU enables the PMMU instructions: PMOVE (every 68851/68030
+	// register — TC, CRP/SRP/DRP, TT0/TT1, MMUSR/PSR, CAL/VAL/SCC, AC,
+	// PCSR, BAD0-7/BAC0-7), PFLUSHA/PFLUSH/PFLUSHS/PFLUSHR, PLOADR/
+	// PLOADW, PTESTR/PTESTW, PSAVE/PRESTORE, PMOVEFD, the P-condition
+	// branch/set/trap family, and (on --cpu 68040/68060) the 68040's
+	// own simplified single-word PFLUSHA/PFLUSHAN/PFLUSHN/PFLUSH/
+	// PTESTR/PTESTW forms — see the --mmu CLI flag. Independent of
 	// CPUKind, like FeatFPU: a bare 68020 with an external 68851 and a
 	// 68030's on-chip PMMU both just need this bit set.
 	FeatPMMU = instructions.FeatPMMU
-	// FeatEmulated is reserved for marking 68060 trap-emulated forms,
-	// not yet implemented.
+	// FeatEmulated is reserved and currently unused by this package's
+	// own gating: the CLI's 68060 trap-emulation warning (several
+	// 68020-era forms — CAS2, CHK2/CMP2, MOVEP, dynamic-offset/width
+	// BFxxx, and DIVSL/DIVUL's 64-bit Dr:Dq form — assemble correctly
+	// on a 68060 target but only trap-emulate, not execute natively)
+	// already works automatically for any --cpu 68060 target, with no
+	// flag needed — it's implemented as a separate runtime check against
+	// the actual operand shapes used, not as a Requires/Supports gate on
+	// this bit, since the same Form often handles both the emulated and
+	// the native shape.
 	FeatEmulated = instructions.FeatEmulated
 )
 
