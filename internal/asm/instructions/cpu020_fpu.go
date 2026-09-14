@@ -52,12 +52,12 @@ var requireFPUFull = Target{Features: FeatFPU | FeatFPUFull}
 const fpuWord1Base = 0xF200
 
 func init() {
-	registerInstrDef(newFPBinaryDef("FMOVE", 0x00, true))
-	registerInstrDef(newFPBinaryDef("FADD", 0x22, false))
-	registerInstrDef(newFPBinaryDef("FSUB", 0x28, false))
-	registerInstrDef(newFPBinaryDef("FMUL", 0x23, false))
-	registerInstrDef(newFPBinaryDef("FDIV", 0x20, false))
-	registerInstrDef(newFPBinaryDef("FCMP", 0x38, false))
+	registerInstrDef(newFPBinaryDef("FMOVE", 0x00, true, requireFPU))
+	registerInstrDef(newFPBinaryDef("FADD", 0x22, false, requireFPU))
+	registerInstrDef(newFPBinaryDef("FSUB", 0x28, false, requireFPU))
+	registerInstrDef(newFPBinaryDef("FMUL", 0x23, false, requireFPU))
+	registerInstrDef(newFPBinaryDef("FDIV", 0x20, false, requireFPU))
+	registerInstrDef(newFPBinaryDef("FCMP", 0x38, false, requireFPU))
 	registerInstrDef(newFPMonadicDef("FABS", 0x18, requireFPU))
 	registerInstrDef(newFPMonadicDef("FNEG", 0x1A, requireFPU))
 	registerInstrDef(newFPMonadicDef("FSQRT", 0x04, requireFPU))
@@ -112,14 +112,17 @@ func validateFPUOperand(name string, isStore bool, k EAExprKind, sz Size) error 
 }
 
 // newFPBinaryDef builds a two-operand FPU instruction (FMOVE/FADD/FSUB/
-// FMUL/FDIV/FCMP): "<ea>,FPn" (opBase in bits 6-0, source format in bits
-// 12-10, dest FPn in bits 9-7) and "FPm,FPn" (opBase, source FPm in bits
-// 12-10, dest FPn in bits 9-7 — no format field, since both operands are
-// already extended precision internally). allowStore adds FMOVE's third
-// form, "FPn,<ea>" (bit 13 set for the store direction, per fmovex's
-// 0x4800-vs-0x6800 literals — see fpFormatCode's doc comment for the
-// sibling load/store literal pair this generalizes from).
-func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
+// FMUL/FDIV/FCMP, and — with requires set to requireFPUFull —
+// FSCALE/FMOD/FREM, cpu020_fpu_trans2.go): "<ea>,FPn" (opBase in bits
+// 6-0, source format in bits 12-10, dest FPn in bits 9-7) and "FPm,FPn"
+// (opBase, source FPm in bits 12-10, dest FPn in bits 9-7 — no format
+// field, since both operands are already extended precision
+// internally). allowStore adds FMOVE's third form, "FPn,<ea>" (bit 13
+// set for the store direction, per fmovex's 0x4800-vs-0x6800 literals
+// — see fpFormatCode's doc comment for the sibling load/store literal
+// pair this generalizes from). requires is a parameter for the same
+// reason newFPMonadicDef's is — see that function's own doc comment.
+func newFPBinaryDef(name string, opBase uint16, allowStore bool, requires Target) *InstrDef {
 	validate := func(a *Args) error {
 		if err := validateFPUOperand(name, false, a.Src.Kind, a.Size); err != nil {
 			return err
@@ -133,7 +136,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			Sizes:       fpSizes,
 			OperKinds:   []OperandKind{OpkEA, OpkFPn},
 			Validate:    validate,
-			Requires:    requireFPU,
+			Requires:    requires,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
@@ -145,7 +148,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			DefaultSize: ExtendedSize,
 			Sizes:       []Size{ExtendedSize},
 			OperKinds:   []OperandKind{OpkFPn, OpkFPn},
-			Requires:    requireFPU,
+			Requires:    requires,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base},
 				{WordBits: opBase, Fields: []FieldRef{FFPSrcReg10, FFPDstReg7}},
@@ -165,7 +168,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool) *InstrDef {
 			Sizes:       fpSizes,
 			OperKinds:   []OperandKind{OpkFPn, OpkEA},
 			Validate:    storeValidate,
-			Requires:    requireFPU,
+			Requires:    requires,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FDstEA}},
 				{WordBits: 0x2000 | opBase, Fields: []FieldRef{FFPFormat, FFPSrcReg7}},

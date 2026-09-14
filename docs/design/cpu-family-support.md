@@ -1311,6 +1311,34 @@ need a separate phase.
       separate "math extensions" bucket distinct from "the
       transcendental set," so were left there rather than folded into
       this milestone's scope.
+24. ✅ **Done.** The FPU's "math extensions" — `FGETEXP`/`FGETMAN`
+    (monadic) and `FSCALE`/`FMOD`/`FREM` (binary) — chosen by the
+    maintainer from the open items list after milestone 23, exactly
+    the group milestone 23 itself had already identified and set
+    aside.
+    - **`newFPBinaryDef` got the identical `requires`-parameter
+      treatment `newFPMonadicDef` already got in milestone 23**, for
+      the same reason: `FSCALE`/`FMOD`/`FREM` are genuinely binary
+      (two floating operands — `FADD`'s own shape, not `FABS`'s), so
+      reusing the monadic builder wasn't an option, but the binary
+      builder had the identical "hard-coded `requireFPU`" limitation
+      that needed lifting to gate these behind `requireFPUFull`
+      instead. Six existing call sites (`FMOVE`/`FADD`/`FSUB`/`FMUL`/
+      `FDIV`/`FCMP`) updated to pass `requireFPU` explicitly; three
+      new ones pass `requireFPUFull`.
+    - **`allowStore` already existed as exactly the right lever**:
+      `FSCALE`/`FMOD`/`FREM`'s result only ever goes to an `FPn`
+      register, unlike `FMOVE`'s own third "`FPn,<ea>`" store form —
+      `newFPBinaryDef(name, opBase, false, requireFPUFull)` was the
+      complete call, no new logic needed inside the builder itself.
+    - **Zero new design decisions beyond the `requires` parameter**:
+      every byte confirmed against the real CLI matched hand-derivation
+      on the first attempt, the same "third time reusing an established
+      pattern" outcome milestone 19 (the PMMU condition family) already
+      had — at this point in the project, extending an existing
+      builder function to a new mnemonic sharing its exact bit shape is
+      no longer discovering anything new, just applying what's already
+      confirmed to work.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
