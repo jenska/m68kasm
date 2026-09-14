@@ -895,7 +895,8 @@ need a separate phase.
       right, not a natural extension of what's built here. Given how
       rarely real code saves/restores the FPU's control registers
       compared to its data registers, this is left for a dedicated
-      follow-up rather than folding it in here.
+      follow-up rather than folding it in here. (Picked up shortly
+      after, as its own milestone — see milestone 17 below.)
 15. ✅ **Done.** 68040/68060 support (§5.4), chosen by the maintainer
     from the open items list after milestone 14: `MOVE16`, the
     cache-control instructions (`CINVA`/`CINVL`/`CINVP`, `CPUSHA`/
@@ -1685,6 +1686,82 @@ need a separate phase.
       exponent BCD string from an arbitrary decimal literal is real,
       separable complexity with no use case this milestone's own scope
       called for.
+30. ✅ **Done, closing out the PMMU surface's remaining PFLUSH/PTEST
+    variants entirely.** `PFLUSH`'s remaining 68030/68851 siblings
+    (`PFLUSHS`, `PFLUSHR`) plus the 68040's own, differently-encoded
+    single-word PMMU forms (`PFLUSHA`/`PFLUSHAN`/`PFLUSHN`/`PFLUSH`/
+    `PTESTR`/`PTESTW`) — chosen by the maintainer after the milestone
+    intended to cover an FMOVEM gap turned out to already be done (see
+    below), leaving this as the only substantive item left open.
+    - **A stale-documentation detour, found before writing any new
+      code**: the maintainer picked "`FMOVEM`'s `FPCR`/`FPSR`/`FPIAR`
+      list form" from this design doc's own milestone 13/14 entries and
+      `cpu020_fpu_movem.go`'s header comment, both still saying it was
+      "left for a dedicated follow-up" — except milestone 17 (this same
+      document, further down) already shipped it, complete with its own
+      passing test suite (`cpu020_fpu_movem2_test.go`), and neither
+      earlier note was ever updated to say so. Confirmed by running
+      those tests before writing anything. Fixed both stale spots to
+      point forward at milestone 17 rather than re-implementing already-
+      shipped work.
+    - **`PFLUSHS` reuses `PFLUSH`'s own bit layout exactly, one extra bit
+      set** — confirmed by decomposing all six `PFLUSH`/`PFLUSHS` row
+      pairs in GAS's opcode table (`0x3010`/`0x3410`, `0x3808`/`0x3C08`,
+      etc. — every pair differs by exactly `0x0400`), so `defPFLUSH`
+      became `newPFlushDef(name, extraBit)`, a direct instance of the
+      "generalize the existing builder with a parameter" pattern already
+      used repeatedly for the FPU builders. `PFLUSHR` needed no such
+      generalization — a single, fully fixed word2 (`0xA000`) with a
+      plain memory `<ea>`, the simplest Form in this entire PMMU family.
+    - **The 68040's PMMU interface is genuinely different, not a variant
+      of 68030/68851's**: every instruction is a single 16-bit word (no
+      `0xF000` coprocessor-line prefix, no second word at all), and each
+      one's sole operand — when it has one — is always an address
+      register, accepted as either `"(An)"` or bare `"An"` (GAS's own
+      dual argument-letter row for this operand). Both spellings already
+      parsed to an `EAExpr` with `.Reg` populated identically (`EAkAn`/
+      `EAkAddrInd`'s own `regFromExpr` mechanism), and `OpkEA`'s already-
+      established broad kind-compatibility already accepts `OpkAn` as a
+      satisfying actual kind — so no new operand parsing was needed at
+      all, only a new encode-time field (`FSrcRegOnly`, bits 2-0, no
+      mode bits — narrower than `FSrcEA`) and a `Validate` restricting
+      the accepted `EAExprKind`s to exactly those two.
+    - **A real, and non-obvious, `Form`-ordering hazard, found and
+      resolved proactively rather than discovered as a bug**: `PFLUSHA`
+      now has two `Form`s — the pre-existing two-word coprocessor form
+      and this milestone's new single-word 68040 form — sharing
+      identical (empty) `OperKinds`. A bare `CPU68040` floor `Requires`
+      never excludes higher tiers, so both `Form`s survive
+      `Table.ForTarget`'s filtering on a 68040+ target, leaving `Form`
+      order as the only thing that decides which one a `PFLUSHA` with no
+      operands resolves to. Resolved by prepending, not appending, the
+      new `Form` to `defPFLUSHA.Forms` — confirmed by a dedicated test
+      (`TestPflusha68040FormWinsOnPrepend`) alongside its converse
+      (`TestPflusha68030FormStillWorks`) — the same category of hazard
+      already documented for `TRAPcc` (milestone 5), here anticipated
+      instead of hit.
+    - **A genuinely new gating primitive: `featM68040Only`.** GAS tags
+      `PFLUSHA`/`PFLUSHAN`/`PFLUSHN`/`PFLUSH`'s single-word forms
+      `m68040up` (a plain `Target{CPU: CPU68040}` floor correctly
+      extends to the 68060), but `PTESTR`/`PTESTW`'s own single-word
+      form is tagged the bare `m68040` — the 68060 dropped it — needing
+      the exact-tier mechanism `featCPU32Only`/`featM68020Only` already
+      established (`Supports`' own `switch t.CPU` grants the bit
+      implicitly, never set by a caller directly), extended with one
+      more `case CPU68040:` arm and a matching `requireM68040Only`.
+      `TestPtestr68040FormExcludes68060` guards this directly, alongside
+      `TestPflusha68040FormIncludes68060` guarding the *other* four
+      forms' own, different (`m68040up`) floor behavior — the pairing
+      matters, since a test suite that only checked one side could pass
+      even with the exact-tier/floor distinction backwards.
+    - **`defPFLUSH`, `defPTESTR`, and `defPTESTW`** (previously built
+      inline inside a `registerInstrDef(...)` call, never captured) were
+      each pulled into package-level vars so this milestone's own file
+      could append their 68040 forms directly — the same direct-
+      variable-reference preference `defPMOVE`/`defFMOVE`/`defPFLUSHA`
+      already established, chosen again over an `Instructions[name]` map
+      lookup specifically to avoid an init-ordering dependency between
+      files.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

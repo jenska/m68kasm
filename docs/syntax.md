@@ -424,6 +424,22 @@ operands. The PMMU's own 16-condition branch/set/trap family mirrors §7.3's
 FPU family and the integer ISA, with its own `PBcc`/`PDBcc`/`PScc`/`PTRAPcc`
 mnemonics, conditions, and (for `PBcc`) `.W`/`.L` suffix convention.
 
+On `--cpu 68040`/`68060`, `PFLUSHA`/`PFLUSH`/`PTESTR`/`PTESTW` (plus two
+68040-only mnemonics, `PFLUSHAN` and `PFLUSHN`) switch to the 68040's own
+simplified, single-word encoding — `PFLUSH`/`PFLUSHN`/`PTESTR`/`PTESTW`
+then take a single address register, written as either `(An)` or bare
+`An`:
+
+```asm
+PFLUSH (A0)              ; or "PFLUSH A0" — identical encoding
+PTESTR A2
+```
+
+`PTESTR`/`PTESTW`'s single-word form is 68040-only — the 68060 dropped
+it, so on `--cpu 68060` only the general 68030/68851-style form
+(`PTESTR SFC,(A0),#3`) remains available; the other single-word forms
+here work on both `68040` and `68060`.
+
 A cache selector (`NC`, `DC`, `IC`, or `BC`) is `CINV`/`CPUSH`'s first
 operand on `--cpu 68040` or later:
 

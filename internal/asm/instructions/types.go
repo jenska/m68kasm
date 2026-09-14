@@ -209,6 +209,15 @@ const (
 	// covers both, the same combined-switch pattern FFCSpecWord already
 	// established for PFLUSH/PLOAD/PTEST's own three-way operand.
 	FKFactor
+	// FSrcRegOnly places the Src operand's register number into bits 2-0
+	// of the current word — no mode bits, unlike FSrcEA. Used by the
+	// 68040's own single-word PMMU forms (PFLUSH/PFLUSHN/PTESTR/PTESTW —
+	// see cpu040_pmmu.go), whose sole operand is always an address
+	// register (accepted as either "(An)" or bare "An", per GAS's own
+	// dual argument-letter row for this operand — both spellings parse
+	// to an EAExpr with Reg already populated identically, so no new
+	// parsing was needed, only this narrower encode-time field).
+	FSrcRegOnly
 )
 
 type TrailerItem uint16

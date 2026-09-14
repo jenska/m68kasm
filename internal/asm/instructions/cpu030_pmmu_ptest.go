@@ -2,16 +2,13 @@ package instructions
 
 import "fmt"
 
-// This file adds PFLUSH, PLOADR/PLOADW, and PTESTR/PTESTW — the
-// 68030/68851 PMMU cache/TLB management instructions beyond PFLUSHA
-// (milestone 12), chosen by the maintainer from the open items list.
-// Deliberately scoped to the 68030|68851 forms only: PFLUSHR/PFLUSHS
-// (68851-exclusive alternate flush forms), PFLUSHAN/PFLUSHN (68040's
-// own, differently-encoded flush variants), and PTESTR/PTESTW's
-// 68040-only single-word forms all remain out of scope, each its own
-// future milestone rather than folded in here — the 68040 PMMU
-// interface is simplified/re-encoded relative to 68030/68851 in ways
-// that don't share these instructions' bit layout at all.
+// This file adds PFLUSH, PFLUSHS, PFLUSHR, PLOADR/PLOADW, and PTESTR/
+// PTESTW — the 68030/68851 PMMU cache/TLB management instructions
+// beyond PFLUSHA (milestone 12), chosen by the maintainer from the open
+// items list. PFLUSHAN/PFLUSHN and PTESTR/PTESTW's own 68040-only
+// single-word forms remain out of scope here — the 68040 PMMU interface
+// is simplified/re-encoded relative to 68030/68851 in ways that don't
+// share these instructions' bit layout at all — see cpu040_pmmu.go.
 //
 // All three share a new operand kind, PFLUSH/PLOAD/PTEST's "function
 // code specifier" (OpkFCSpec/EAkFCSpec): GAS accepts this operand in
@@ -28,58 +25,106 @@ import "fmt"
 // FC,<ea>,#level,An" — the first instruction in this codebase to need
 // one; Args gained an Aux2 field for exactly this (types.go), used by
 // nothing else.
+// defPFLUSH is captured in a package-level var, unlike PFLUSHS's own
+// newPFlushDef call, so cpu040_pmmu.go can append the 68040's own
+// single-word PFLUSH form to defPFLUSH.Forms directly — the same
+// direct-variable-reference pattern defPTESTR/defPTESTW use just below.
+var defPFLUSH = newPFlushDef("PFLUSH", 0x0000)
+
 func init() {
-	registerInstrDef(&defPFLUSH)
+	registerInstrDef(defPFLUSH)
+	registerInstrDef(newPFlushDef("PFLUSHS", 0x0400))
+	registerInstrDef(&defPFLUSHR)
 	registerInstrDef(newPLoadDef("PLOADR", 0x2200))
 	registerInstrDef(newPLoadDef("PLOADW", 0x2000))
-	registerInstrDef(newPTestDef("PTESTR", 0x8200))
-	registerInstrDef(newPTestDef("PTESTW", 0x8000))
+	registerInstrDef(defPTESTR)
+	registerInstrDef(defPTESTW)
 }
 
-var defPFLUSH = InstrDef{
-	Mnemonic: "PFLUSH",
-	Forms: []FormDef{
-		{
-			// PFLUSH FC,#mask
-			DefaultSize: WordSize,
-			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OpkFCSpec, OpkImm},
-			Validate:    validatePflushMask,
-			Requires:    requirePMMU,
-			Steps: []EmitStep{
-				{WordBits: 0xF000},
-				{WordBits: 0x3000, Fields: []FieldRef{FFCSpecWord, FDstImmShift5}},
+// newPFlushDef builds PFLUSH or PFLUSHS: "FC,#mask" and "FC,#mask,<ea>".
+// extraBit is 0 for PFLUSH, 0x0400 for PFLUSHS — GAS's own opcode table
+// gives PFLUSHS (68851-exclusive; unlike PFLUSH, not available on a bare
+// 68030's on-chip PMMU) the identical bit layout as PFLUSH with exactly
+// that one extra bit set (PFLUSH's own T3T9 row literal 0x3010 vs
+// PFLUSHS's 0x3410, and so on for every row pair) — confirmed by
+// decomposing all six PFLUSH/PFLUSHS row pairs, not just the one shown
+// here.
+func newPFlushDef(name string, extraBit uint16) *InstrDef {
+	validateMask := func(a *Args) error {
+		if a.Dst.Imm < 0 || a.Dst.Imm > 31 {
+			return fmt.Errorf("%s mask must be 0-31", name)
+		}
+		return nil
+	}
+	validateMaskAndEA := func(a *Args) error {
+		if err := validateMask(a); err != nil {
+			return err
+		}
+		if !memoryAlterableEA[a.Aux.Kind] {
+			return fmt.Errorf("%s <ea> must be a memory addressing mode", name)
+		}
+		return nil
+	}
+	return &InstrDef{
+		Mnemonic: name,
+		Forms: []FormDef{
+			{
+				// FC,#mask
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
+				OperKinds:   []OperandKind{OpkFCSpec, OpkImm},
+				Validate:    validateMask,
+				Requires:    requirePMMU,
+				Steps: []EmitStep{
+					{WordBits: 0xF000},
+					{WordBits: 0x3000 | extraBit, Fields: []FieldRef{FFCSpecWord, FDstImmShift5}},
+				},
+			},
+			{
+				// FC,#mask,<ea>
+				DefaultSize: WordSize,
+				Sizes:       []Size{WordSize},
+				OperKinds:   []OperandKind{OpkFCSpec, OpkImm, OpkEA},
+				Validate:    validateMaskAndEA,
+				Requires:    requirePMMU,
+				Steps: []EmitStep{
+					{WordBits: 0xF000, Fields: []FieldRef{FAuxEA}},
+					{WordBits: 0x3800 | extraBit, Fields: []FieldRef{FFCSpecWord, FDstImmShift5}},
+					{Trailer: []TrailerItem{TAuxEAExt}},
+				},
 			},
 		},
+	}
+}
+
+// defPFLUSHR is "PFLUSHR <ea>" — flush by root-pointer descriptor,
+// 68851-exclusive. Unlike PFLUSH/PFLUSHS, GAS's own row
+// (two(0xf000,0xa000), mask two(0xffc0,0xffff)) has a FULLY fixed
+// word2: no function-code specifier, no mask, just a plain memory <ea>.
+var defPFLUSHR = InstrDef{
+	Mnemonic: "PFLUSHR",
+	Forms: []FormDef{
 		{
-			// PFLUSH FC,#mask,<ea>
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
-			OperKinds:   []OperandKind{OpkFCSpec, OpkImm, OpkEA},
-			Validate:    validatePflushMaskAndEA,
+			OperKinds:   []OperandKind{OpkEA},
+			Validate:    validatePflushrEA,
 			Requires:    requirePMMU,
 			Steps: []EmitStep{
-				{WordBits: 0xF000, Fields: []FieldRef{FAuxEA}},
-				{WordBits: 0x3800, Fields: []FieldRef{FFCSpecWord, FDstImmShift5}},
-				{Trailer: []TrailerItem{TAuxEAExt}},
+				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
+				{WordBits: 0xA000},
+				{Trailer: []TrailerItem{TSrcEAExt}},
 			},
 		},
 	},
 }
 
-func validatePflushMask(a *Args) error {
-	if a.Dst.Imm < 0 || a.Dst.Imm > 31 {
-		return fmt.Errorf("PFLUSH mask must be 0-31")
-	}
-	return nil
-}
-
-func validatePflushMaskAndEA(a *Args) error {
-	if err := validatePflushMask(a); err != nil {
-		return err
-	}
-	if !memoryAlterableEA[a.Aux.Kind] {
-		return fmt.Errorf("PFLUSH <ea> must be a memory addressing mode")
+func validatePflushrEA(a *Args) error {
+	if !memoryAlterableEA[a.Src.Kind] {
+		if a.Src.Kind == EAkNone {
+			return fmt.Errorf("PFLUSHR requires an operand")
+		}
+		return fmt.Errorf("PFLUSHR requires a memory addressing mode")
 	}
 	return nil
 }
@@ -116,6 +161,14 @@ func newPLoadDef(name string, base uint16) *InstrDef {
 		},
 	}
 }
+
+// defPTESTR and defPTESTW are captured in package-level vars, unlike
+// PLOADR/PLOADW's own newPLoadDef calls, so cpu040_pmmu.go can append
+// the 68040's own single-word PTESTR/PTESTW form to defPTESTR.Forms/
+// defPTESTW.Forms directly — the same direct-variable-reference pattern
+// defPMOVE/defFMOVE/defPFLUSHA already use for exactly this reason.
+var defPTESTR = newPTestDef("PTESTR", 0x8200)
+var defPTESTW = newPTestDef("PTESTW", 0x8000)
 
 // newPTestDef builds PTESTR or PTESTW, each with two forms: "FC,<ea>,
 // #level" and "FC,<ea>,#level,An" (the optional trailing result

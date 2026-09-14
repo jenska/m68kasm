@@ -9,8 +9,8 @@ import "fmt"
 // incremental addition. It covers only the general-purpose FPn (FP0-
 // FP7) register-list form, both static ("FP0-FP3/FP5") and dynamic (a
 // Dn holding the list at runtime); the separate FPCR/FPSR/FPIAR
-// control-register list form ("fmoveml" in GAS's table) is deliberately
-// NOT included — see the note at the end of this comment.
+// control-register list form ("fmoveml" in GAS's table) was deferred
+// out of this file — see cpu020_fpu_movem2.go, milestone 17.
 //
 // Word1 is always fpuWord1Base (0xF200, the coprocessor-ID bit every
 // FPU instruction needs — see its doc comment in cpu020_fpu.go) ORed
@@ -32,16 +32,13 @@ import "fmt"
 // directly rather than via a second Form — including the same list
 // bit-reversal for predecrement (reverse16, encode.go).
 //
-// Deliberately NOT included: the FPCR/FPSR/FPIAR control-register list
-// form. GAS encodes it with a real bit-width/position difference (a
-// 3-bit selector at bits 12-10 of word2, versus the 8-bit FPn mask at
-// bits 7-0) and its own type-check rules allowing Dn/An as the EA side
-// (unlike the FPn form, which requires a real memory address) — a
-// second, smaller register-list subsystem in its own right rather than
-// a natural extension of the FPn form built here. Given how rarely real
-// code saves/restores the FPU control registers compared to its data
-// registers, and that this milestone was already deferred twice for
-// scope, it is left for a dedicated follow-up.
+// The FPCR/FPSR/FPIAR control-register list form was deferred out of
+// this file for the same reason (a real bit-width/position difference —
+// a 3-bit selector at bits 12-10 of word2, versus the 8-bit FPn mask at
+// bits 7-0 — and its own type-check rules allowing Dn/An as the EA
+// side, unlike the FPn form's real-memory-address-only restriction) but
+// was picked up as its own milestone shortly after — see
+// cpu020_fpu_movem2.go.
 
 func init() {
 	registerInstrDef(&defFMOVEM)

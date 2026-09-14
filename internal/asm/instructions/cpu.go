@@ -117,6 +117,15 @@ const (
 	// (m68020|m68030up|...). Same mechanism as featCPU32Only, granted
 	// implicitly to a target whose CPU is exactly CPU68020.
 	featM68020Only
+	// featM68040Only marks a form exactly the 68040 has that the 68060
+	// dropped — PTESTR/PTESTW's own single-word form, confirmed against
+	// GNU binutils' opcodes/m68k-opc.c: it's tagged the bare `m68040`
+	// (not the `m68040up` union PFLUSH/PFLUSHA/PFLUSHAN/PFLUSHN's own
+	// single-word 68040 forms use, which extend to the 68060 via a plain
+	// CPU-floor Requires). Same mechanism as featCPU32Only/
+	// featM68020Only, granted implicitly to a target whose CPU is
+	// exactly CPU68040. See cpu040_pmmu.go.
+	featM68040Only
 )
 
 // Target bundles the base ISA tier with the coprocessor features present
@@ -147,12 +156,20 @@ var requireCPU32Only = Target{CPU: CPU32, Features: featCPU32Only}
 // the original 68020 has.
 var requireM68020Only = Target{CPU: CPU68020, Features: featM68020Only}
 
+// requireM68040Only marks a form only the 68040 has (PTESTR/PTESTW's
+// single-word form) — the 68060 dropped it. Use this instead of a bare
+// Target{CPU: CPU68040}, which (via Supports' plain CPU-floor
+// comparison) would also grant it to 68060 targets.
+var requireM68040Only = Target{CPU: CPU68040, Features: featM68040Only}
+
 // Supports reports whether a form or instruction tagged with the
 // requirement req is legal to assemble for this Target. A CPU32 target
-// implicitly carries featCPU32Only, and a target whose CPU is exactly
-// CPU68020 implicitly carries featM68020Only (no caller ever sets either
-// themselves) — so a form tagged requireCPU32Only or requireM68020Only
-// is satisfied only by that exact tier, even though a plain CPU-floor
+// implicitly carries featCPU32Only, a target whose CPU is exactly
+// CPU68020 implicitly carries featM68020Only, and one whose CPU is
+// exactly CPU68040 implicitly carries featM68040Only (no caller ever
+// sets any of these themselves) — so a form tagged requireCPU32Only,
+// requireM68020Only, or requireM68040Only is satisfied only by that
+// exact tier, even though a plain CPU-floor
 // comparison alone would also (wrongly) grant it to every later tier
 // too, since both have strictly higher CPU values. Every other
 // requirement uses the ordinary rule: req.CPU must be at or below t.CPU,
@@ -165,6 +182,8 @@ func (t Target) Supports(req Target) bool {
 		effFeatures |= featCPU32Only
 	case CPU68020:
 		effFeatures |= featM68020Only
+	case CPU68040:
+		effFeatures |= featM68040Only
 	}
 	if req.Features&^effFeatures != 0 {
 		return false

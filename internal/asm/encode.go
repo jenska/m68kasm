@@ -320,6 +320,8 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 			return wordVal | 0x1000 | (uint16(p.DstKFactorVal&7) << 4)
 		}
 		return wordVal | (uint16(p.DstKFactorVal) & 0x7F)
+	case instructions.FSrcRegOnly:
+		return wordVal | uint16(p.SrcReg&7)
 	default:
 		return wordVal
 	}
