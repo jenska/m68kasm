@@ -34,11 +34,12 @@ var defFSINCOS = InstrDef{
 	Forms: []FormDef{
 		{
 			// <ea>,FPc:FPs
-			DefaultSize: ExtendedSize,
-			Sizes:       fpSizes,
-			OperKinds:   []OperandKind{OpkEA, OpkFPRegPair},
-			Validate:    func(a *Args) error { return validateFPUOperand("FSINCOS", false, a.Src.Kind, a.Size) },
-			Requires:    requireFPUFull,
+			DefaultSize:   ExtendedSize,
+			Sizes:         fpSizes,
+			OperKinds:     []OperandKind{OpkEA, OpkFPRegPair},
+			Validate:      func(a *Args) error { return validateFPUOperand("FSINCOS", false, a.Src, a.Size) },
+			Requires:      requireFPUFull,
+			AllowFloatImm: true,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: 0x0030, Fields: []FieldRef{FFPFormat, FSincosRegSin7, FSincosRegCos0}},

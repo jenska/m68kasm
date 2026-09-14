@@ -510,11 +510,7 @@ func (p *Parser) parseEAPreDecrement() (instructions.EAExpr, error) {
 
 func (p *Parser) parseEAImmediate() (instructions.EAExpr, error) {
 	p.next() // '#'
-	v, err := p.parseExpr()
-	if err != nil {
-		return instructions.EAExpr{}, err
-	}
-	return instructions.EAExpr{Kind: instructions.EAkImm, Imm: v}, nil
+	return p.parseImmExpr()
 }
 
 func (p *Parser) parseEADisplacementOrAbsolute() (instructions.EAExpr, error) {

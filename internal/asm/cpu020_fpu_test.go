@@ -93,11 +93,25 @@ func TestFPURejectsAddressRegister(t *testing.T) {
 	mustAssembleErr(t, "FADD.L A0,FP0\n", targetFPU)
 }
 
-func TestFPURejectsFloatImmediate(t *testing.T) {
-	// The lexer has no float-literal syntax; ".s" with an immediate must
-	// be rejected by Validate (an integer literal would otherwise be
-	// silently reinterpreted as if it were a single-precision float).
-	mustAssembleErr(t, "FADD.S #1,FP0\n", targetFPU)
+// TestFPUAllowsIntegerImmediateAgainstFloatSize guards the milestone-27
+// gap closed once float literals became real: before, an INTEGER
+// literal against a floating-point size ("FADD.S #1,FP0") was *also*
+// rejected, not just a genuinely fractional one — see
+// cpu020_fpu_floatimm_test.go for the full float-literal coverage this
+// change enabled.
+func TestFPUAllowsIntegerImmediateAgainstFloatSize(t *testing.T) {
+	got := assembleForTarget(t, "FADD.S #1,FP0\n", targetFPU)
+	if len(got) != 8 {
+		t.Fatalf("got %d bytes, want 8", len(got))
+	}
+}
+
+// TestFPURejectsFractionalImmediateAgainstIntegerSize guards the
+// converse: a genuine floating-point literal still can't be used with
+// an integer size (.b/.w/.l), since a fraction has no integer
+// representation.
+func TestFPURejectsFractionalImmediateAgainstIntegerSize(t *testing.T) {
+	mustAssembleErr(t, "FADD.L #1.5,FP0\n", targetFPU)
 }
 
 func TestFPUAllowsIntegerImmediate(t *testing.T) {

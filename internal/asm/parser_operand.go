@@ -71,12 +71,11 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		if _, err := p.want(HASH); err != nil {
 			return eaExpr, err
 		}
-		imm, err := p.parseExpr()
+		imm, err := p.parseImmExpr()
 		if err != nil {
 			return eaExpr, err
 		}
-		eaExpr.Kind = instructions.EAkImm
-		eaExpr.Imm = imm
+		eaExpr = imm
 
 	case instructions.OpkImmQuick:
 		if _, err := p.want(HASH); err != nil {

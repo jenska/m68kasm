@@ -397,6 +397,19 @@ type FormDef struct {
 	// is true. The zero value (Target68000) matches every target, so leaving
 	// it unset keeps a form available everywhere, as before Target existed.
 	Requires Target
+	// AllowFloatImm permits a bare floating-point immediate literal
+	// ("#3.14" — EAExpr.ImmIsFloat) among this form's operands. It
+	// defaults to false (rejected) for every form in this codebase
+	// except the handful of FPU forms whose <ea> operand can carry a
+	// float-format immediate (see cpu020_fpu.go's validateFPUOperand
+	// and newFPMonadicDef/newFPBinaryDef). This is a second, central
+	// guard — independent of each form's own Validate — checked once in
+	// assembleItem right after a form is selected: without it, a stray
+	// float literal typed against a non-FPU instruction (e.g. "MOVE.W
+	// #3.5,D0") would silently encode as if the immediate were zero,
+	// since ImmIsFloat leaves the ordinary integer Imm field unset and
+	// no other non-FPU Validate function knows to check for it.
+	AllowFloatImm bool
 }
 
 type EmitStep struct {
@@ -599,6 +612,19 @@ type EAExpr struct {
 	// or 1, is in Reg), 1 = Dn (the register number is in Reg), 2 =
 	// immediate (the value is in Imm). See cpu030_pmmu_ptest.go.
 	FCMode int
+
+	// ImmFloat and ImmIsFloat are used only by EAkImm: ImmIsFloat is
+	// true when the "#<value>" immediate was written as a bare
+	// floating-point literal (e.g. "#3.14", parsed directly from the
+	// lexer's own float-literal token rather than through the integer
+	// expression evaluator — see parseImmExpr), with the value itself
+	// in ImmFloat (Imm stays zero in that case). Only FPU instructions
+	// with a floating-point size (.s/.d/.x) accept this — every other
+	// consumer's own Validate rejects it, and FormDef.AllowFloatImm is
+	// a second, centralized guard against it reaching Encode
+	// unexpectedly. See validateFPUOperand and cpu020_fpu.go.
+	ImmFloat   float64
+	ImmIsFloat bool
 }
 
 type EAIndex struct {

@@ -1475,10 +1475,102 @@ need a separate phase.
       monadic ones from milestone 23, plus `FSINCOS` here) is
       implemented; only floating-point immediate literals and packed BCD
       remain open from §6's original scope.
+27. ✅ **Done, plus an unrelated lexer bug found and fixed along the
+    way.** Floating-point immediate literals (`#3.14`) for FMOVE/FADD/
+    etc. — the last of the two items milestone 26's own entry listed as
+    still open from §6, chosen by the maintainer over packed BCD and the
+    68040-only PMMU forms.
+    - **A real lexer change, not just an instructions-table one** — the
+      first milestone in this whole series to touch `lexer.go`.
+      `scanNumber`'s decimal path now recognizes a trailing
+      `.<digits>` and/or `[eE][+-]<digits>` as a float literal,
+      producing a `NUMBER` token with a new `IsFloat`/`FVal` pair
+      alongside the existing integer `Val` — modeled after, and
+      requiring the same "don't consume unless a real digit follows"
+      discipline as, `$`/`%`/`@`'s own existing base-prefix
+      disambiguation, so `5.L` (a bare integer immediately followed by
+      something else) and `5end` don't misparse.
+    - **The real design problem wasn't lexing — it was that `#<value>`
+      is a genuinely shared parse path.** Every instruction with an
+      immediate operand (not just FPU ones) reaches the same two
+      call sites (`parseEAImmediate`/`OpkImm`'s `parseExpr()` call), so
+      naively making that shared path float-aware would have let a
+      typo'd float literal reach a completely unrelated instruction
+      (`MOVE.W #3.5,D0`) and silently encode as if the immediate were
+      *zero* — `ImmIsFloat` leaves the ordinary integer `Imm` field
+      unset, and no other instruction's `Validate` has any reason to
+      check for it. Resolved with two layers, both new: `parseImmExpr`
+      (`expr.go`) recognizes a bare float literal (optionally
+      sign-prefixed — `#-1.5` needs its own 2-token lookahead, since
+      `parseExpr`'s own unary minus only negates an *integer* result)
+      directly from the lexer, bypassing the integer expression
+      evaluator entirely for that one case; and a new
+      `FormDef.AllowFloatImm` flag, checked centrally in `assembleItem`
+      right after form selection, rejects a float-flagged immediate for
+      every form that doesn't explicitly declare it (set only on the
+      FPU `<ea>`-accepting forms `newFPBinaryDef`/`newFPMonadicDef`/
+      `FTST`/`FSINCOS` build). `parseExpr` itself also now explicitly
+      rejects a float-flagged `NUMBER` token in its own `NUMBER` case,
+      for every *other* expression context (`.org`, displacements,
+      bit-field widths, `DC.L`, …) that was never meant to accept one —
+      preserving the same "always an error" safety property those
+      contexts already had before float tokens existed (previously by
+      accident, via a leftover unconsumed `.` token; now explicit).
+    - **`validateFPUOperand` gained real width, not just a relaxed
+      check**: it now takes the full `EAExpr` (not just its `Kind`) so
+      its `EAkImm` case can see `ImmIsFloat`. The old rule ("any
+      immediate against a floating-point size is unsupported") is
+      replaced with the actually-intended one: a genuinely fractional
+      literal against an *integer* size (`.b`/`.w`/`.l`) is rejected
+      (can't represent a fraction), but a plain integer literal against
+      a *floating-point* size (`.s`/`.d`/`.x`) — previously *also*
+      rejected, which the old error message's own wording didn't
+      reveal — is now allowed and auto-promoted to float at encode
+      time, matching the MC68881/MC68882 manual's own documented
+      integer-into-float convenience (§1.3.1's own example, albeit with
+      an integer *size*: `FADD.W #5,FP3`).
+    - **Encoding required one genuinely new piece: the 68881/68882's own
+      96-bit "extended" format**, cross-checked against the MC68881/
+      MC68882 User's Manual (§1.3.2's "Extended Precision Real" figure):
+      a 1-bit sign, 15-bit biased (bias 16383) exponent, a 16-bit
+      reserved zero word (for long-word alignment), then a 64-bit
+      mantissa with an *explicit* leading integer bit (unlike single/
+      double's implicit one) — bit-for-bit the same layout as the
+      well-known x87 80-bit extended format, with that one extra
+      reserved word inserted after the exponent. `math.Frexp` maps onto
+      this almost directly (`frac*2^64` lands exactly in `[2^63,2^64)`
+      — a 64-bit mantissa with its own top bit already set — and the
+      biased exponent is `(exp-1)+16383`), needing no bignum or
+      manual IEEE-bit-twiddling. Single/double reuse Go's own
+      `math.Float32bits`/`Float64bits` unchanged. `TSrcImm` — previously
+      silently wrong for these three sizes, emitting a single
+      truncated word via its `default:` case, but unreachable until now
+      since `Validate` always rejected the immediate first — gained
+      explicit cases for all three.
+    - **The unrelated bug**: while adding `scanNumber`'s float-literal
+      lookahead, its neighboring `'%'`-prefix binary-literal path
+      (`docs/syntax.md`'s documented `%10100110` syntax) turned out to
+      be dead code from the real lexer entry point — `next()`'s own
+      `case '%':` unconditionally returned a bare `PERCENT` operator
+      token before `scanNumber`'s already-correct binary handling could
+      ever run, exercised only by a white-box unit test that calls
+      `scanNumber` directly (`TestParseFileAndLexerCoverage`,
+      `coverage_additional_test.go`) rather than through `next()` itself.
+      Confirmed via the CLI: `MOVE.B #%1010,D0` failed outright before
+      this fix. Fixed the same way `'$'` already disambiguates itself —
+      peek one rune ahead and only take the literal path when a binary
+      digit actually follows — accepting one narrow, pre-existing-
+      language-design trade-off as a result: `'%'` immediately followed
+      by `0`/`1` is now always a literal, so a genuinely adjacent
+      (no-space) modulo whose divisor starts with `0` or `1` (e.g.
+      `10%101`) now needs a space after the `%` to force the operator
+      reading. Modulo by anything else, spaced or not, is unaffected
+      (already covered by `expr_enhanced_test.go`'s unspaced `5%3`).
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
 `go test ./...` green with zero changes required to any existing test,
-except for the two documented coprocessor-ID-bit fixes above (the
-intentional scale-factor fix in milestone 1, and the `FSAVE`/`FRESTORE`
-fix found while implementing milestone 25).
+except for the three documented fixes above to already-shipped behavior
+(the intentional scale-factor fix in milestone 1, the `FSAVE`/`FRESTORE`
+coprocessor-ID fix found while implementing milestone 25, and milestone
+27's own float-immediate and binary-literal lexer fixes).

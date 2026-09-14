@@ -344,6 +344,21 @@ FMOVE.X FP2,(A0)
 FABS FP0                 ; single-operand shorthand: FP0 = |FP0|
 ```
 
+A floating-point size (`.s`/`.d`/`.x`) also accepts an immediate — either
+a bare float literal or a plain integer (auto-promoted):
+
+```asm
+FMOVE.X #3.14159,FP0     ; extended-precision literal
+FADD.S #1.5e-3,FP0       ; exponent form
+FADD.X #5,FP0            ; integer literal, promoted to float
+```
+
+A float literal is a single bare constant, not a general expression
+(`#1.5+2.5` is not supported); an integer size (`.b`/`.w`/`.l`) still
+requires an integer literal — a fractional one is rejected. Using a
+float literal anywhere other than an FPU immediate (e.g. `MOVE.W
+#1.5,D0`) is always an error.
+
 The FPU's own 32-condition branch/set/trap family mirrors the integer ISA's
 `Bcc`/`Scc`/`DBcc`/`TRAPcc`, just with `F`-prefixed mnemonics, 32 conditions
 instead of 16, and this codebase's own `.W`/`.L` suffix convention (not GNU

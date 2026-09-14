@@ -34,6 +34,77 @@ func appendWord(out []byte, v uint16) []byte {
 	return append(out, byte(v>>8), byte(v))
 }
 
+// appendFloatImm encodes f as an FPU immediate in the given size
+// (SingleSize/DoubleSize/ExtendedSize only — see TSrcImm) and appends
+// the big-endian result. Single and double are plain IEEE-754 binary32/
+// binary64; extended is the 68881/68882's own 96-bit format (see
+// encodeExtendedReal's own doc comment).
+func appendFloatImm(out []byte, sz instructions.Size, f float64) []byte {
+	switch sz {
+	case instructions.SingleSize:
+		bits := math.Float32bits(float32(f))
+		out = appendWord(out, uint16(bits>>16))
+		out = appendWord(out, uint16(bits))
+		return out
+	case instructions.DoubleSize:
+		bits := math.Float64bits(f)
+		for shift := 48; shift >= 0; shift -= 16 {
+			out = appendWord(out, uint16(bits>>shift))
+		}
+		return out
+	default: // ExtendedSize
+		for _, w := range encodeExtendedReal(f) {
+			out = appendWord(out, w)
+		}
+		return out
+	}
+}
+
+// encodeExtendedReal converts f to the 68881/68882's 96-bit ("double
+// extended") real format, as six big-endian 16-bit words: word0 is a
+// 1-bit sign plus a 15-bit biased (bias 16383) exponent, word1 is a
+// reserved zero word (for long-word alignment — see the MC68881/MC68882
+// User's Manual, §1.3.2's "Extended Precision Real" figure), and words
+// 2-5 are the 64-bit mantissa with an EXPLICIT leading integer bit
+// (unlike single/double precision's implicit leading one) — bit-for-bit
+// the same layout as the well-known x87 80-bit extended format, just
+// with that extra reserved word inserted after the exponent.
+//
+// math.Frexp gives f = frac*2^exp with frac in [0.5,1) (or frac==0),
+// which maps onto this format directly: frac*2^64 lands in [2^63,2^64)
+// — exactly a 64-bit mantissa with its top (integer) bit already set —
+// and the biased extended exponent is (exp-1)+16383, since a mantissa
+// normalized to [1,2) (as this format's explicit-integer-bit convention
+// expects) is frac*2 = a shift of one less than frac's own exponent.
+// Only handles finite values — the lexer's float literals can only ever
+// produce those (an out-of-range literal is a strconv.ParseFloat error,
+// caught at parse time), so infinities/NaNs are deliberately not
+// special-cased here.
+func encodeExtendedReal(f float64) [6]uint16 {
+	var words [6]uint16
+	if f == 0 {
+		if math.Signbit(f) {
+			words[0] = 0x8000
+		}
+		return words
+	}
+	sign := uint16(0)
+	if f < 0 {
+		sign = 0x8000
+		f = -f
+	}
+	frac, exp := math.Frexp(f)
+	mantissa := uint64(math.Round(frac * 18446744073709551616.0)) // frac * 2^64
+	exponent := uint16((exp-1)+16383) & 0x7FFF
+	words[0] = sign | exponent
+	words[1] = 0
+	words[2] = uint16(mantissa >> 48)
+	words[3] = uint16(mantissa >> 32)
+	words[4] = uint16(mantissa >> 16)
+	words[5] = uint16(mantissa)
+	return words
+}
+
 type prepared struct {
 	PC       uint32
 	SizeBits uint16
@@ -48,6 +119,9 @@ type prepared struct {
 	SrcFCMode int
 	DstImm    int64
 	Aux2Reg   int
+
+	SrcImmFloat   float64
+	SrcImmIsFloat bool
 
 	FPRegMaskSrc uint16
 	FPRegMaskDst uint16
@@ -315,6 +389,18 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 				out = appendWord(out, uint16(u>>16))
 				out = appendWord(out, uint16(u))
 				return out, nil
+			case instructions.SingleSize, instructions.DoubleSize, instructions.ExtendedSize:
+				// A float-format FPU immediate: the value is either a
+				// literal float ("#3.14", SrcImmIsFloat) or a plain
+				// integer auto-promoted to float ("#5" against a .s/.d/.x
+				// size — see validateFPUOperand). Either way it's encoded
+				// as an IEEE-754 (single/double) or Motorola 96-bit
+				// extended-precision constant, not a raw integer pattern.
+				f := p.SrcImmFloat
+				if !p.SrcImmIsFloat {
+					f = float64(p.Imm)
+				}
+				return appendFloatImm(out, p.Size, f), nil
 			default:
 				return appendWord(out, uint16(uint16(p.Imm))), nil
 			}
@@ -352,7 +438,7 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 }
 
 func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, sym map[string]uint32) ([]byte, error) {
-	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg, SrcRegMask: ins.Args.RegMaskSrc, DstRegMask: ins.Args.RegMaskDst, FPRegMaskSrc: ins.Args.FPRegMaskSrc, FPRegMaskDst: ins.Args.FPRegMaskDst, FPCtrlMaskSrc: ins.Args.FPCtrlMaskSrc, FPCtrlMaskDst: ins.Args.FPCtrlMaskDst, SrcFCMode: ins.Args.Src.FCMode, DstImm: ins.Args.Dst.Imm, Aux2Reg: ins.Args.Aux2.Reg}
+	p := prepared{PC: ins.PC, Size: ins.Args.Size, Imm: ins.Args.Src.Imm, SrcReg: ins.Args.Src.Reg, DstReg: ins.Args.Dst.Reg, SrcRegMask: ins.Args.RegMaskSrc, DstRegMask: ins.Args.RegMaskDst, FPRegMaskSrc: ins.Args.FPRegMaskSrc, FPRegMaskDst: ins.Args.FPRegMaskDst, FPCtrlMaskSrc: ins.Args.FPCtrlMaskSrc, FPCtrlMaskDst: ins.Args.FPCtrlMaskDst, SrcFCMode: ins.Args.Src.FCMode, DstImm: ins.Args.Dst.Imm, Aux2Reg: ins.Args.Aux2.Reg, SrcImmFloat: ins.Args.Src.ImmFloat, SrcImmIsFloat: ins.Args.Src.ImmIsFloat}
 	var err error
 
 	if ins.Args.Src.Kind != instructions.EAkNone {

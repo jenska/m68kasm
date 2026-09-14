@@ -3,6 +3,8 @@ package asm
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
 type exprInfo struct {
@@ -16,6 +18,47 @@ func (p *Parser) parseExpr() (int64, error) {
 		return 0, err
 	}
 	return info.Value, nil
+}
+
+// parseImmExpr parses one "#<value>" immediate operand's value. A bare
+// floating-point literal (e.g. "3.14", "1.5e-3" — recognized directly
+// from the lexer's own float-literal token) is returned as-is, without
+// going through the integer expression evaluator at all: arbitrary
+// float *expressions* ("#1.5+2.5") are not supported, only a single
+// literal, matching real assembler usage (a float immediate is always
+// one bare constant). Anything else falls through to the existing
+// integer parseExpr unchanged — including a bare integer literal, which
+// FPU instructions with a floating-point size auto-promote to float at
+// encode time (see validateFPUOperand and cpu020_fpu.go's TSrcImm
+// handling). This is shared by every instruction that accepts an
+// immediate, not just FPU ones; FormDef.AllowFloatImm (checked in
+// assembleItem) is what actually keeps a stray float literal from
+// reaching a non-FPU instruction's encoding.
+func (p *Parser) parseImmExpr() (instructions.EAExpr, error) {
+	if tok := p.peek(); tok.Kind == NUMBER && tok.IsFloat {
+		p.next()
+		return instructions.EAExpr{Kind: instructions.EAkImm, ImmFloat: tok.FVal, ImmIsFloat: true}, nil
+	}
+	// A leading sign directly on a float literal ("#-1.5") needs its own
+	// 2-token lookahead: parseExpr's own unary-minus handling only
+	// negates an integer result, and float literals never flow through
+	// its NUMBER case at all (see that case's explicit rejection).
+	if tok := p.peek(); tok.Kind == PLUS || tok.Kind == MINUS {
+		if next := p.peekN(2); next.Kind == NUMBER && next.IsFloat {
+			p.next()
+			p.next()
+			v := next.FVal
+			if tok.Kind == MINUS {
+				v = -v
+			}
+			return instructions.EAExpr{Kind: instructions.EAkImm, ImmFloat: v, ImmIsFloat: true}, nil
+		}
+	}
+	v, err := p.parseExpr()
+	if err != nil {
+		return instructions.EAExpr{}, err
+	}
+	return instructions.EAExpr{Kind: instructions.EAkImm, Imm: v}, nil
 }
 
 func (p *Parser) parseExprUntil(stops ...Kind) (int64, error) {
@@ -71,6 +114,9 @@ loop:
 		}
 		switch t.Kind {
 		case NUMBER:
+			if t.IsFloat {
+				return exprInfo{}, fmt.Errorf("floating-point literal is not valid in an integer expression")
+			}
 			if name, ok, err := p.consumeLocalLabelRef(); ok {
 				if err != nil {
 					return exprInfo{}, err

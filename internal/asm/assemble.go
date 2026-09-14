@@ -153,6 +153,9 @@ func assembleItem(dst []byte, it any, labels map[string]uint32, cpu instructions
 				return nil, "", contextualizeAt(x.Line, x.Col, err)
 			}
 		}
+		if !form.AllowFloatImm && argsHaveFloatImm(&ins.Args) {
+			return nil, "", contextualizeAt(x.Line, x.Col, fmt.Errorf("floating-point immediate literal is not valid here"))
+		}
 
 		bytes, err := Encode(def, form, &ins, labels)
 		if err != nil {
@@ -170,6 +173,13 @@ func assembleItem(dst []byte, it any, labels map[string]uint32, cpu instructions
 	default:
 		return nil, "", fmt.Errorf("unknown item type in program")
 	}
+}
+
+// argsHaveFloatImm reports whether any operand carries a floating-point
+// immediate literal (EAExpr.ImmIsFloat) — see FormDef.AllowFloatImm's
+// own doc comment for why this centralized check exists.
+func argsHaveFloatImm(a *instructions.Args) bool {
+	return a.Src.ImmIsFloat || a.Dst.ImmIsFloat || a.Aux.ImmIsFloat || a.Aux2.ImmIsFloat
 }
 
 func selectForm(def *instructions.InstrDef, ins *Instr, actual []instructions.OperandKind) (*instructions.FormDef, error) {

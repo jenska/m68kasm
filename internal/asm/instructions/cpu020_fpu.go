@@ -78,8 +78,11 @@ func isFPIntSize(sz Size) bool {
 // instruction. isStore means this operand is being written (the
 // destination of FMOVE FPn,<ea>); it is always false for every other
 // instruction in this file, since none of them can store to memory.
-func validateFPUOperand(name string, isStore bool, k EAExprKind, sz Size) error {
-	switch k {
+// Takes the full EAExpr, not just its Kind, because the EAkImm case
+// needs ImmIsFloat to decide whether a floating-point literal is valid
+// for the given size.
+func validateFPUOperand(name string, isStore bool, e EAExpr, sz Size) error {
+	switch e.Kind {
 	case EAkFPn:
 		return nil
 	case EAkAn:
@@ -88,8 +91,8 @@ func validateFPUOperand(name string, isStore bool, k EAExprKind, sz Size) error 
 		if isStore {
 			return fmt.Errorf("%s destination cannot be immediate", name)
 		}
-		if !isFPIntSize(sz) {
-			return fmt.Errorf("%s: floating-point immediate literals are not yet supported (use .b/.w/.l for an integer immediate)", name)
+		if e.ImmIsFloat && isFPIntSize(sz) {
+			return fmt.Errorf("%s: a floating-point literal immediate requires a floating-point size (.s/.d/.x), not an integer size", name)
 		}
 		return nil
 	case EAkDn:
@@ -99,12 +102,12 @@ func validateFPUOperand(name string, isStore bool, k EAExprKind, sz Size) error 
 		return nil
 	default:
 		if isStore {
-			if !memoryAlterableEA[k] {
+			if !memoryAlterableEA[e.Kind] {
 				return fmt.Errorf("%s destination must be memory-alterable", name)
 			}
 			return nil
 		}
-		if !readableDataEA[k] {
+		if !readableDataEA[e.Kind] {
 			return fmt.Errorf("%s source must be a readable addressing mode", name)
 		}
 		return nil
@@ -124,19 +127,20 @@ func validateFPUOperand(name string, isStore bool, k EAExprKind, sz Size) error 
 // reason newFPMonadicDef's is — see that function's own doc comment.
 func newFPBinaryDef(name string, opBase uint16, allowStore bool, requires Target) *InstrDef {
 	validate := func(a *Args) error {
-		if err := validateFPUOperand(name, false, a.Src.Kind, a.Size); err != nil {
+		if err := validateFPUOperand(name, false, a.Src, a.Size); err != nil {
 			return err
 		}
-		return validateFPUOperand(name, false, a.Dst.Kind, a.Size)
+		return validateFPUOperand(name, false, a.Dst, a.Size)
 	}
 	forms := []FormDef{
 		{
 			// <ea>,FPn
-			DefaultSize: ExtendedSize,
-			Sizes:       fpSizes,
-			OperKinds:   []OperandKind{OpkEA, OpkFPn},
-			Validate:    validate,
-			Requires:    requires,
+			DefaultSize:   ExtendedSize,
+			Sizes:         fpSizes,
+			OperKinds:     []OperandKind{OpkEA, OpkFPn},
+			Validate:      validate,
+			Requires:      requires,
+			AllowFloatImm: true,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
@@ -157,10 +161,10 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool, requires Target
 	}
 	if allowStore {
 		storeValidate := func(a *Args) error {
-			if err := validateFPUOperand(name, false, a.Src.Kind, a.Size); err != nil {
+			if err := validateFPUOperand(name, false, a.Src, a.Size); err != nil {
 				return err
 			}
-			return validateFPUOperand(name, true, a.Dst.Kind, a.Size)
+			return validateFPUOperand(name, true, a.Dst, a.Size)
 		}
 		forms = append(forms, FormDef{
 			// FPn,<ea>
@@ -190,10 +194,10 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool, requires Target
 // target (FeatFPU alone) may not — see requireFPUFull's own doc comment.
 func newFPMonadicDef(name string, opBase uint16, requires Target) *InstrDef {
 	validateEA := func(a *Args) error {
-		if err := validateFPUOperand(name, false, a.Src.Kind, a.Size); err != nil {
+		if err := validateFPUOperand(name, false, a.Src, a.Size); err != nil {
 			return err
 		}
-		return validateFPUOperand(name, false, a.Dst.Kind, a.Size)
+		return validateFPUOperand(name, false, a.Dst, a.Size)
 	}
 	validateReg := func(a *Args) error {
 		copySrcToDstIfNone(a)
@@ -206,11 +210,12 @@ func newFPMonadicDef(name string, opBase uint16, requires Target) *InstrDef {
 		Mnemonic: name,
 		Forms: []FormDef{
 			{
-				DefaultSize: ExtendedSize,
-				Sizes:       fpSizes,
-				OperKinds:   []OperandKind{OpkEA, OpkFPn},
-				Validate:    validateEA,
-				Requires:    requires,
+				DefaultSize:   ExtendedSize,
+				Sizes:         fpSizes,
+				OperKinds:     []OperandKind{OpkEA, OpkFPn},
+				Validate:      validateEA,
+				Requires:      requires,
+				AllowFloatImm: true,
 				Steps: []EmitStep{
 					{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 					{WordBits: opBase, Fields: []FieldRef{FFPFormat, FFPDstReg7}},
@@ -257,11 +262,12 @@ var defFTST = InstrDef{
 	Mnemonic: "FTST",
 	Forms: []FormDef{
 		{
-			DefaultSize: ExtendedSize,
-			Sizes:       fpSizes,
-			OperKinds:   []OperandKind{OpkEA},
-			Validate:    func(a *Args) error { return validateFPUOperand("FTST", false, a.Src.Kind, a.Size) },
-			Requires:    requireFPU,
+			DefaultSize:   ExtendedSize,
+			Sizes:         fpSizes,
+			OperKinds:     []OperandKind{OpkEA},
+			Validate:      func(a *Args) error { return validateFPUOperand("FTST", false, a.Src, a.Size) },
+			Requires:      requireFPU,
+			AllowFloatImm: true,
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: 0x3A, Fields: []FieldRef{FFPFormat}},

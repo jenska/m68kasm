@@ -53,11 +53,13 @@ const (
 
 type (
 	Token struct {
-		Kind Kind
-		Text string
-		Val  int64
-		Line int
-		Col  int
+		Kind    Kind
+		Text    string
+		Val     int64
+		IsFloat bool
+		FVal    float64
+		Line    int
+		Col     int
 	}
 
 	Lexer struct {
@@ -229,6 +231,21 @@ func (lx *Lexer) next() Token {
 		case '/':
 			return lx.tok(SLASH, "/", 0)
 		case '%':
+			// '%' is ambiguous: the modulo operator, or (per
+			// docs/syntax.md) a binary-literal prefix ("%10100110").
+			// Disambiguate the same way '$' already does below — a
+			// binary digit immediately following means a literal;
+			// nothing else there ever does, in this grammar, since %
+			// has no other multi-char operator form to conflict with.
+			// Found and fixed while adding float-literal scanning
+			// (milestone 27): this case's unconditional PERCENT token
+			// meant scanNumber's own '%'-prefix handling — exercised
+			// directly by a white-box unit test — was never actually
+			// reachable from real source text, silently breaking the
+			// documented binary-literal syntax entirely.
+			if isBinary(lx.peekRune()) {
+				return lx.scanNumber('%')
+			}
 			return lx.tok(PERCENT, "%", 0)
 		case '!':
 			if lx.peekRune() == '=' {
@@ -328,6 +345,46 @@ func (lx *Lexer) scanNumber(first rune) Token {
 		return lx.finishBaseNumber(&b, 2, 16, isHex)
 	}
 	lx.scanWhile(&b, unicode.IsDigit)
+
+	// A trailing ".<digits>" and/or "[eE][+-]<digits>" makes this a
+	// floating-point literal — used for FPU immediates (#3.14). Both
+	// require a genuine digit to follow before committing: a bare
+	// trailing '.' or 'e' with no digit after it is left alone (e.g.
+	// so "5.L" or "5else" don't misparse), matching the same
+	// don't-consume-unless-certain discipline isHex/isBinary/isOctal's
+	// callers already rely on elsewhere in this file.
+	isFloat := false
+	if lx.peekRune() == '.' && unicode.IsDigit(lx.peekRuneAt(2)) {
+		isFloat = true
+		lx.read() // '.'
+		b.WriteByte('.')
+		lx.scanWhile(&b, unicode.IsDigit)
+	}
+	if r := lx.peekRune(); r == 'e' || r == 'E' {
+		digitPos := 2
+		sign := lx.peekRuneAt(2)
+		if sign == '+' || sign == '-' {
+			digitPos = 3
+		}
+		if unicode.IsDigit(lx.peekRuneAt(digitPos)) {
+			isFloat = true
+			lx.read() // 'e'/'E'
+			b.WriteRune(r)
+			if sign == '+' || sign == '-' {
+				lx.read()
+				b.WriteRune(sign)
+			}
+			lx.scanWhile(&b, unicode.IsDigit)
+		}
+	}
+	if isFloat {
+		v, err := strconv.ParseFloat(b.String(), 64)
+		if err != nil {
+			return lx.errToken(err)
+		}
+		return lx.tokFloat(b.String(), v)
+	}
+
 	v, err := strconv.ParseInt(b.String(), 10, 64)
 	if err != nil {
 		return lx.errToken(err)
@@ -445,8 +502,26 @@ func (lx *Lexer) peekRune() rune {
 	return ch
 }
 
+// peekRuneAt looks n bytes ahead of the current position (1-based,
+// matching peekRune's n=1) without consuming anything, for the 2-char
+// lookahead scanNumber's float detection needs (e.g. confirming a digit
+// follows '.' before committing to a fractional literal). Only ever
+// used to test for ASCII digits/sign characters, so a raw byte-as-rune
+// read is sufficient — never called where multi-byte UTF-8 matters.
+func (lx *Lexer) peekRuneAt(n int) rune {
+	b, err := lx.r.Peek(n)
+	if err != nil || len(b) < n {
+		return eof
+	}
+	return rune(b[n-1])
+}
+
 func (lx *Lexer) tok(k Kind, text string, val int64) Token {
 	return Token{Kind: k, Text: text, Val: val, Line: lx.line, Col: lx.col}
+}
+
+func (lx *Lexer) tokFloat(text string, val float64) Token {
+	return Token{Kind: NUMBER, Text: text, IsFloat: true, FVal: val, Line: lx.line, Col: lx.col}
 }
 
 func (lx *Lexer) errToken(err error) Token {
