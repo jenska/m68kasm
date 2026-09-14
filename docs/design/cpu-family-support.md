@@ -1771,3 +1771,22 @@ except for the four documented fixes above to already-shipped behavior
 coprocessor-ID fix found while implementing milestone 25, milestone 27's
 own float-immediate and binary-literal lexer fixes, and milestone 28's
 own FPU R/M-bit fix).
+
+## Status: wrapped up
+
+As of milestone 30, the maintainer closed out this initiative's open-
+items backlog: the CPU-tier ladder (68000 through 68060, plus CPU32),
+FPU (arithmetic, transcendentals, math extensions, `FMOVEM`, all seven
+data formats including packed BCD, and floating-point immediate
+literals), and PMMU (`PMOVE`'s full register set, the entire `PFLUSH`/
+`PLOAD`/`PTEST` family including the 68040's own re-encoded forms, and
+the `Pcc` condition family) are all done. What remains is three memory-
+indirect addressing-mode edge cases from milestone 4 (§5.2a) — base-
+register suppression, an implicit-zero-displacement bracket shorthand,
+and brief-to-full auto-upgrade on displacement overflow — each cut at
+the time for a specific, still-valid technical reason (the last one in
+particular: auto-upgrading would make an EA's encoded length depend on
+a value not known until a forward-referenced label resolves, a real
+two-pass sizing hazard, not a corner cut for lack of time). None of the
+three block ordinary 68k assembly; they're recorded here rather than
+picked up as a milestone.

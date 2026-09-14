@@ -53,10 +53,14 @@ prefer a minimal toolchain.
 This is a summary, not the full picture — several caveats, scope cuts, and a
 few real encoding bugs found and fixed along the way are documented in
 detail in [`docs/design/cpu-family-support.md`](docs/design/cpu-family-support.md),
-which also tracks exactly what's still open (a few narrow, deliberately
-deferred corners). The default
-target with no flags is a bare 68000, so every 68000-only example in this
-README and in [`docs/syntax.md`](docs/syntax.md) keeps working unchanged.
+which also tracks the handful of remaining edge cases, each kept out
+deliberately for a real technical reason rather than lack of time (e.g.
+brief-format `<ea>`s are never auto-upgraded to full format on
+displacement overflow, since that would make encoded length depend on a
+value that isn't known until a forward-referenced label resolves). The
+default target with no flags is a bare 68000, so every 68000-only example
+in this README and in [`docs/syntax.md`](docs/syntax.md) keeps working
+unchanged.
 
 ---
 
