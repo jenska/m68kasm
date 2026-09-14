@@ -183,6 +183,17 @@ const (
 	// bits 9-5 of the current word — PTEST's optional trailing An
 	// result register.
 	FAux2RegShift5
+	// FSincosRegCos0 places the Dst operand's Reg (FPc, the cosine
+	// result register) into bits 2-0 of the current word — FSINCOS's
+	// own extra destination field, distinct from every other FPU
+	// instruction's single FFPDstReg7 destination. See cpu020_fpu_trans3.go.
+	FSincosRegCos0
+	// FSincosRegSin7 places the Dst operand's Reg2 (FPs, the sine
+	// result register) into bits 9-7 of the current word — the same
+	// bit position FFPDstReg7 uses for every other FPU instruction's
+	// single destination, since FSINCOS's "primary" result (matching
+	// the mnemonic's leading word) shares that field.
+	FSincosRegSin7
 )
 
 type TrailerItem uint16
@@ -323,6 +334,14 @@ const (
 	// OpkFCSpec matches PFLUSH/PLOAD/PTEST's function-code specifier
 	// operand — SFC, DFC, a plain Dn, or "#<imm>" (see cpu030_pmmu_ptest.go).
 	OpkFCSpec
+	// OpkFPRegPair matches FSINCOS's "FPc:FPs" dual-destination operand
+	// — the FPU analogue of OpkRegPair, kept distinct rather than
+	// reused because it parses a different register namespace (FP0-FP7,
+	// via parseFPRegister) and, unlike OpkRegPair's DIVSL/CAS2 uses, has
+	// no bare single-register shorthand: sine and cosine can never share
+	// one destination register, so the colon is always mandatory. See
+	// cpu020_fpu_trans3.go.
+	OpkFPRegPair
 )
 
 type InstrDef struct {
@@ -524,6 +543,13 @@ const (
 	// EAkFCSpec is PFLUSH/PLOAD/PTEST's function-code specifier operand
 	// (SFC/DFC/Dn/#imm — see FCMode above and cpu030_pmmu_ptest.go).
 	EAkFCSpec
+	// EAkFPRegPair is FSINCOS's "FPc:FPs" operand: Reg holds FPc (the
+	// cosine result register) and Reg2 holds FPs (the sine result
+	// register) — always both, since there is no bare single-register
+	// shorthand (see OpkFPRegPair). Like EAkFPn, it never goes through
+	// the generic OpkEA/EncodeEA machinery for its actual bit placement
+	// (FSincosRegCos0/FSincosRegSin7 — see cpu020_fpu_trans3.go).
+	EAkFPRegPair
 )
 
 type EAExpr struct {

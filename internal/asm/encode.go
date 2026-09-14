@@ -232,6 +232,10 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | ((uint16(p.DstImm) & 0x1F) << 5)
 	case instructions.FAuxImmShift10:
 		return wordVal | ((uint16(p.AuxImm) & 7) << 10)
+	case instructions.FSincosRegCos0:
+		return wordVal | uint16(p.DstReg&7)
+	case instructions.FSincosRegSin7:
+		return wordVal | (uint16(p.DstReg2&7) << 7)
 	case instructions.FAux2RegShift5:
 		return wordVal | (uint16(p.Aux2Reg&7) << 5)
 	default:

@@ -291,6 +291,13 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = pair
 
+	case instructions.OpkFPRegPair:
+		pair, err := p.parseFPRegPair()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = pair
+
 	case instructions.OpkEA:
 		ea, err := p.parseEA()
 		if err != nil {

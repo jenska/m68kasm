@@ -413,6 +413,8 @@ CAS2.L D0:D1,D2:D3,(A0):(A1)    ; compare/update pairs, plus a memory-pointer pa
 BFEXTU (A0){0:8},D2               ; bit-field {offset:width} — either half can be
 BFINS D3,(A0){D1:D2}                 ; a literal or a Dn register
 TBLS.B D0:D1,D2                        ; cpu32 table-lookup register form
+FSINCOS FP0,FP1:FP2                      ; FPc:FPs dual result — cosine, then sine;
+                                           ; no bare-single-register shorthand (--fpu-full)
 ```
 
 Bit-field offset/width syntax is available on any data-alterable or

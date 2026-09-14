@@ -1425,6 +1425,56 @@ need a separate phase.
       this codebase deliberately extended past GAS's own minimum surface
       register by register across milestones 12/18/20/21 — `PMOVEFD`'s
       scope stops exactly where GAS's own three rows stop.
+26. ✅ **Done.** `FSINCOS`, the one transcendental function milestone 23
+    deliberately deferred (see that entry above) for needing a dual-
+    destination shape none of the other 18 functions have — chosen by
+    the maintainer from the open items list after milestone 25 to close
+    out the FPU transcendental set entirely.
+    - **A genuinely new operand shape, `OpkFPRegPair`/`EAkFPRegPair`**:
+      GAS's own opcode-table argument string (`"IiF8F3F7"` register
+      form, `"Ii;xF3F7"` memory form) has three register-field letters
+      instead of every other function's two — `F8` (source `FPm`, bits
+      12-10, identical to `FADD`'s own source field), `F7` (bits 9-7,
+      the *sine* result, sharing the bit position every other
+      instruction's single `FFPDstReg7` destination already uses), and
+      `F3` (bits 2-0, a field nothing else in this codebase's FPU set
+      touches — the *cosine* result). Modeled as its own `OperandKind`/
+      `EAExprKind` pair rather than reusing `OpkRegPair` (already
+      DIVSL/CAS2's `Dr:Dq`-shaped kind): a different register namespace
+      (`FP0`-`FP7`, not `D0`-`D7`), and — unlike `OpkRegPair`'s bare-
+      single-register shorthand — no meaningful shorthand at all, since
+      sine and cosine can never share one destination register.
+    - **Register/bit-position order confirmed externally, not guessed
+      from the opcode table alone**: the opcode table's `F3`/`F7` letters
+      say *where* each register goes, not *which* result (sine or
+      cosine) belongs in which field. Motorola's own documented syntax,
+      `"FSINCOS <ea>,FPc:FPs"` (cosine written first, sine second),
+      resolved it: cosine in the low `F3` field, sine sharing the usual
+      `F7` destination field — matching the mnemonic's own leading word.
+      `TestFsincosCosineFirstSineSecond` guards this mapping explicitly
+      by decoding both fields back out of a real assembled instruction,
+      not just re-asserting the same hand-derived literal a typo could
+      silently share with the implementation.
+    - **Reused every other piece of the transcendental-function
+      machinery unchanged**: `fpuWord1Base`, `FFPFormat`, `FFPSrcReg10`,
+      `fpSizes`, and `validateFPUOperand` (for the `<ea>` source's own
+      rules) all came from `cpu020_fpu.go`/`cpu020_fpu_trans.go` as-is —
+      only the two new destination-field `FieldRef`s
+      (`FSincosRegCos0`/`FSincosRegSin7`) and the operand-pair parsing
+      were new, and both reused `prepared.DstReg`/`DstReg2` (already
+      populated generically for every instruction's `Dst` operand, not
+      DIVSL-specific despite the name) rather than adding new `prepared`
+      fields.
+    - **No single-operand shorthand**, unlike `FABS`/`FSQRT`/the plain
+      transcendental functions' `copySrcToDstIfNone` convenience: there
+      is no sensible default for "compute sine and cosine of `FPn`,
+      storing both back into `FPn`" (they cannot both occupy the same
+      register), so only the two GAS-table forms exist.
+    - **The FPU transcendental function set (§6) is now fully complete**:
+      every one of the 19 functions GAS's `mfloat` table lists (18
+      monadic ones from milestone 23, plus `FSINCOS` here) is
+      implemented; only floating-point immediate literals and packed BCD
+      remain open from §6's original scope.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves

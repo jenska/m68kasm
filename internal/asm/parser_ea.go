@@ -242,6 +242,36 @@ func (p *Parser) parseRegPair() (instructions.EAExpr, error) {
 	return e, nil
 }
 
+// parseFPRegPair parses FSINCOS's "FPc:FPs" dual-destination operand:
+// FPc (cosine result) first, FPs (sine result) second — Motorola's own
+// documented mnemonic order, matching GAS's own bit layout (cosine in
+// the low field, sine sharing every other FPU instruction's usual
+// single-destination field). Unlike parseRegPair's "Dr:Dq" shorthand,
+// there is no bare single-register form: sine and cosine can never
+// share one destination register, so the colon is always mandatory.
+func (p *Parser) parseFPRegPair() (instructions.EAExpr, error) {
+	firstTok, err := p.want(IDENT)
+	if err != nil {
+		return instructions.EAExpr{}, err
+	}
+	first, ok := parseFPRegister(firstTok.Text)
+	if !ok {
+		return instructions.EAExpr{}, errorAtToken(firstTok, fmt.Errorf("expected an FPU register (FP0-FP7), got %s", firstTok.Text))
+	}
+	if _, err := p.want(COLON); err != nil {
+		return instructions.EAExpr{}, err
+	}
+	secondTok, err := p.want(IDENT)
+	if err != nil {
+		return instructions.EAExpr{}, err
+	}
+	second, ok := parseFPRegister(secondTok.Text)
+	if !ok {
+		return instructions.EAExpr{}, errorAtToken(secondTok, fmt.Errorf("expected an FPU register (FP0-FP7), got %s", secondTok.Text))
+	}
+	return instructions.EAExpr{Kind: instructions.EAkFPRegPair, Reg: first, Reg2: second}, nil
+}
+
 // parseAnIndPair parses CAS2's "(Rn1):(Rn2)" memory-pointer pair: two
 // parenthesized address registers joined by a colon, both mandatory —
 // unlike parseRegPair, there is no meaningful single-pointer shorthand
