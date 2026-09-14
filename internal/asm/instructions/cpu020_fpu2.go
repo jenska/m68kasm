@@ -235,11 +235,11 @@ func validateFMOVECR(a *Args) error {
 // Src, since neither has a second operand to swap it into Dst for).
 //
 // GAS's own opcode table lists these as two separate rows each — a
-// general memory form (word1 baked as 0xF100/0xF140, "&s"/"&s") and one
+// general memory form (table literal 0xF100/0xF140, "&s"/"&s") and one
 // dedicated to the one addressing mode real hardware actually needs it
 // with (-(An) for FSAVE, since the state frame is written descending
 // like MOVEM's predecrement form; (An)+ for FRESTORE, read back
-// ascending — "−s"/"+s", word1 baked as 0xF120/0xF158). But those two
+// ascending — "−s"/"+s", table literal 0xF120/0xF158). But those two
 // literals aren't actually two different encodings: 0xF120 is exactly
 // 0xF100 with mode=4 (predecrement)'s own bits already OR'd in, and
 // 0xF158 is exactly 0xF140 with mode=3 (postincrement)'s bits OR'd in —
@@ -256,11 +256,23 @@ func validateFMOVECR(a *Args) error {
 // so whichever Form-with-a-narrower-Validate came first would silently
 // swallow every operand, valid or not, and the other Form would never
 // be reached.
+//
+// The 0xF100/0xF140 figures above are GAS's *table* literals, which
+// exclude the coprocessor-ID field (bits 11-9) — FSAVE/FRESTORE use the
+// same "Id" implicit-COP1-operand convention as every other FPU general
+// instruction (see fpuWord1Base's doc comment), so the actual emitted
+// word1 must OR in fpuWord1Base's 0x0200 cpid bit, giving 0xF300/0xF340.
+// This was originally shipped as a bare 0xF100/0xF140 (cpid=0) — the
+// exact same class of bug fpuWord1Base was introduced to fix for
+// FMOVE/FADD/etc., just not applied here since this function predates
+// that constant's use. Found while researching PSAVE's own encoding for
+// a later milestone (docs/design/cpu-family-support.md); fixed by
+// building word1 from fpuWord1Base instead of a bare 0xF1xx literal.
 func newFSaveRestoreDef(name string, isSave bool) *InstrDef {
-	word1 := uint16(0xF100)
+	word1 := uint16(fpuWord1Base | 0x0100)
 	forbidden := EAkAddrPostinc // FSAVE allows -(An), not (An)+
 	if !isSave {
-		word1 = 0xF140
+		word1 = fpuWord1Base | 0x0140
 		forbidden = EAkAddrPredec // FRESTORE allows (An)+, not -(An)
 	}
 	validate := func(a *Args) error {

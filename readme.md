@@ -48,14 +48,14 @@ prefer a minimal toolchain.
 | `--cpu 68040`/`68060` | `MOVE16`, cache control (`CINV`/`CPUSH`); `68060` also emits a non-fatal warning for the handful of forms it trap-emulates |
 | `--fpu` | `FMOVE`/`FADD`/etc., the `F`-condition branch/set/trap family, `FMOVECR`, `FSAVE`/`FRESTORE`, `FMOVEM` |
 | `--fpu-full` | The transcendental function set (`FSIN`/`FCOS`/`FLOGN`/etc.) and math extensions (`FGETEXP`/`FGETMAN`/`FSCALE`/`FMOD`/`FREM`) — a real discrete 68881/68882, not just an integrated FPU |
-| `--mmu` | `PMOVE` (every PMMU register), `PFLUSHA`/`PFLUSH`, `PLOADR`/`PLOADW`, `PTESTR`/`PTESTW`, the `P`-condition branch/set/trap family |
+| `--mmu` | `PMOVE` (every PMMU register), `PFLUSHA`/`PFLUSH`, `PLOADR`/`PLOADW`, `PTESTR`/`PTESTW`, `PSAVE`/`PRESTORE`, `PMOVEFD`, the `P`-condition branch/set/trap family |
 
 This is a summary, not the full picture — several caveats, scope cuts, and a
 couple of real encoding bugs found and fixed along the way are documented in
 detail in [`docs/design/cpu-family-support.md`](docs/design/cpu-family-support.md),
 which also tracks exactly what's still open (some `PFLUSH`/`PLOAD`/`PTEST`
-variants, `FSINCOS`, `PSAVE`/`PMOVEFD`, and a few other narrow,
-deliberately deferred corners). The default
+variants, `FSINCOS`, and a few other narrow, deliberately deferred corners).
+The default
 target with no flags is a bare 68000, so every 68000-only example in this
 README and in [`docs/syntax.md`](docs/syntax.md) keeps working unchanged.
 

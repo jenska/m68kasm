@@ -31,10 +31,10 @@ func TestAssembleFPUConditionalAndMisc(t *testing.T) {
 		{"FTrapeqLongImm", "FTRAPEQ.L #5\n", []byte{0xF2, 0x7B, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05}},
 		{"FMovecrPi", "FMOVECR #1,FP0\n", []byte{0xF2, 0x00, 0x5C, 0x01}},
 		{"FMovecrFP3", "FMOVECR #1,FP3\n", []byte{0xF2, 0x00, 0x5D, 0x81}},
-		{"FSaveIndirect", "FSAVE (A0)\n", []byte{0xF1, 0x10}},
-		{"FSavePredec", "FSAVE -(A0)\n", []byte{0xF1, 0x20}},
-		{"FRestoreIndirect", "FRESTORE (A0)\n", []byte{0xF1, 0x50}},
-		{"FRestorePostinc", "FRESTORE (A0)+\n", []byte{0xF1, 0x58}},
+		{"FSaveIndirect", "FSAVE (A0)\n", []byte{0xF3, 0x10}},
+		{"FSavePredec", "FSAVE -(A0)\n", []byte{0xF3, 0x20}},
+		{"FRestoreIndirect", "FRESTORE (A0)\n", []byte{0xF3, 0x50}},
+		{"FRestorePostinc", "FRESTORE (A0)+\n", []byte{0xF3, 0x58}},
 	}
 
 	for _, tc := range tests {
@@ -50,18 +50,20 @@ func TestAssembleFPUConditionalAndMisc(t *testing.T) {
 // TestFSaveRestoreDedicatedFormMatchesGASLiteral guards the equivalence
 // this codebase relies on instead of implementing GAS's two-row-per-
 // mnemonic table literally (see newFSaveRestoreDef's doc comment):
-// FSAVE's predecrement literal (0xF120) and FRESTORE's postincrement
-// literal (0xF158) must fall out of the single general-form WordBits
-// (0xF100/0xF140) combined with FSrcEA's own mode/reg computation,
-// without a second, separately-baked Form.
+// FSAVE's predecrement table literal (0xF120) and FRESTORE's
+// postincrement table literal (0xF158) — each plus the 0x0200
+// coprocessor-ID bit every FPU general instruction carries (fpuWord1Base)
+// — must fall out of the single general-form WordBits combined with
+// FSrcEA's own mode/reg computation, without a second, separately-baked
+// Form.
 func TestFSaveRestoreDedicatedFormMatchesGASLiteral(t *testing.T) {
 	save := assembleForTarget(t, "FSAVE -(A0)\n", targetFPU)
-	if len(save) != 2 || save[0] != 0xF1 || save[1] != 0x20 {
-		t.Fatalf("FSAVE -(A0) = % X, want F1 20", save)
+	if len(save) != 2 || save[0] != 0xF3 || save[1] != 0x20 {
+		t.Fatalf("FSAVE -(A0) = % X, want F3 20", save)
 	}
 	restore := assembleForTarget(t, "FRESTORE (A0)+\n", targetFPU)
-	if len(restore) != 2 || restore[0] != 0xF1 || restore[1] != 0x58 {
-		t.Fatalf("FRESTORE (A0)+ = % X, want F1 58", restore)
+	if len(restore) != 2 || restore[0] != 0xF3 || restore[1] != 0x58 {
+		t.Fatalf("FRESTORE (A0)+ = % X, want F3 58", restore)
 	}
 }
 

@@ -793,9 +793,16 @@ need a separate phase.
       computes at encode time for *any* EA, predecrement/postincrement
       included. So a single `Form` with the general literal, plus a
       `Validate` accepting the union of both GAS rows' restrictions,
-      reproduces GAS's output exactly (confirmed: assembling `FSAVE
-      -(A0)` through this one `Form` produces `0xF120`, GAS's own
-      "dedicated" literal, byte-for-byte). Two separate `Form`s would
+      reproduces GAS's output exactly (confirmed at the time: assembling
+      `FSAVE -(A0)` through this one `Form` produced `0xF120`, GAS's own
+      "dedicated" *table* literal, byte-for-byte — **correction, found
+      during milestone 25's research: this comparison itself missed the
+      coprocessor-ID bit `fpuWord1Base` bakes into every other FPU
+      instruction's word1; the actual emitted byte should have been
+      `0xF320`, not `0xF120` — see milestone 25's entry below for the
+      fix**). The EA-equivalence argument itself (one `Form` reproducing
+      both GAS rows) remains correct and unaffected. Two separate `Form`s
+      would
       have been actively wrong here, not just redundant: `selectForm`
       matches on `OperKinds`/`Sizes` alone before `Validate` ever runs,
       and both forms would share identical `OperKinds` (`[OpkEA]`) and
@@ -1340,7 +1347,88 @@ need a separate phase.
       no longer discovering anything new, just applying what's already
       confirmed to work.
 
+25. ✅ **Done, plus a second unplanned detour: another real encoding bug
+    found and fixed in already-shipped milestone-13 code.** `PSAVE`/
+    `PRESTORE` (68851 PMMU state-frame save/restore) and `PMOVEFD`
+    (function-code-lookup-disabled register load), chosen by the
+    maintainer from the open items list after milestone 24 to close out
+    the core PMMU surface almost entirely.
+    - **The detour, found first, before any new code was written:**
+      researching `PSAVE`'s exact encoding meant re-deriving the same
+      "dedicated predecrement/postincrement literal equals the general
+      literal plus `FSrcEA`'s own mode bits" arithmetic milestone 13
+      used for `FSAVE`/`FRESTORE` (see that entry above). Doing that
+      arithmetic again exposed that milestone 13's own comparison had
+      been incomplete: it checked GAS's *table* literal (`0xF120` for
+      `FSAVE -(A0)`) against this codebase's emitted bytes, but never
+      checked whether the coprocessor-ID bit `fpuWord1Base` (introduced
+      in the *same* milestone, for the exact same reason, on every other
+      FPU instruction) had actually been applied to `newFSaveRestoreDef`
+      — it hadn't. `FSAVE`/`FRESTORE` had shipped hardcoding a bare
+      `0xF100`/`0xF140` word1 (coprocessor ID 0) instead of building it
+      from `fpuWord1Base` (coprocessor ID 1) like every other FPU
+      "general instruction" in this codebase. Confirmed against GAS's
+      own opcode table (`opcodes/m68k-opc.c`): `fsave`/`frestore` use
+      the identical `"Id..."` implicit-`COP1`-operand argument-string
+      convention as `fadd`/`fmove`/etc. (table literal `0xF100`/`0xF140`,
+      mask `0xF1C0` — bits 11-9 explicitly variable, not baked in), so
+      they needed the same treatment as `TestFPUCoprocessorIDBit`
+      already guards for `FADD` and never got it. Fixed by building
+      `newFSaveRestoreDef`'s `word1` from `fpuWord1Base | 0x0100` (save)
+      / `fpuWord1Base | 0x0140` (restore) instead of the bare literals,
+      re-deriving `FSAVE`/`FRESTORE`'s four hand-derived test bytes
+      (`0xF3xx`, not `0xF1xx`) in `cpu020_fpu2_test.go`, and correcting
+      the stale byte claim in milestone 13's own entry above. This is
+      the same class of bug as milestone 13's own original detour (a
+      missing coprocessor-ID bit), just discovered one function later
+      than it should have been — and, unlike milestone 13's fix, this
+      one *did* require changing already-shipped tests' expected bytes,
+      breaking this design doc's own closing claim below.
+    - **`PSAVE`/`PRESTORE` needed no coprocessor-ID handling at all,
+      confirming the fix above was specific to FPU instructions.** GAS's
+      own table gives them a *full* `0xFFC0` mask (only the low 6 `<ea>`
+      bits variable) and no `"Id"`-style argument prefix — PMMU
+      instructions don't share the FPU's implicit-coprocessor-operand
+      convention, so `newPmmuSaveRestoreDef` correctly uses the bare
+      `0xF100`/`0xF140` literals `newFSaveRestoreDef` should never have
+      used. A dedicated regression test
+      (`TestPsaveRestoreDoNotShareFsaveRestoreEncoding`) guards this
+      distinction explicitly, since a future reader skimming both
+      functions side by side could otherwise "fix" `PSAVE` to match
+      `FSAVE`'s corrected form and reintroduce the exact bug just fixed.
+    - **`PSAVE`/`PRESTORE` otherwise reuse `FSAVE`/`FRESTORE`'s single-
+      `Form` EA-equivalence trick unchanged**: GAS gives each only one
+      table row (`>s`/`<s` — the same control-alterable-or-predecrement/
+      -postincrement restriction letters MOVEM's own store/load
+      directions use), confirming there was never a second "dedicated"
+      row to reconcile in the first place — simpler than `FSAVE`/
+      `FRESTORE`, which do have two GAS rows apiece, not harder.
+    - **`PMOVEFD` needed no new `FieldRef`, `OperandKind`, or parsing
+      logic at all.** Its three GAS table rows share the identical
+      argument-code shapes (and EA-restriction letters) as three of
+      `PMOVE`'s own load-direction rows — `TC` (`"*l08"`), `DRP`/`SRP`/
+      `CRP` via the shared `'W'` selector (`"|sW8"`), and `TT0`/`TT1` via
+      the shared `'3'` selector (`"*l38"`) — with word2 in every case
+      exactly `PMOVE`'s own load word2 plus `0x0100`. Confirmed by
+      cross-checking each of the six resulting literals by hand and by
+      a dedicated regression test
+      (`TestPmovefdWordMatchesPmoveLoadPlusFDBit`) that asserts the
+      `+0x0100` relationship against `PMOVE`'s own live output rather
+      than against a second hardcoded copy of the same six literals.
+    - **Deliberately load-only, matching GAS exactly**: GAS's own table
+      has no store-direction `pmovefd` row at all (disabling
+      function-code lookup only makes sense while *loading* a register
+      that itself controls how such lookups happen), so no store `Form`
+      was added — `TestPmovefdIsLoadOnly` guards this.
+    - **No `CAL`/`VAL`/`SCC`/`AC`/`MMUSR`/`PCSR`/`BAD`/`BAC` counterparts
+      exist for `PMOVEFD`** in GAS's table, so — unlike `PMOVE`, which
+      this codebase deliberately extended past GAS's own minimum surface
+      register by register across milestones 12/18/20/21 — `PMOVEFD`'s
+      scope stops exactly where GAS's own three rows stop.
+
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
-`go test ./...` green with zero changes required to any existing test
-(modulo the intentional scale-factor fix in milestone 1).
+`go test ./...` green with zero changes required to any existing test,
+except for the two documented coprocessor-ID-bit fixes above (the
+intentional scale-factor fix in milestone 1, and the `FSAVE`/`FRESTORE`
+fix found while implementing milestone 25).
