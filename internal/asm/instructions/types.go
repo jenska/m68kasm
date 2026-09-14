@@ -31,7 +31,13 @@ const (
 	// FExtRegDst is FExtRegSrc for the Dst operand.
 	FExtRegDst
 	// FFPFormat places the FPU source/destination format code (see
-	// fpFormatCode in encode.go) into bits 12-10 of the current word.
+	// fpFormatCode in encode.go) into bits 12-10 of the current word,
+	// and also sets bit 14 (the R/M bit — see fpFormatCode's own doc
+	// comment for why this is bundled into the same FieldRef rather
+	// than a separate one). Every use of FFPFormat is, by construction,
+	// on a memory-operand form (R/M=1); the pure register-to-register
+	// forms never call it at all, so there is no case where the format
+	// code is wanted without R/M also being set.
 	FFPFormat
 	// FFPDstReg7 places the Dst operand's FPn register number into bits
 	// 9-7 of the current word (the "F7" field in Motorola's own FPU
@@ -194,6 +200,15 @@ const (
 	// single destination, since FSINCOS's "primary" result (matching
 	// the mnemonic's leading word) shares that field.
 	FSincosRegSin7
+	// FKFactor places the Dst operand's k-factor (FMOVE.P's packed-BCD
+	// store destination) into the current word: bits 6-0 as a 7-bit
+	// two's complement value for a static k-factor, or bit 12 set plus
+	// the holding Dn register number at bits 6-4 for a dynamic one —
+	// the two forms differ only in this one field (see
+	// cpu020_fpu_packed.go), so one FieldRef with an internal switch
+	// covers both, the same combined-switch pattern FFCSpecWord already
+	// established for PFLUSH/PLOAD/PTEST's own three-way operand.
+	FKFactor
 )
 
 type TrailerItem uint16
@@ -246,6 +261,12 @@ const (
 	SingleSize   Size = 12
 	DoubleSize   Size = 16
 	ExtendedSize Size = 20
+	// PackedSize is the FPU's packed-BCD real format (.p suffix) — a
+	// 96-bit packed-decimal digit string (17 mantissa digits, 3 exponent
+	// digits, both signed), memory-only (no register or immediate form
+	// makes sense for a digit string). See fpFormatCode's doc comment
+	// and cpu020_fpu_packed.go.
+	PackedSize Size = 24
 )
 
 type OperandKind uint16
@@ -342,6 +363,15 @@ const (
 	// one destination register, so the colon is always mandatory. See
 	// cpu020_fpu_trans3.go.
 	OpkFPRegPair
+	// OpkEAKFactor matches FMOVE.P's packed-BCD store destination,
+	// "<ea>{#k}" (static) or "<ea>{Dn}" (dynamic) — the k-factor is a
+	// suffix on the destination EA, not a separate operand, mirroring
+	// how a 68020 bit-field specifier ("<ea>{offset:width}") attaches to
+	// its own base EA rather than being its own operand. Parsed via
+	// parseEABase (not parseEA, which would try to consume the same
+	// "{...}" as a bit-field spec instead) plus an explicit, mandatory
+	// k-factor suffix. See cpu020_fpu_packed.go.
+	OpkEAKFactor
 )
 
 type InstrDef struct {
@@ -625,6 +655,18 @@ type EAExpr struct {
 	// unexpectedly. See validateFPUOperand and cpu020_fpu.go.
 	ImmFloat   float64
 	ImmIsFloat bool
+
+	// HasKFactor, KFactorIsReg, and KFactorVal are used only by
+	// OpkEAKFactor (FMOVE.P's packed-BCD store destination,
+	// "<ea>{#k}"/"<ea>{Dn}") — attached directly to the base EA's own
+	// EAExpr, the same way HasBitField/BFOffsetVal attach a 68020
+	// bit-field spec to its own base EA rather than needing a separate
+	// operand. KFactorVal holds the static k-factor value (IsReg false)
+	// or the Dn register number holding it at runtime (IsReg true). See
+	// cpu020_fpu_packed.go.
+	HasKFactor   bool
+	KFactorIsReg bool
+	KFactorVal   int32
 }
 
 type EAIndex struct {

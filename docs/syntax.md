@@ -390,6 +390,22 @@ FMOVEM FPCR/FPSR,(A0)                ; a genuine multi-register combination need
 `FPCR`, `FPSR`, and `FPIAR` are also valid as plain register operands
 elsewhere `--fpu` accepts a control register.
 
+`.p` (packed BCD) works as a source format anywhere any other size does
+(`FMOVE.P (A0),FP0`, `FADD.P (A0),FP0`, …). As a *store* destination it
+needs an extra `{#k}` (static) or `{Dn}` (dynamic) k-factor suffix,
+specifying the number of mantissa digits to generate (`-64` to `17`) —
+mandatory, unlike every other size, since packed has no implicit
+default precision:
+
+```asm
+FMOVE.P FP0,(A0){#7}    ; static k-factor: 7 digits after the point
+FMOVE.P FP0,(A0){D1}    ; dynamic: the k-factor is read from D1
+```
+
+There is no packed BCD immediate literal syntax (`#<value>` written as
+packed digits) — only a memory operand already holding packed BCD bytes
+is supported as a source.
+
 ### 7.4 PMMU (`--mmu`)
 
 `PMOVE` moves one of several PMMU registers to or from memory, `Dn`, or

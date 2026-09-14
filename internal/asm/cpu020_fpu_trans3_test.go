@@ -17,7 +17,7 @@ func TestAssembleFsincos(t *testing.T) {
 		want []byte
 	}{
 		{"FsincosRegisterToRegister", "FSINCOS FP1,FP2:FP3\n", []byte{0xF2, 0x00, 0x05, 0xB2}},
-		{"FsincosMemorySourceExtended", "FSINCOS.X (A0),FP2:FP3\n", []byte{0xF2, 0x10, 0x09, 0xB2}},
+		{"FsincosMemorySourceExtended", "FSINCOS.X (A0),FP2:FP3\n", []byte{0xF2, 0x10, 0x49, 0xB2}},
 	}
 
 	for _, tc := range tests {

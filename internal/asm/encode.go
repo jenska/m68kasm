@@ -123,6 +123,9 @@ type prepared struct {
 	SrcImmFloat   float64
 	SrcImmIsFloat bool
 
+	DstKFactorIsReg bool
+	DstKFactorVal   int32
+
 	FPRegMaskSrc uint16
 	FPRegMaskDst uint16
 
@@ -224,7 +227,7 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	case instructions.FExtRegDst:
 		return wordVal | (uint16(p.DstEA.Mode&1) << 15) | (uint16(p.DstEA.Reg&7) << 12)
 	case instructions.FFPFormat:
-		return wordVal | fpFormatCode(p.Size)<<10
+		return wordVal | fpRMBit | fpFormatCode(p.Size)<<10
 	case instructions.FFPDstReg7:
 		return wordVal | (uint16(p.DstReg&7) << 7)
 	case instructions.FFPSrcReg7:
@@ -312,6 +315,11 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		return wordVal | (uint16(p.DstReg2&7) << 7)
 	case instructions.FAux2RegShift5:
 		return wordVal | (uint16(p.Aux2Reg&7) << 5)
+	case instructions.FKFactor:
+		if p.DstKFactorIsReg {
+			return wordVal | 0x1000 | (uint16(p.DstKFactorVal&7) << 4)
+		}
+		return wordVal | (uint16(p.DstKFactorVal) & 0x7F)
 	default:
 		return wordVal
 	}
@@ -330,14 +338,39 @@ func bitFieldSpecCode(isReg bool, val int32) uint16 {
 	return uint16(val) & 0x1F
 }
 
+// fpRMBit is the FPU "general instruction" word2's R/M bit (bit 14):
+// per the MC68881/MC68882 User's Manual (§4.5.2's instruction field
+// descriptions), R/M=0 means the source specifier field (bits 13-10)
+// holds a source FPm register number, and R/M=1 means it holds a
+// memory operand's data-format code instead — i.e. it must be set
+// whenever FFPFormat is (see that FieldRef's own doc comment), and
+// clear whenever the source is a bare FPm register (FFPSrcReg10, never
+// combined with FFPFormat in this codebase).
+//
+// Missing entirely until found while researching packed BCD's own
+// format code (milestone 28): every one of this codebase's <ea>-
+// sourced FPU forms had been emitting bit 14 as 0, which isn't merely
+// a differently-shaped but still-decodable encoding — a real 68881, or
+// any correctly-opcode-table-driven disassembler, matches word2's fixed
+// bits against each candidate row in turn, and an R/M=0 word2 matches
+// the *register-to-register* row's own fixed-bit pattern instead
+// (confirmed by hand: 0x0822, this codebase's old — wrong — encoding
+// for "FADD.X (A0),FP0"'s word2, satisfies faddx's register-form row's
+// own mask/literal, `two(0xF1C0,0xE07F)`/`0x0022`, exactly). So the bug
+// wasn't a cosmetic bit-layout difference: real hardware would have
+// read the wrong source entirely (a register, ignoring the <ea> and
+// its extension words) rather than erroring.
+const fpRMBit = 0x4000
+
 // fpFormatCode returns the 3-bit FPU source/destination format code
 // (extension-word bits 12-10) for sz. Cross-checked against GNU
 // binutils' GAS m68k opcode table by decoding the per-size literal
-// values shared across every FPU instruction (e.g. faddl=0x4022,
+// values shared across every FPU instruction (faddl=0x4022,
 // fadds=0x4422, faddx=0x4822, faddp=0x4C22, faddw=0x5022, faddd=0x5422,
-// faddb=0x5822 all differ only in these bits) — see
-// docs/design/cpu-family-support.md. Packed BCD (format code 3) is not
-// supported by this assembler yet, so it has no Size constant.
+// faddb=0x5822 — each is fpRMBit | opBase(0x22) | this size's own
+// format code<<10, confirming both the per-size table below AND
+// fpRMBit's own 0x4000 value at once) — see
+// docs/design/cpu-family-support.md.
 func fpFormatCode(sz instructions.Size) uint16 {
 	switch sz {
 	case instructions.LongSize:
@@ -346,6 +379,8 @@ func fpFormatCode(sz instructions.Size) uint16 {
 		return 1
 	case instructions.ExtendedSize:
 		return 2
+	case instructions.PackedSize:
+		return 3
 	case instructions.WordSize:
 		return 4
 	case instructions.DoubleSize:
@@ -476,6 +511,8 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 	p.SrcReg2 = ins.Args.Src.Reg2
 	p.DstReg2 = ins.Args.Dst.Reg2
 	p.DstRegPairWide = ins.Args.Dst.RegPairWide
+	p.DstKFactorIsReg = ins.Args.Dst.KFactorIsReg
+	p.DstKFactorVal = ins.Args.Dst.KFactorVal
 	p.AuxReg = ins.Args.Aux.Reg
 	p.AuxReg2 = ins.Args.Aux.Reg2
 

@@ -272,6 +272,59 @@ func (p *Parser) parseFPRegPair() (instructions.EAExpr, error) {
 	return instructions.EAExpr{Kind: instructions.EAkFPRegPair, Reg: first, Reg2: second}, nil
 }
 
+// parseEAKFactor parses FMOVE.P's packed-BCD store destination,
+// "<ea>{#k}" (static) or "<ea>{Dn}" (dynamic) — the k-factor suffix is
+// mandatory, unlike a bit-field spec's optional "{offset:width}".
+// Deliberately calls parseEABase, not parseEA: parseEA would try to
+// consume the same "{...}" as a bit-field suffix instead (expecting a
+// colon-separated "offset:width" pair, which a k-factor never has).
+func (p *Parser) parseEAKFactor() (instructions.EAExpr, error) {
+	base, err := p.parseEABase()
+	if err != nil {
+		return base, err
+	}
+	if _, err := p.want(LBRACE); err != nil {
+		return base, err
+	}
+	isReg, val, err := p.parseKFactor()
+	if err != nil {
+		return base, err
+	}
+	if !isReg && (val < -64 || val > 17) {
+		return base, fmt.Errorf("k-factor out of range: %d (expected -64 to 17, or a data register)", val)
+	}
+	if _, err := p.want(RBRACE); err != nil {
+		return base, err
+	}
+	base.HasKFactor = true
+	base.KFactorIsReg = isReg
+	base.KFactorVal = val
+	return base, nil
+}
+
+// parseKFactor parses one k-factor value: a bare Dn (dynamic — the
+// register holds the k-factor at runtime) or "#<signed integer>"
+// (static — unlike every other immediate in this codebase, which
+// forwards straight to the general integer expression evaluator, this
+// one stays a single literal since the manual's own range, -64 to +17,
+// makes a "#<expr>" arithmetic combination meaningless here).
+func (p *Parser) parseKFactor() (isReg bool, val int32, err error) {
+	if t := p.peek(); t.Kind == IDENT {
+		if ok, dn := isRegDn(t.Text); ok {
+			p.next()
+			return true, int32(dn), nil
+		}
+	}
+	if _, err := p.want(HASH); err != nil {
+		return false, 0, err
+	}
+	v, err := p.parseExprUntil(RBRACE)
+	if err != nil {
+		return false, 0, err
+	}
+	return false, int32(v), nil
+}
+
 // parseAnIndPair parses CAS2's "(Rn1):(Rn2)" memory-pointer pair: two
 // parenthesized address registers joined by a colon, both mandatory —
 // unlike parseRegPair, there is no meaningful single-pointer shorthand

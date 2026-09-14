@@ -19,7 +19,7 @@ func TestAssembleFPUTranscendental(t *testing.T) {
 		src  string
 		want []byte
 	}{
-		{"FsinMemorySourceExtended", "FSIN.X (A0),FP0\n", []byte{0xF2, 0x10, 0x08, 0x0E}},
+		{"FsinMemorySourceExtended", "FSIN.X (A0),FP0\n", []byte{0xF2, 0x10, 0x48, 0x0E}},
 		{"FsinRegisterToRegister", "FSIN FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x0E}},
 		{"FcosSingleOperandShorthand", "FCOS FP0\n", []byte{0xF2, 0x00, 0x00, 0x1D}},
 		{"Ftan", "FTAN FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x0F}},

@@ -13,21 +13,22 @@ var targetFPU = instructions.Target{CPU: instructions.CPU68020, Features: instru
 
 // Expected bytes below were derived by hand from GNU binutils' GAS m68k
 // opcode table (opcodes/m68k-opc.c) and then confirmed against the
-// actual assembler output before being pinned here. Two real bugs were
-// found and fixed while doing that confirmation — see
-// TestFPUFixedZeroWordEmitted and TestFPUOpmodeWordBeforeEAExtension.
+// actual assembler output before being pinned here. Three real bugs
+// were found and fixed while doing that confirmation — see
+// TestFPUFixedZeroWordEmitted, TestFPUOpmodeWordBeforeEAExtension, and
+// TestFPURMBit.
 func TestAssembleFPUInstructions(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
 		want []byte
 	}{
-		{"AddMemorySourceExtended", "FADD.X (A0),FP0\n", []byte{0xF2, 0x10, 0x08, 0x22}},
+		{"AddMemorySourceExtended", "FADD.X (A0),FP0\n", []byte{0xF2, 0x10, 0x48, 0x22}},
 		{"AddRegisterToRegister", "FADD FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x22}},
-		{"MoveIntegerLongFromDn", "FMOVE.L D0,FP0\n", []byte{0xF2, 0x00, 0x00, 0x00}},
-		{"MoveExtendedToMemory", "FMOVE.X FP2,(A0)\n", []byte{0xF2, 0x10, 0x29, 0x00}},
+		{"MoveIntegerLongFromDn", "FMOVE.L D0,FP0\n", []byte{0xF2, 0x00, 0x40, 0x00}},
+		{"MoveExtendedToMemory", "FMOVE.X FP2,(A0)\n", []byte{0xF2, 0x10, 0x69, 0x00}},
 		{"AbsSingleOperandShorthand", "FABS FP0\n", []byte{0xF2, 0x00, 0x00, 0x18}},
-		{"TstMemoryExtended", "FTST.X (A0)\n", []byte{0xF2, 0x10, 0x08, 0x3A}},
+		{"TstMemoryExtended", "FTST.X (A0)\n", []byte{0xF2, 0x10, 0x48, 0x3A}},
 		{"Nop", "FNOP\n", []byte{0xF2, 0x80, 0x00, 0x00}},
 		{"SubRegisterToRegister", "FSUB FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x28}},
 		{"MulRegisterToRegister", "FMUL FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x23}},
@@ -35,9 +36,9 @@ func TestAssembleFPUInstructions(t *testing.T) {
 		{"CmpRegisterToRegister", "FCMP FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x38}},
 		{"NegSingleOperandShorthand", "FNEG FP0\n", []byte{0xF2, 0x00, 0x00, 0x1A}},
 		{"SqrtSingleOperandShorthand", "FSQRT FP0\n", []byte{0xF2, 0x00, 0x00, 0x04}},
-		{"AddLongImmediate", "FADD.L #100,FP0\n", []byte{0xF2, 0x3C, 0x00, 0x22, 0x00, 0x00, 0x00, 0x64}},
-		{"MoveWordImmediate", "FMOVE.W #5,FP0\n", []byte{0xF2, 0x3C, 0x10, 0x00, 0x00, 0x05}},
-		{"AddExtendedWithDisplacement", "FADD.X (100,A0),FP0\n", []byte{0xF2, 0x28, 0x08, 0x22, 0x00, 0x64}},
+		{"AddLongImmediate", "FADD.L #100,FP0\n", []byte{0xF2, 0x3C, 0x40, 0x22, 0x00, 0x00, 0x00, 0x64}},
+		{"MoveWordImmediate", "FMOVE.W #5,FP0\n", []byte{0xF2, 0x3C, 0x50, 0x00, 0x00, 0x05}},
+		{"AddExtendedWithDisplacement", "FADD.X (100,A0),FP0\n", []byte{0xF2, 0x28, 0x48, 0x22, 0x00, 0x64}},
 	}
 
 	for _, tc := range tests {
@@ -72,9 +73,29 @@ func TestFPUFixedZeroWordEmitted(t *testing.T) {
 // word instead of after it.
 func TestFPUOpmodeWordBeforeEAExtension(t *testing.T) {
 	got := assembleForTarget(t, "FADD.X (100,A0),FP0\n", targetFPU)
-	want := []byte{0xF2, 0x28, 0x08, 0x22, 0x00, 0x64}
+	want := []byte{0xF2, 0x28, 0x48, 0x22, 0x00, 0x64}
 	if !bytes.Equal(got, want) {
-		t.Fatalf("got % X want % X (opmode word 0822 must precede the displacement word 0064)", got, want)
+		t.Fatalf("got % X want % X (opmode word 4822 must precede the displacement word 0064)", got, want)
+	}
+}
+
+// TestFPURMBit guards a real, severe encoding bug found while
+// researching packed BCD's own format code (milestone 28): every FPU
+// "general instruction" word2's bit 14 (the R/M bit — see fpRMBit's own
+// doc comment in encode.go) was never set for an <ea>-sourced operand,
+// across every instruction using FFPFormat (FADD/FSUB/FMUL/FDIV/FCMP,
+// FMOVE's load and store directions, FABS/FNEG/FSQRT, FTST, every
+// transcendental function, and FSINCOS). This wasn't a cosmetic
+// difference: a word2 with R/M=0 matches the *register-to-register*
+// form's own fixed-bit pattern instead, so real 68881 hardware (or any
+// opcode-table-driven disassembler) would have silently read the wrong
+// source register and ignored the <ea>/extension words entirely, not
+// merely disagreed on a don't-care bit.
+func TestFPURMBit(t *testing.T) {
+	got := assembleForTarget(t, "FADD.X (A0),FP0\n", targetFPU)
+	word2 := uint16(got[2])<<8 | uint16(got[3])
+	if word2&0x4000 == 0 {
+		t.Fatalf("word2 = %04X, want bit 14 (R/M) set for a memory-sourced operand", word2)
 	}
 }
 

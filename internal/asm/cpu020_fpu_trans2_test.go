@@ -16,10 +16,10 @@ func TestAssembleFPUMathExtensions(t *testing.T) {
 		want []byte
 	}{
 		{"FgetexpRegisterToRegister", "FGETEXP FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x1E}},
-		{"FgetexpMemorySourceExtended", "FGETEXP.X (A0),FP0\n", []byte{0xF2, 0x10, 0x08, 0x1E}},
+		{"FgetexpMemorySourceExtended", "FGETEXP.X (A0),FP0\n", []byte{0xF2, 0x10, 0x48, 0x1E}},
 		{"Fgetman", "FGETMAN FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x1F}},
 		{"FscaleRegisterToRegister", "FSCALE FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x26}},
-		{"FscaleMemorySourceExtended", "FSCALE.X (A0),FP0\n", []byte{0xF2, 0x10, 0x08, 0x26}},
+		{"FscaleMemorySourceExtended", "FSCALE.X (A0),FP0\n", []byte{0xF2, 0x10, 0x48, 0x26}},
 		{"Fmod", "FMOD FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x21}},
 		{"Frem", "FREM FP1,FP0\n", []byte{0xF2, 0x00, 0x04, 0x25}},
 	}

@@ -334,6 +334,22 @@ func operandKindCompatible(expect, actual instructions.OperandKind) bool {
 			return true
 		}
 	}
+	// OpkEAKFactor (FMOVE.P's "<ea>{#k}"/"<ea>{Dn}" store destination)
+	// parses to the same real EAExprKind — and so the same actual
+	// OperandKind — an ordinary <ea> would (the k-factor rides along as
+	// extra fields on that same EAExpr, the same way a bit-field spec
+	// does), so it accepts exactly what a plain OpkEA expectation does.
+	// This is needed because assembleItem re-derives actualKinds from
+	// the already-parsed Args independently of which Form the parser
+	// used, and that re-derivation has no dedicated EAExprKind to map
+	// back to OpkEAKFactor specifically. Validate is what actually
+	// enforces the k-factor's presence (HasKFactor) and range.
+	if expect == instructions.OpkEAKFactor {
+		switch actual {
+		case instructions.OpkEA, instructions.OpkDn, instructions.OpkAn, instructions.OpkImm, instructions.OpkPredecAn, instructions.OpkPostincAn:
+			return true
+		}
+	}
 	// USP is also a MOVEC control register (EAkUSP maps to OpkUSP so
 	// MOVE USP,An/An,USP keep working unchanged), so a form requiring
 	// OpkCtrlReg must accept an OpkUSP operand too.

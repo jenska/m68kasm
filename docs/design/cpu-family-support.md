@@ -1566,11 +1566,131 @@ need a separate phase.
       `10%101`) now needs a space after the `%` to force the operator
       reading. Modulo by anything else, spaced or not, is unaffected
       (already covered by `expr_enhanced_test.go`'s unspaced `5%3`).
+28. ✅ **Not a feature — an urgent, dedicated fix for a severe encoding
+    bug found while researching packed BCD's own format code**, done
+    first and separately at the maintainer's explicit direction before
+    resuming packed BCD itself (milestone 29).
+    - **The bug**: every FPU "general instruction" word2 has an R/M bit
+      (bit 14) that tells the hardware whether the *source specifier*
+      field (bits 13-10) holds a source `FPm` register number (R/M=0)
+      or a memory operand's data-format code (R/M=1) — confirmed
+      against the MC68881/MC68882 User's Manual's own §4.5.2 field
+      descriptions, and independently against GNU binutils' GAS opcode
+      table by decomposing `faddl`/`fadds`/`faddx`/`faddp`/`faddw`/
+      `faddd`/`faddb`'s seven per-size literals, every one of which
+      shares the identical `0x4000` (R/M) bit alongside its own format
+      code — see `fpRMBit`'s doc comment in `encode.go` for the full
+      decomposition. `FFPFormat` (the shared `FieldRef` behind every
+      `<ea>`-sourced FPU form since milestone 6) had never set it.
+    - **Not a cosmetic difference — a functional one.** A word2 with
+      R/M=0 doesn't just decode "differently"; it satisfies the
+      *register-to-register* form's own fixed-bit mask/literal instead
+      (verified by hand: this codebase's old, wrong `0x0822` for
+      `FADD.X (A0),FP0` matches `faddx`'s register-form row,
+      `two(0xF1C0,0xE07F)`/`0x0022`, exactly). Real 68881 hardware, or
+      any opcode-table-driven disassembler, would read the wrong source
+      register entirely and never touch the `<ea>`/extension words the
+      instruction actually appended — silently wrong output, not a
+      differently-spelled-but-still-correct one.
+    - **Blast radius**: every instruction built through `FFPFormat` —
+      `newFPBinaryDef`'s `<ea>,FPn` and `FPn,<ea>` forms (so `FADD`/
+      `FSUB`/`FMUL`/`FDIV`/`FCMP`/`FMOVE`, in both directions),
+      `newFPMonadicDef`'s `<ea>,FPn` form (`FABS`/`FNEG`/`FSQRT`, all 18
+      transcendental functions, `FGETEXP`/`FGETMAN`/`FSCALE`/`FMOD`/
+      `FREM`), `FTST`, and `FSINCOS` — i.e. essentially the entire FPU
+      instruction set's memory-operand forms, spanning milestones 6
+      through 27. The pure register-to-register forms were never
+      affected (they never call `FFPFormat` at all), which is exactly
+      why the bug went unnoticed for so long: every register-to-
+      register test kept passing throughout.
+    - **The fix is one line, by construction**: `FFPFormat` is *only*
+      ever used on a memory-operand form (confirmed by auditing every
+      call site), so `fpRMBit` was folded directly into `FFPFormat`'s
+      own `applyField` case in `encode.go`, rather than added
+      separately at each of the five call sites — correct everywhere at
+      once, with no risk of a sixth future call site forgetting it.
+    - **`fpFormatCode` gained packed BCD's own format code (`3`) as
+      part of the same fix**, confirmed by the same per-size-literal
+      decomposition that exposed the R/M bug in the first place
+      (`faddp` = `0x4C22` = `fpRMBit | 3<<10 | opBase`) — setting up
+      milestone 29's own `PackedSize` to reuse `FFPFormat` unchanged,
+      the same way every other size already does.
+    - **Regenerating expected bytes touched six existing test files**
+      (`cpu020_fpu_test.go`, `cpu020_fpu_floatimm_test.go`,
+      `cpu020_fpu_trans_test.go`, `cpu020_fpu_trans2_test.go`,
+      `cpu020_fpu_trans3_test.go`) — every failure was, by construction,
+      exactly a missing `0x4000` in word2, confirming the fix's
+      uniformity rather than revealing any further inconsistency. A new
+      guard, `TestFPURMBit`, checks the bit explicitly rather than
+      relying on future hand-derived literals to keep including it.
+29. ✅ **Done.** Packed BCD (`.p`), the last of the FPU's seven data
+    formats, chosen by the maintainer from the open items list after
+    milestone 28 to close out the FPU data-format story entirely.
+    - **The source (load) direction needed no new code at all** — every
+      `<ea>`-sourced FPU form already reads its format code through
+      `FFPFormat`, and format code 3 (packed) slots in exactly like
+      every other size the instant `PackedSize` exists. Confirmed
+      directly against `fmovep`'s own load row (`0x4C00` — the same
+      `fpRMBit|format<<10|opBase` shape every other size's row already
+      has). A new `fpLoadSizes` list (`fpSizes` plus `PackedSize`) is
+      used only by the four load-direction `Sizes` fields
+      (`newFPBinaryDef`'s `<ea>,FPn`, `newFPMonadicDef`'s `<ea>,FPn`,
+      `FTST`, `FSINCOS`) — deliberately *not* folded into `fpSizes`
+      itself, since that list is also used by `newFPBinaryDef`'s shared
+      *store* form, which would otherwise silently accept `.P` too and
+      encode a k-factor of 0 with no syntax to ask for anything else.
+    - **The store direction is genuinely different, and GAS spells it as
+      its own mnemonic** (`fmovep`, not a `.p`-suffixed row of the
+      generic `fmovex` family) needing a k-factor operand (`-64` to
+      `17`, specifying how many mantissa digits to generate — no
+      sensible default exists, unlike every other size's store
+      direction). Modeled as a "`<ea>{#k}`"/"`<ea>{Dn}`" suffix on the
+      destination, mirroring a 68020 bit-field spec's own
+      "`{offset:width}`" attachment style closely enough that its parser
+      (`parseEAKFactor`) is built directly on `parseBitFieldSuffix`'s
+      pattern — deliberately not reusing it, since the two suffixes'
+      grammars differ (one value vs. an offset:width pair; `#` required
+      vs. never allowed). One `FieldRef` (`FKFactor`) covers both the
+      static and dynamic forms via an internal switch, matching
+      `FFCSpecWord`'s own established combined-switch precedent, since
+      GAS's own two `fmovep` store rows differ by exactly one bit.
+    - **A new `OperandKind` (`OpkEAKFactor`) surfaced a real gap in
+      `assembleItem`'s own re-selection step**, found before writing any
+      encoding logic: parsing is genuinely per-candidate-`Form` (each
+      tried in turn against the same token list), so a dedicated
+      `OperandKind` correctly routes *parsing* to `parseEAKFactor`
+      instead of the generic `parseEA` (which would try to consume the
+      same `"{...}"` as a bit-field spec instead, expecting a colon that
+      a k-factor never has) — but `assembleItem` (`assemble.go`)
+      re-derives each operand's kind from the *already-parsed* `Args`
+      independently of which `Form` the parser used, via a plain
+      `EAExprKind`-to-`OperandKind` map with no entry for a k-factor
+      suffix (unlike, say, `OpkFCSpec`/`EAkFCSpec`, which has its own
+      dedicated `EAExprKind`). `OpkEAKFactor` deliberately reuses a
+      *real* `EAExprKind` (whatever addressing mode was actually
+      parsed) with the k-factor riding along as extra fields on that
+      same `EAExpr` — the same way a bit-field spec already does — so
+      the fix was a new case in `operandKindCompatible` (`assemble.go`)
+      accepting a plain `OpkEA`-shaped actual operand wherever
+      `OpkEAKFactor` is expected, mirroring `OpkEA`'s own existing
+      broad-acceptance list exactly. `Validate` (not kind-matching)
+      is what actually enforces the k-factor's presence and range —
+      consistent with how every other suffix-shaped operand in this
+      codebase works.
+    - **Deliberately out of scope: a packed BCD immediate literal**
+      (`"#<value>"` parsed as packed digits directly from source text,
+      as opposed to a memory operand already holding packed BCD bytes).
+      `validateFPUOperand` rejects `EAkImm` outright for `PackedSize`
+      with a clear message; encoding a 17-digit-mantissa/3-digit-
+      exponent BCD string from an arbitrary decimal literal is real,
+      separable complexity with no use case this milestone's own scope
+      called for.
 
 Each milestone is independently shippable and testable against the real
 opcode tables in `docs/M68kOpcodes.pdf`, and each one leaves
 `go test ./...` green with zero changes required to any existing test,
-except for the three documented fixes above to already-shipped behavior
+except for the four documented fixes above to already-shipped behavior
 (the intentional scale-factor fix in milestone 1, the `FSAVE`/`FRESTORE`
-coprocessor-ID fix found while implementing milestone 25, and milestone
-27's own float-immediate and binary-literal lexer fixes).
+coprocessor-ID fix found while implementing milestone 25, milestone 27's
+own float-immediate and binary-literal lexer fixes, and milestone 28's
+own FPU R/M-bit fix).

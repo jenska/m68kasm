@@ -297,6 +297,13 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		}
 		eaExpr = pair
 
+	case instructions.OpkEAKFactor:
+		ea, err := p.parseEAKFactor()
+		if err != nil {
+			return eaExpr, err
+		}
+		eaExpr = ea
+
 	case instructions.OpkEA:
 		ea, err := p.parseEA()
 		if err != nil {
@@ -490,6 +497,8 @@ func fpSizeFromIdent(s string) (instructions.Size, bool) {
 		return instructions.DoubleSize, true
 	case "x":
 		return instructions.ExtendedSize, true
+	case "p":
+		return instructions.PackedSize, true
 	default:
 		return 0, false
 	}

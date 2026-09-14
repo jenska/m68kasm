@@ -51,8 +51,17 @@ var requireFPUFull = Target{Features: FeatFPU | FeatFPUFull}
 // docs/design/cpu-family-support.md and TestFPUCoprocessorIDBit.
 const fpuWord1Base = 0xF200
 
+// defFMOVE is captured in a package-level var, unlike every other
+// newFPBinaryDef call, so cpu020_fpu_packed.go can append FMOVE.P's own
+// dedicated store forms (with their k-factor operand) to defFMOVE.Forms
+// directly — the same direct-variable-reference pattern
+// cpu030_pmmu2.go/cpu030_pmmu3.go already use to extend defPMOVE,
+// preferred over an Instructions["FMOVE"] map lookup precisely because
+// it carries no init-ordering dependency between files.
+var defFMOVE = newFPBinaryDef("FMOVE", 0x00, true, requireFPU)
+
 func init() {
-	registerInstrDef(newFPBinaryDef("FMOVE", 0x00, true, requireFPU))
+	registerInstrDef(defFMOVE)
 	registerInstrDef(newFPBinaryDef("FADD", 0x22, false, requireFPU))
 	registerInstrDef(newFPBinaryDef("FSUB", 0x28, false, requireFPU))
 	registerInstrDef(newFPBinaryDef("FMUL", 0x23, false, requireFPU))
@@ -69,6 +78,16 @@ func init() {
 // integer conversions (.b/.w/.l) and the two supported floating formats
 // (.s/.d/.x — packed BCD, .p, is not implemented).
 var fpSizes = []Size{ByteSize, WordSize, LongSize, SingleSize, DoubleSize, ExtendedSize}
+
+// fpLoadSizes is fpSizes plus PackedSize — every <ea>-as-source FPU form
+// accepts packed BCD as an input format (the FPU converts it to
+// extended precision like any other format), but the *store* direction
+// deliberately does not: real hardware requires a k-factor operand for
+// a packed destination (see cpu020_fpu_packed.go's own FMOVE.P forms),
+// which newFPBinaryDef's shared store form has no syntax for — letting
+// it accept PackedSize too would silently encode a k-factor of 0 rather
+// than erroring or asking for one.
+var fpLoadSizes = append(append([]Size{}, fpSizes...), PackedSize)
 
 func isFPIntSize(sz Size) bool {
 	return sz == ByteSize || sz == WordSize || sz == LongSize
@@ -90,6 +109,9 @@ func validateFPUOperand(name string, isStore bool, e EAExpr, sz Size) error {
 	case EAkImm:
 		if isStore {
 			return fmt.Errorf("%s destination cannot be immediate", name)
+		}
+		if sz == PackedSize {
+			return fmt.Errorf("%s: packed BCD immediate literals are not supported (use a memory operand)", name)
 		}
 		if e.ImmIsFloat && isFPIntSize(sz) {
 			return fmt.Errorf("%s: a floating-point literal immediate requires a floating-point size (.s/.d/.x), not an integer size", name)
@@ -136,7 +158,7 @@ func newFPBinaryDef(name string, opBase uint16, allowStore bool, requires Target
 		{
 			// <ea>,FPn
 			DefaultSize:   ExtendedSize,
-			Sizes:         fpSizes,
+			Sizes:         fpLoadSizes,
 			OperKinds:     []OperandKind{OpkEA, OpkFPn},
 			Validate:      validate,
 			Requires:      requires,
@@ -211,7 +233,7 @@ func newFPMonadicDef(name string, opBase uint16, requires Target) *InstrDef {
 		Forms: []FormDef{
 			{
 				DefaultSize:   ExtendedSize,
-				Sizes:         fpSizes,
+				Sizes:         fpLoadSizes,
 				OperKinds:     []OperandKind{OpkEA, OpkFPn},
 				Validate:      validateEA,
 				Requires:      requires,
@@ -263,7 +285,7 @@ var defFTST = InstrDef{
 	Forms: []FormDef{
 		{
 			DefaultSize:   ExtendedSize,
-			Sizes:         fpSizes,
+			Sizes:         fpLoadSizes,
 			OperKinds:     []OperandKind{OpkEA},
 			Validate:      func(a *Args) error { return validateFPUOperand("FTST", false, a.Src, a.Size) },
 			Requires:      requireFPU,

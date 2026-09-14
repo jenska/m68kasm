@@ -35,7 +35,7 @@ var defFSINCOS = InstrDef{
 		{
 			// <ea>,FPc:FPs
 			DefaultSize:   ExtendedSize,
-			Sizes:         fpSizes,
+			Sizes:         fpLoadSizes,
 			OperKinds:     []OperandKind{OpkEA, OpkFPRegPair},
 			Validate:      func(a *Args) error { return validateFPUOperand("FSINCOS", false, a.Src, a.Size) },
 			Requires:      requireFPUFull,
