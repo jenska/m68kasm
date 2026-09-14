@@ -68,10 +68,13 @@ the following operators:
 Results are truncated to the destination field width where appropriate, with
 range validation for directives and instruction fields that require it.
 
-The lexer has no floating-point literal syntax — only integers. FPU
-instructions that take an immediate (e.g. `FADD.L #100,FP0`) therefore only
-accept integer immediates; a floating-point literal such as `#1.5` is
-rejected.
+Expressions themselves are integer-only — a floating-point literal is
+rejected anywhere general arithmetic is expected (`.org`, displacements,
+bit-field widths, `DC.L`, etc.). The lexer does recognize a bare
+floating-point literal (`3.14`, `1.5e-3`) as its own token, but only one
+place accepts it: an FPU immediate operand against a floating-point size
+(`.s`/`.d`/`.x`) — see §7.3. An integer size (`.b`/`.w`/`.l`) still
+requires an integer immediate.
 
 ## 4. Pseudo-Ops
 
