@@ -54,7 +54,7 @@ func init() {
 // one PMMU register whose word2 is fully known at compile time. sz is
 // explicit, not inferred, because GAS's own per-register type-check
 // restricts different PMOVE registers to different sizes (confirmed
-// per-register, not assumed uniform — see cpu030_pmmu3.go's own header
+// per-register, not assumed uniform — see cpu030_pmmu_access.go's own header
 // comment for the full breakdown: TC is .L, AC is .W, CAL/VAL/SCC are
 // .B). loadEA/storeEA are the destination-EA-kind sets to validate
 // against; nil means "use TC's own existing readableDataEA/

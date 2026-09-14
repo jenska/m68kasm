@@ -55,7 +55,7 @@ const fpuWord1Base = 0xF200
 // newFPBinaryDef call, so cpu020_fpu_packed.go can append FMOVE.P's own
 // dedicated store forms (with their k-factor operand) to defFMOVE.Forms
 // directly — the same direct-variable-reference pattern
-// cpu030_pmmu2.go/cpu030_pmmu3.go already use to extend defPMOVE,
+// cpu030_pmmu_xlate.go/cpu030_pmmu_access.go already use to extend defPMOVE,
 // preferred over an Instructions["FMOVE"] map lookup precisely because
 // it carries no init-ordering dependency between files.
 var defFMOVE = newFPBinaryDef("FMOVE", 0x00, true, requireFPU)
@@ -138,7 +138,7 @@ func validateFPUOperand(name string, isStore bool, e EAExpr, sz Size) error {
 
 // newFPBinaryDef builds a two-operand FPU instruction (FMOVE/FADD/FSUB/
 // FMUL/FDIV/FCMP, and — with requires set to requireFPUFull —
-// FSCALE/FMOD/FREM, cpu020_fpu_trans2.go): "<ea>,FPn" (opBase in bits
+// FSCALE/FMOD/FREM, cpu020_fpu_mathext.go): "<ea>,FPn" (opBase in bits
 // 6-0, source format in bits 12-10, dest FPn in bits 9-7) and "FPm,FPn"
 // (opBase, source FPm in bits 12-10, dest FPn in bits 9-7 — no format
 // field, since both operands are already extended precision

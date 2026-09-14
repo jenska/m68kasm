@@ -5,7 +5,7 @@ import "fmt"
 // This file adds PSAVE/PRESTORE (save/restore the 68851 PMMU's internal
 // state frame), chosen by the maintainer from the open items list after
 // milestone 24 to help close out the core PMMU surface. They mirror
-// cpu020_fpu2.go's FSAVE/FRESTORE almost exactly: same single-<ea>-
+// cpu020_fpu_cond.go's FSAVE/FRESTORE almost exactly: same single-<ea>-
 // operand shape, same "write descending / read ascending" EA
 // restriction (PSAVE only -(An), PRESTORE only (An)+), and the same
 // GAS-table oddity where the "dedicated" predecrement/postincrement
@@ -39,7 +39,7 @@ func init() {
 // newPmmuSaveRestoreDef builds PSAVE (store, isSave=true) or PRESTORE
 // (load, isSave=false), reusing the exact single-Form EA-equivalence
 // trick newFSaveRestoreDef established for FSAVE/FRESTORE (see that
-// function's own doc comment in cpu020_fpu2.go for the full reasoning):
+// function's own doc comment in cpu020_fpu_cond.go for the full reasoning):
 // one Form with the general-form literal as WordBits, combined with
 // FSrcEA, already produces the identical bits GAS's "dedicated" -(An)/
 // (An)+ row would, so a second Form would be actively wrong (a

@@ -1018,7 +1018,7 @@ need a separate phase.
       FPn-list forms (milestone 14) and this milestone's control-
       register-list forms are the same real mnemonic, and
       `registerInstrDef` panics on a duplicate name. Rather than a
-      second `InstrDef`, `cpu020_fpu_movem2.go`'s `init` looks up the
+      second `InstrDef`, `cpu020_fpu_movem_ctrl.go`'s `init` looks up the
       already-registered `"FMOVEM"` `InstrDef` from the package's
       `Instructions` map and appends its two new `Form`s onto it
       directly — relying on Go's (spec-recommended, and what `go
@@ -1112,7 +1112,7 @@ need a separate phase.
     - **Structurally, nothing new: the third time this exact shape has
       been built.** The integer ISA's `Bcc`/`DBcc`/`Scc`/`TRAPcc`
       (`xcc.go`, `cpu020_misc.go`) and the FPU's `FBcc`/`FDBcc`/`FScc`/
-      `FTRAPcc` (milestone 13, `cpu020_fpu2.go`) are the same family
+      `FTRAPcc` (milestone 13, `cpu020_fpu_cond.go`) are the same family
       shape with different condition counts (16 vs 32) and base
       opcodes; the PMMU family reuses the FPU version's exact
       architecture (one condition-suffix table, `newPBccDef`/
@@ -1202,8 +1202,8 @@ need a separate phase.
     - **The "numbered instance" shape (`EAkFPn`'s own pattern, not
       `EAkTC`'s) was the right one this time**, confirmed by re-reading
       the design decision from milestone 18's own header comment before
-      writing code: every other PMMU register in `cpu030_pmmu2.go`/
-      `cpu030_pmmu3.go` is its own single fixed register (one
+      writing code: every other PMMU register in `cpu030_pmmu_xlate.go`/
+      `cpu030_pmmu_access.go` is its own single fixed register (one
       `OperandKind` each, a fully-baked literal, no runtime `FieldRef`),
       but `BAD`/`BAC` are genuinely 8 numbered instances apiece — the
       same shape `FPn`/`OpkFPn` already use. Two new kinds

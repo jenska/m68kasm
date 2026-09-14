@@ -15,7 +15,7 @@ package instructions
 // Selector values (bits 12-10 of word2) were cross-checked against
 // gas/config/tc-m68k.c's "case '2':" (CAL=4, VAL=5, SCC=6) and
 // "case '1':" (AC=7) — the same install_operand dispatch DRP/CRP/SRP's
-// own selectors were confirmed against in cpu030_pmmu2.go.
+// own selectors were confirmed against in cpu030_pmmu_xlate.go.
 //
 // Sizes were cross-checked against GAS's own per-register type-check
 // restriction, not assumed uniform with TC/DRP/CRP/SRP/TT0/TT1's own
@@ -30,7 +30,7 @@ package instructions
 // "PSR" — the 68851's own name for the register the 68030 calls
 // "MMUSR" — is handled in parser_operand.go's existing OpkMMUSR case,
 // not here: it's the exact same encoding already shipped in
-// cpu030_pmmu2.go, so it needed a second accepted spelling, not a
+// cpu030_pmmu_xlate.go, so it needed a second accepted spelling, not a
 // second Form.
 //
 // Deliberately NOT included: BAD0-7/BAC0-7 (breakpoint address/access

@@ -11,7 +11,7 @@ package instructions
 //
 // Structurally, this is the exact same shape already built twice before
 // — once for the integer ISA's Bcc/DBcc/Scc/TRAPcc, once for the FPU's
-// own 32-condition FBcc/FDBcc/FScc/FTRAPcc (cpu020_fpu2.go) — just with
+// own 32-condition FBcc/FDBcc/FScc/FTRAPcc (cpu020_fpu_cond.go) — just with
 // the PMMU's own 16 conditions and base opcodes (no coprocessor-ID bit
 // to fold in this time, unlike the FPU family: PMMU's word1 base is a
 // bare 0xF0xx, not 0xF2xx).
@@ -41,7 +41,7 @@ func init() {
 // separate "pbccl"-suffixed mnemonic name (or, for the bare mnemonic,
 // auto-upgrades from word to long via a two-pass frag resolution) —
 // this codebase again commits to its own .W/.L-suffix convention
-// instead, the same choice already made for FBcc (cpu020_fpu2.go).
+// instead, the same choice already made for FBcc (cpu020_fpu_cond.go).
 func newPBccDef(name string, cc uint16) *InstrDef {
 	return &InstrDef{
 		Mnemonic: name,

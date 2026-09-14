@@ -10,7 +10,7 @@ import "fmt"
 //
 //   - a register NUMBER (0-7) at bits 4-2, not just a fixed selector —
 //     the "numbered instance" shape EAkFPn/OpkFPn already use, unlike
-//     every other PMMU register in cpu030_pmmu2.go/cpu030_pmmu3.go
+//     every other PMMU register in cpu030_pmmu_xlate.go/cpu030_pmmu_access.go
 //     (each its own single fixed register, no number to encode);
 //   - an INVERTED load/store direction bit relative to every other
 //     PMOVE register. Every other register in this file follows a

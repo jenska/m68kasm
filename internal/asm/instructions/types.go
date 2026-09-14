@@ -192,7 +192,7 @@ const (
 	// FSincosRegCos0 places the Dst operand's Reg (FPc, the cosine
 	// result register) into bits 2-0 of the current word — FSINCOS's
 	// own extra destination field, distinct from every other FPU
-	// instruction's single FFPDstReg7 destination. See cpu020_fpu_trans3.go.
+	// instruction's single FFPDstReg7 destination. See cpu020_fpu_sincos.go.
 	FSincosRegCos0
 	// FSincosRegSin7 places the Dst operand's Reg2 (FPs, the sine
 	// result register) into bits 9-7 of the current word — the same
@@ -328,14 +328,14 @@ const (
 	// OpkFPCtrlRegList matches FMOVEM's FPCR/FPSR/FPIAR control-register
 	// list operand (a bare name, or a slash-separated combination) —
 	// the deferred-until-now second half of FMOVEM (see
-	// cpu020_fpu_movem2.go), kept distinct from OpkFPRegList: a
+	// cpu020_fpu_movem_ctrl.go), kept distinct from OpkFPRegList: a
 	// different, 3-bit selector field (bits 12-10 of word2, not the
 	// 8-bit FP0-FP7 mask at bits 7-0) and different EA rules (a *single*
 	// named register may target Dn/An, but a genuine multi-register
 	// combination may not).
 	OpkFPCtrlRegList
 	// OpkCRP, OpkSRP, OpkTT0, OpkTT1, and OpkMMUSR match PMOVE's other
-	// PMMU registers (see cpu030_pmmu2.go), each parsed the same way
+	// PMMU registers (see cpu030_pmmu_xlate.go), each parsed the same way
 	// OpkTC already is — a fixed name via parseExpectedSpecialRegister.
 	// Kept as separate kinds, one per register, rather than a shared
 	// "any PMMU register" kind: each ends up needing its own Form with
@@ -349,7 +349,7 @@ const (
 	OpkTT1
 	OpkMMUSR
 	// OpkDRP, OpkCAL, OpkVAL, OpkSCC, OpkAC, and OpkPCSR match PMOVE's
-	// remaining fixed-selector PMMU registers (see cpu030_pmmu3.go) —
+	// remaining fixed-selector PMMU registers (see cpu030_pmmu_access.go) —
 	// same shape as OpkCRP/OpkSRP/etc. above.
 	OpkDRP
 	OpkCAL
@@ -358,7 +358,7 @@ const (
 	OpkAC
 	OpkPCSR
 	// OpkBAD and OpkBAC match PMOVE's numbered breakpoint address/access
-	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu4.go).
+	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu_badbac.go).
 	OpkBAD
 	OpkBAC
 	// OpkFCSpec matches PFLUSH/PLOAD/PTEST's function-code specifier
@@ -370,7 +370,7 @@ const (
 	// via parseFPRegister) and, unlike OpkRegPair's DIVSL/CAS2 uses, has
 	// no bare single-register shorthand: sine and cosine can never share
 	// one destination register, so the colon is always mandatory. See
-	// cpu020_fpu_trans3.go.
+	// cpu020_fpu_sincos.go.
 	OpkFPRegPair
 	// OpkEAKFactor matches FMOVE.P's packed-BCD store destination,
 	// "<ea>{#k}" (static) or "<ea>{Dn}" (dynamic) — the k-factor is a
@@ -568,7 +568,7 @@ const (
 	// "numbered instance" shape EAkFPn uses.
 	EAkCacheSel
 	// EAkCRP, EAkSRP, EAkTT0, EAkTT1, and EAkMMUSR are PMOVE's other
-	// PMMU registers (see cpu030_pmmu2.go) — each a fixed, unnumbered
+	// PMMU registers (see cpu030_pmmu_xlate.go) — each a fixed, unnumbered
 	// special register like EAkTC, not a numbered instance.
 	EAkCRP
 	EAkSRP
@@ -576,7 +576,7 @@ const (
 	EAkTT1
 	EAkMMUSR
 	// EAkDRP, EAkCAL, EAkVAL, EAkSCC, EAkAC, and EAkPCSR are PMOVE's
-	// remaining fixed, unnumbered PMMU registers (see cpu030_pmmu3.go).
+	// remaining fixed, unnumbered PMMU registers (see cpu030_pmmu_access.go).
 	// EAkMMUSR itself now also matches the 68851's own name for the
 	// same register, "PSR" — see the OpkMMUSR parser case.
 	EAkDRP
@@ -586,7 +586,7 @@ const (
 	EAkAC
 	EAkPCSR
 	// EAkBAD and EAkBAC are PMOVE's numbered breakpoint address/access
-	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu4.go) — a
+	// registers, BAD0-BAD7 and BAC0-BAC7 (see cpu030_pmmu_badbac.go) — a
 	// "numbered instance" shape like EAkFPn, with the register number
 	// (0-7) held directly in Reg, unlike every other PMMU register in
 	// this file (each of which is its own single fixed register).
@@ -600,7 +600,7 @@ const (
 	// register) — always both, since there is no bare single-register
 	// shorthand (see OpkFPRegPair). Like EAkFPn, it never goes through
 	// the generic OpkEA/EncodeEA machinery for its actual bit placement
-	// (FSincosRegCos0/FSincosRegSin7 — see cpu020_fpu_trans3.go).
+	// (FSincosRegCos0/FSincosRegSin7 — see cpu020_fpu_sincos.go).
 	EAkFPRegPair
 )
 

@@ -45,12 +45,12 @@ var requireFPUCtrlList = requireFPU
 // guarantees in practice and explicitly recommends build tools follow:
 // init functions across a package's files run in the files' lexical
 // name order, and "cpu020_fpu_movem.go" sorts before
-// "cpu020_fpu_movem2.go". The explicit nil check turns a violated
+// "cpu020_fpu_movem_ctrl.go". The explicit nil check turns a violated
 // assumption into a clear panic instead of a silent nil dereference.
 func init() {
 	fmovem := Instructions["FMOVEM"]
 	if fmovem == nil {
-		panic("cpu020_fpu_movem2.go: FMOVEM must already be registered (by cpu020_fpu_movem.go) before its control-register forms can be appended")
+		panic("cpu020_fpu_movem_ctrl.go: FMOVEM must already be registered (by cpu020_fpu_movem.go) before its control-register forms can be appended")
 	}
 	fmovem.Forms = append(fmovem.Forms,
 		FormDef{

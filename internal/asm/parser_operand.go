@@ -172,7 +172,7 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 	case instructions.OpkMMUSR:
 		// "PSR" is the 68851's own name for this exact register and
 		// encoding; "MMUSR" is the 68030's name for it. Real hardware,
-		// not two different things — see cpu030_pmmu3.go.
+		// not two different things — see cpu030_pmmu_access.go.
 		tok, err := p.want(IDENT)
 		if err != nil {
 			return eaExpr, err

@@ -93,7 +93,7 @@ func TestPmoveOnlySupportsLongSize(t *testing.T) {
 }
 
 func TestPmoveRejectsUnknownSecondRegister(t *testing.T) {
-	// PMOVE's register set is complete as of cpu030_pmmu4.go (TC, CRP,
+	// PMOVE's register set is complete as of cpu030_pmmu_badbac.go (TC, CRP,
 	// SRP, TT0, TT1, MMUSR/PSR, DRP, CAL, VAL, SCC, AC, PCSR, and
 	// BAD0-7/BAC0-7 are all implemented) — unlike milestones 18/20,
 	// there's no longer a specific real-but-unimplemented register name

@@ -4,17 +4,17 @@ import "fmt"
 
 // This file adds FMOVEM (FPn register-list save/restore), the piece of
 // the first FPU milestone (cpu020_fpu.go) deferred twice already — once
-// in the original FPU slice, once again in cpu020_fpu2.go — because it
+// in the original FPU slice, once again in cpu020_fpu_cond.go — because it
 // needs its own register-list infrastructure rather than being an
 // incremental addition. It covers only the general-purpose FPn (FP0-
 // FP7) register-list form, both static ("FP0-FP3/FP5") and dynamic (a
 // Dn holding the list at runtime); the separate FPCR/FPSR/FPIAR
 // control-register list form ("fmoveml" in GAS's table) was deferred
-// out of this file — see cpu020_fpu_movem2.go, milestone 17.
+// out of this file — see cpu020_fpu_movem_ctrl.go, milestone 17.
 //
 // Word1 is always fpuWord1Base (0xF200, the coprocessor-ID bit every
 // FPU instruction needs — see its doc comment in cpu020_fpu.go) ORed
-// with the EA field, exactly like FSAVE/FRESTORE (cpu020_fpu2.go): GAS's
+// with the EA field, exactly like FSAVE/FRESTORE (cpu020_fpu_cond.go): GAS's
 // own "general" and "postincrement-load" rows are, for the LOAD
 // direction, the same EA-artifact equivalence FSAVE/FRESTORE already
 // rely on (general word1 0xF000/0xF200 combined with FSrcEA's own mode
@@ -38,7 +38,7 @@ import "fmt"
 // bits 7-0 — and its own type-check rules allowing Dn/An as the EA
 // side, unlike the FPn form's real-memory-address-only restriction) but
 // was picked up as its own milestone shortly after — see
-// cpu020_fpu_movem2.go.
+// cpu020_fpu_movem_ctrl.go.
 
 func init() {
 	registerInstrDef(&defFMOVEM)

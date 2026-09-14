@@ -34,7 +34,7 @@ func TestAssemblePsaveRestore(t *testing.T) {
 // TestPsaveRestoreDoNotShareFsaveRestoreEncoding guards against a
 // regression of the exact bug found and fixed elsewhere in this same
 // milestone (see fpuWord1Base's use in newFSaveRestoreDef,
-// cpu020_fpu2.go): PSAVE/PRESTORE have no coprocessor-ID field at all
+// cpu020_fpu_cond.go): PSAVE/PRESTORE have no coprocessor-ID field at all
 // (GAS's own mask, 0xffc0, fixes bits 11-9 at the table literal's own
 // zero value), so their word1 must stay the bare 0xF100/0xF140 literal
 // — NOT fpuWord1Base-adjusted like FSAVE/FRESTORE's 0xF300/0xF340.

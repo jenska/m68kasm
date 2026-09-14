@@ -21,7 +21,7 @@ import "fmt"
 //
 // These are the exact same argument-code shapes (and EA-restriction
 // letters) as three of PMOVE's own load-direction rows in
-// cpu030_pmmu.go/cpu030_pmmu2.go — "*l08" (TC), "|sW8" (DRP/SRP/CRP,
+// cpu030_pmmu.go/cpu030_pmmu_xlate.go — "*l08" (TC), "|sW8" (DRP/SRP/CRP,
 // selected by GAS's own "case 'W'" in tc-m68k.c: DRP=1, SRP=2, CRP=3),
 // and "*l38" (TT0/TT1, "case '3'": TT0=2, TT1=3) — with word2 in every
 // case exactly PMOVE's own load word2 plus 0x0100 (TC: 0x4000->0x4100;
@@ -50,7 +50,7 @@ var defPMOVEFD = InstrDef{
 // newPmoveFDForm builds one "PMOVEFD.<sz> <ea>,REG" Form. ea is the
 // source-EA-kind restriction; nil means readableDataEA, matching
 // PMOVE's own default for TC/TT0/TT1 (see newPmmuFixedReg's doc
-// comment in cpu030_pmmu2.go) — non-nil overrides it (DRP/SRP/CRP's
+// comment in cpu030_pmmu_xlate.go) — non-nil overrides it (DRP/SRP/CRP's
 // stricter memory-only restriction).
 func newPmoveFDForm(opk OperandKind, sz Size, word2 uint16, ea map[EAExprKind]bool) FormDef {
 	validate := func(a *Args) error {

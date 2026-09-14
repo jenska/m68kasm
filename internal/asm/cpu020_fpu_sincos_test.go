@@ -7,7 +7,7 @@ import (
 
 // Expected bytes were hand-derived from GNU binutils' GAS m68k opcode
 // table's two "fsincosx" rows (word2 0x0030 | FFPFormat | sine-at-bits9-7
-// | cosine-at-bits2-0 — see cpu020_fpu_trans3.go's own doc comment for
+// | cosine-at-bits2-0 — see cpu020_fpu_sincos.go's own doc comment for
 // the full derivation), then confirmed against this assembler's own CLI
 // output.
 func TestAssembleFsincos(t *testing.T) {
