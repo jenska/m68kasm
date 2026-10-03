@@ -45,14 +45,14 @@ import "fmt"
 //
 // This completes PMOVE's register set entirely.
 func init() {
-	newPmmuNumberedReg("BAD", OpkBAD, 0x7200, 0x7000)
-	newPmmuNumberedReg("BAC", OpkBAC, 0x7600, 0x7400)
+	newPmmuNumberedReg(OpkBAD, 0x7200, 0x7000)
+	newPmmuNumberedReg(OpkBAC, 0x7600, 0x7400)
 }
 
 // newPmmuNumberedReg appends a load Form ("PMOVE.L <ea>,REGn") and a
 // store Form ("PMOVE.L REGn,<ea>") to the existing PMOVE InstrDef for
 // one numbered PMMU register family (BAD or BAC).
-func newPmmuNumberedReg(name string, opk OperandKind, loadBase, storeBase uint16) {
+func newPmmuNumberedReg(opk OperandKind, loadBase, storeBase uint16) {
 	loadValidate := func(a *Args) error {
 		if !readableDataEA[a.Src.Kind] {
 			if a.Src.Kind == EAkNone {

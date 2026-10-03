@@ -45,11 +45,11 @@ package instructions
 // breakpoint support), to warrant its own separately-scoped milestone
 // rather than folding it in here.
 func init() {
-	newPmmuFixedReg("DRP", OpkDRP, LongSize, 0x4000|(1<<10), 0x4200|(1<<10), memoryAlterableEA, memoryAlterableEA)
-	newPmmuFixedReg("CAL", OpkCAL, ByteSize, 0x4000|(4<<10), 0x4200|(4<<10), nil, nil)
-	newPmmuFixedReg("VAL", OpkVAL, ByteSize, 0x4000|(5<<10), 0x4200|(5<<10), nil, nil)
-	newPmmuFixedReg("SCC", OpkSCC, ByteSize, 0x4000|(6<<10), 0x4200|(6<<10), nil, nil)
-	newPmmuFixedReg("AC", OpkAC, WordSize, 0x4000|(7<<10), 0x4200|(7<<10), nil, nil)
+	newPmmuFixedReg(OpkDRP, LongSize, 0x4000|(1<<10), 0x4200|(1<<10), memoryAlterableEA, memoryAlterableEA)
+	newPmmuFixedReg(OpkCAL, ByteSize, 0x4000|(4<<10), 0x4200|(4<<10), nil, nil)
+	newPmmuFixedReg(OpkVAL, ByteSize, 0x4000|(5<<10), 0x4200|(5<<10), nil, nil)
+	newPmmuFixedReg(OpkSCC, ByteSize, 0x4000|(6<<10), 0x4200|(6<<10), nil, nil)
+	newPmmuFixedReg(OpkAC, WordSize, 0x4000|(7<<10), 0x4200|(7<<10), nil, nil)
 
 	// PMOVE PCSR,<ea> — store only; GAS's table has no load-side row.
 	defPMOVE.Forms = append(defPMOVE.Forms, FormDef{
