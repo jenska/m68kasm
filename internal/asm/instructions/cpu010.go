@@ -1,6 +1,10 @@
 package instructions
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 // This file adds the MC68010/MC68012 instructions: MOVEC, MOVES, RTD, and
 // BKPT. Encodings were cross-checked against GNU binutils' GAS m68k backend
@@ -17,10 +21,10 @@ func init() {
 
 var require68010 = Target{CPU: CPU68010}
 
-// controlRegSelector maps a control-register EAExprKind to the 12-bit
-// selector code MOVEC's extension word carries in bits 0-11. Only the
-// registers introduced by the 68010 are listed; 68020+ added many more
-// (CACR, CAAR, MSP, ISP, ...) that belong to a later milestone.
+// controlRegSelector maps the 68010's control-register EAExprKinds to the
+// 12-bit selector code MOVEC's extension word carries in bits 0-11. Later
+// CPUs' registers use EAkCtrlReg with the selector in Reg; see
+// laterControlRegisters.
 var controlRegSelector = map[EAExprKind]uint16{
 	EAkSFC: 0x000,
 	EAkDFC: 0x001,
@@ -28,16 +32,64 @@ var controlRegSelector = map[EAExprKind]uint16{
 	EAkVBR: 0x801,
 }
 
-// ControlRegisterSelector returns the 12-bit MOVEC selector code for k,
-// and whether k names a recognized control register.
-func ControlRegisterSelector(k EAExprKind) (uint16, bool) {
-	v, ok := controlRegSelector[k]
+// laterControlRegister is a MOVEC control register added after the 68010,
+// with the CPUs that implement it (MC68020/030/040/060 user's manuals).
+type laterControlRegister struct {
+	sel  uint16
+	cpus []CPUKind
+}
+
+var laterControlRegisters = map[string]laterControlRegister{
+	"CACR":  {0x002, []CPUKind{CPU68020, CPU68030, CPU68040, CPU68060}},
+	"TC":    {0x003, []CPUKind{CPU68040, CPU68060}},
+	"ITT0":  {0x004, []CPUKind{CPU68040, CPU68060}},
+	"ITT1":  {0x005, []CPUKind{CPU68040, CPU68060}},
+	"DTT0":  {0x006, []CPUKind{CPU68040, CPU68060}},
+	"DTT1":  {0x007, []CPUKind{CPU68040, CPU68060}},
+	"BUSCR": {0x008, []CPUKind{CPU68060}},
+	"CAAR":  {0x802, []CPUKind{CPU68020, CPU68030}},
+	"MSP":   {0x803, []CPUKind{CPU68020, CPU68030, CPU68040}},
+	"ISP":   {0x804, []CPUKind{CPU68020, CPU68030, CPU68040}},
+	"MMUSR": {0x805, []CPUKind{CPU68040}},
+	"URP":   {0x806, []CPUKind{CPU68040, CPU68060}},
+	"SRP":   {0x807, []CPUKind{CPU68040, CPU68060}},
+	"PCR":   {0x808, []CPUKind{CPU68060}},
+}
+
+// LaterControlRegisterSelector returns the MOVEC selector of a control
+// register added after the 68010, by name.
+func LaterControlRegisterSelector(name string) (uint16, bool) {
+	r, ok := laterControlRegisters[strings.ToUpper(name)]
+	return r.sel, ok
+}
+
+// ControlRegisterSelector returns the 12-bit MOVEC selector code for e,
+// and whether e names a recognized control register.
+func ControlRegisterSelector(e EAExpr) (uint16, bool) {
+	if e.Kind == EAkCtrlReg {
+		return uint16(e.Reg), true
+	}
+	v, ok := controlRegSelector[e.Kind]
 	return v, ok
 }
 
 func isControlRegKind(k EAExprKind) bool {
 	_, ok := controlRegSelector[k]
-	return ok
+	return ok || k == EAkCtrlReg
+}
+
+// controlRegisterOnCPU reports whether cpu implements the MOVEC control
+// register e. The 68010's four exist on every MOVEC-capable CPU.
+func controlRegisterOnCPU(e EAExpr, cpu CPUKind) bool {
+	if e.Kind != EAkCtrlReg {
+		return true
+	}
+	for _, r := range laterControlRegisters {
+		if r.sel == uint16(e.Reg) {
+			return slices.Contains(r.cpus, cpu)
+		}
+	}
+	return false
 }
 
 var defMOVEC = InstrDef{
@@ -71,12 +123,15 @@ var defMOVEC = InstrDef{
 }
 
 func validateMOVEC(a *Args) error {
-	gen := a.Dst
+	ctrl, gen := a.Src, a.Dst
 	if !isControlRegKind(a.Src.Kind) {
-		gen = a.Src
+		ctrl, gen = a.Dst, a.Src
 	}
 	if gen.Kind != EAkDn && gen.Kind != EAkAn {
 		return fmt.Errorf("MOVEC requires a data or address register operand")
+	}
+	if !controlRegisterOnCPU(ctrl, a.CPU) {
+		return fmt.Errorf("MOVEC control register $%03X does not exist on the target CPU", ctrl.Reg)
 	}
 	return nil
 }

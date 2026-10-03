@@ -160,10 +160,10 @@ unchanged regardless of what you target.
 | Flag | Unlocks |
 | --- | --- |
 | `--cpu 68010`/`68012` | `MOVEC`, `MOVES`, `RTD`, `BKPT` |
-| `--cpu 68020` | 32-bit branches, memory-indirect addressing, scale factors, bit-field ops, `CAS`/`CAS2`, `CHK2`/`CMP2`, `EXTB.L`, `TRAPcc`, `PACK`/`UNPK`, `DIVSL`/`DIVUL`, `CALLM`/`RTM` (68020-only) |
+| `--cpu 68020` | 32-bit branches, memory-indirect addressing, scale factors, bit-field ops, `CAS`/`CAS2`, `CHK2`/`CMP2`, `CHK.L`, `LINK.L`, `EXTB.L`, `TRAPcc`, `PACK`/`UNPK`, `MULU.L`/`MULS.L`, `DIVU.L`/`DIVS.L`, `DIVUL`/`DIVSL`, `MOVEC` to `CACR`/`CAAR`/`MSP`/`ISP`, `CALLM`/`RTM` (68020-only) |
 | `--cpu cpu32` | The 68010 tier plus the 68020-era subset Motorola backported, plus `BGND` and `TBLS`/`TBLU` |
 | `--cpu 68030` | Everything above except `CALLM`/`RTM` |
-| `--cpu 68040`/`68060` | `MOVE16`, cache control (`CINV`/`CPUSH`); `68060` also emits non-fatal warnings for the handful of forms it trap-emulates |
+| `--cpu 68040`/`68060` | `MOVE16`, cache control (`CINV`/`CPUSH`), `MOVEC` to the MMU/cache/bus control registers each CPU has (`TC`, `ITT0`/`ITT1`, `DTT0`/`DTT1`, `URP`, `SRP`, plus `MMUSR`/`MSP`/`ISP` on the 68040 and `BUSCR`/`PCR` on the 68060); `68060` also emits non-fatal warnings for the handful of forms it trap-emulates |
 | `--fpu` | `FMOVE`/`FADD`/etc. (with floating-point immediate literals, e.g. `#3.14`, and packed BCD, `.p`), the `F`-condition branch/set/trap family, `FMOVECR`, `FSAVE`/`FRESTORE`, `FMOVEM` |
 | `--fpu-full` | The transcendental function set (`FSIN`/`FCOS`/`FSINCOS`/`FLOGN`/etc.) and math extensions (`FGETEXP`/`FGETMAN`/`FSCALE`/`FMOD`/`FREM`) — a real discrete 68881/68882, not just an integrated FPU |
 | `--mmu` | `PMOVE` (every PMMU register), the full `PFLUSHA`/`PFLUSH`/`PFLUSHS`/`PFLUSHR`/`PLOADR`/`PLOADW`/`PTESTR`/`PTESTW` family (plus the 68040's own simplified single-word forms on `--cpu 68040`/`68060`), `PSAVE`/`PRESTORE`, `PMOVEFD`, the `P`-condition branch/set/trap family |
@@ -427,7 +427,7 @@ which line/column it occurred at.
 ### 7.7 Version
 
 ```go
-m68kasm.Version // e.g. "v1.4.0"
+m68kasm.Version // e.g. "v1.6.0"
 ```
 
 Used internally as the S-record header text; also handy for embedding
@@ -447,7 +447,7 @@ line 1, col 1: unknown mnemonic
 
 On a `--cpu 68060` target, a handful of 68020-era instruction forms
 (`CAS2`, `CHK2`/`CMP2`, `MOVEP`, dynamic-offset/width bit-field ops, and
-`DIVSL`/`DIVUL`'s 64-bit `Dr:Dq` form) assemble successfully but only
+the 64-bit `DIVU.L`/`DIVS.L Dr:Dq` and `MULU.L`/`MULS.L Dh:Dl` forms) assemble successfully but only
 because real 68060 silicon traps and software-emulates them rather than
 executing them natively. The CLI prints these as non-fatal
 `warning: ...` lines to stderr after a successful assemble; they are

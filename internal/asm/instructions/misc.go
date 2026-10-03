@@ -22,7 +22,19 @@ var defCHK = InstrDef{
 			Validate:    validateCHK,
 			Steps: []EmitStep{
 				{WordBits: 0x4180, Fields: []FieldRef{FDnReg, FSrcEA}},
-				{Trailer: []TrailerItem{TSrcEAExt}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
+			},
+		},
+		{
+			// CHK.L <ea>,Dn (CPU32/68020+): 0100 rrr1 00 eeeeee.
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkEA, OpkDn},
+			Requires:    require68020orCPU32,
+			Validate:    validateCHK,
+			Steps: []EmitStep{
+				{WordBits: 0x4100, Fields: []FieldRef{FDnReg, FSrcEA}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 	},
@@ -32,8 +44,11 @@ func validateCHK(a *Args) error {
 	if a.Src.Kind == EAkNone || a.Dst.Kind != EAkDn {
 		return fmt.Errorf("CHK requires Dn destination and source")
 	}
+	if a.Src.Kind == EAkAn {
+		return fmt.Errorf("CHK does not allow address register source")
+	}
 	if a.Src.Kind == EAkImm {
-		return fmt.Errorf("CHK does not allow immediate source")
+		return checkImmediateRange(a.Src.Imm, a.Size)
 	}
 	return nil
 }

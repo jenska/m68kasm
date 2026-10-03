@@ -50,12 +50,12 @@ var defNBCD = InstrDef{
 
 func validateNbcd(a *Args) error {
 	swapSrcDstIfDstNone(a)
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrPredec:
+	switch {
+	case isDataAlterable(a.Dst.Kind):
 		return nil
-	case EAkNone:
+	case a.Dst.Kind == EAkNone:
 		return fmt.Errorf("NBCD requires destination")
 	default:
-		return fmt.Errorf("NBCD destination must be Dn or predecrement address")
+		return fmt.Errorf("NBCD destination must be data alterable EA")
 	}
 }

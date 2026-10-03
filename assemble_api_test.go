@@ -499,7 +499,7 @@ func TestAssembleFileVariants(t *testing.T) {
 		t.Fatalf("assemble file failed: %v", err)
 	}
 
-	if want := []byte{0x12, 0x34, 0x70, 0x01, 0xc0, 0xfc, 0x81, 0xfc}; !bytes.Equal(bytesOut, want) {
+	if want := []byte{0x12, 0x34, 0x70, 0x01, 0xc0, 0xfc, 0x00, 0x02, 0x81, 0xfc, 0x00, 0x02}; !bytes.Equal(bytesOut, want) {
 		t.Fatalf("unexpected encoding: got %x want %x", bytesOut, want)
 	}
 

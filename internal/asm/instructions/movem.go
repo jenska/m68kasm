@@ -52,8 +52,8 @@ func validateMovemStore(a *Args) error {
 	if a.RegMaskSrc == 0 {
 		return fmt.Errorf("MOVEM requires register list source")
 	}
-	if !isMemoryAlterable(a.Dst.Kind) {
-		return fmt.Errorf("MOVEM destination must be memory alterable EA")
+	if !isMemoryAlterable(a.Dst.Kind) || a.Dst.Kind == EAkAddrPostinc {
+		return fmt.Errorf("MOVEM destination must be control alterable or predecrement EA")
 	}
 	return nil
 }

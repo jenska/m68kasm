@@ -257,6 +257,11 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 			return wordVal | 0x0400
 		}
 		return wordVal
+	case instructions.FMulRegH:
+		if p.DstRegPairWide {
+			return wordVal | uint16(p.DstReg&7)
+		}
+		return wordVal
 	case instructions.FCas2Word2:
 		return wordVal | (uint16(p.AuxReg&7) << 12) | (uint16(p.DstReg&7) << 6) | uint16(p.SrcReg&7)
 	case instructions.FCas2Word3:
@@ -414,6 +419,27 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 		return out, nil
 	case instructions.TImmSized:
 		return appendWord(out, uint16(int16(p.Imm))), nil
+	case instructions.TImmLong:
+		u := uint32(int32(p.Imm))
+		return appendWord(appendWord(out, uint16(u>>16)), uint16(u)), nil
+	case instructions.TDstImmByte:
+		if p.DstEA.Mode == 7 && p.DstEA.Reg == 4 {
+			return appendWord(out, uint16(uint8(p.DstImm))), nil
+		}
+		return out, nil
+	case instructions.TDstImmSized:
+		if p.DstEA.Mode != 7 || p.DstEA.Reg != 4 {
+			return out, nil
+		}
+		switch p.Size {
+		case instructions.ByteSize:
+			return appendWord(out, uint16(uint8(p.DstImm))), nil
+		case instructions.LongSize:
+			u := uint32(int32(p.DstImm))
+			return appendWord(appendWord(out, uint16(u>>16)), uint16(u)), nil
+		default:
+			return appendWord(out, uint16(p.DstImm)), nil
+		}
 	case instructions.TSrcImm:
 		if p.SrcEA.Mode == 7 && p.SrcEA.Reg == 4 {
 			switch p.Size {
@@ -484,9 +510,9 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			return nil, err
 		}
 	}
-	if sel, ok := instructions.ControlRegisterSelector(ins.Args.Src.Kind); ok {
+	if sel, ok := instructions.ControlRegisterSelector(ins.Args.Src); ok {
 		p.CtrlRegSel = sel
-	} else if sel, ok := instructions.ControlRegisterSelector(ins.Args.Dst.Kind); ok {
+	} else if sel, ok := instructions.ControlRegisterSelector(ins.Args.Dst); ok {
 		p.CtrlRegSel = sel
 	}
 

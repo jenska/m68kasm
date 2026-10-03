@@ -74,6 +74,9 @@ var defCMPA = InstrDef{
 }
 
 func validateCMP(a *Args) error {
+	if a.Size == ByteSize && a.Src.Kind == EAkAn {
+		return fmt.Errorf("CMP.B does not allow address register source")
+	}
 	if a.Src.Kind == EAkImm {
 		if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
 			return err
@@ -112,9 +115,23 @@ func validateCMPA(a *Args) error {
 	return nil
 }
 
+// defTST's first form is the CPU32/68020+ one, which also reads PC-relative
+// and immediate operands and (word/long) address registers; the 68000 form
+// only takes data alterable operands.
 var defTST = InstrDef{
 	Mnemonic: "TST",
 	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
+			OperKinds:   []OperandKind{OpkEA},
+			Requires:    require68020orCPU32,
+			Validate:    validateTst020,
+			Steps: []EmitStep{
+				{WordBits: 0x4A00, Fields: []FieldRef{FSizeBits, FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt, TDstImmSized}},
+			},
+		},
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
@@ -128,6 +145,19 @@ var defTST = InstrDef{
 	},
 }
 
+func validateTst020(a *Args) error {
+	swapSrcDstIfDstNone(a)
+	switch {
+	case a.Dst.Kind == EAkNone:
+		return fmt.Errorf("TST requires destination")
+	case a.Dst.Kind == EAkAn && a.Size == ByteSize:
+		return fmt.Errorf("TST.B does not allow address register operand")
+	case a.Dst.Kind == EAkImm:
+		return checkImmediateRange(a.Dst.Imm, a.Size)
+	}
+	return nil
+}
+
 func validateTst(a *Args) error {
 	swapSrcDstIfDstNone(a)
 	switch a.Dst.Kind {
@@ -137,7 +167,9 @@ func validateTst(a *Args) error {
 		return fmt.Errorf("TST does not allow immediate operand")
 	case EAkAn:
 		return fmt.Errorf("TST does not allow address register operand")
-	default:
-		return nil
 	}
+	if !isDataAlterable(a.Dst.Kind) {
+		return fmt.Errorf("TST operand must be data alterable EA on the 68000")
+	}
+	return nil
 }

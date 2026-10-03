@@ -1,5 +1,7 @@
 package instructions
 
+import "fmt"
+
 func init() {
 	registerInstrDef(&defLEA)
 	registerInstrDef(&defPEA)
@@ -12,7 +14,7 @@ var defLEA = InstrDef{
 			DefaultSize: LongSize,
 			Sizes:       []Size{LongSize},
 			OperKinds:   []OperandKind{OpkEA, OpkAn},
-			Validate:    nil,
+			Validate:    validateLEA,
 			Steps: []EmitStep{
 				{WordBits: 0x41C0, Fields: []FieldRef{FAnReg, FSrcEA}},
 				{Trailer: []TrailerItem{TSrcEAExt}},
@@ -35,4 +37,11 @@ var defPEA = InstrDef{
 			},
 		},
 	},
+}
+
+func validateLEA(a *Args) error {
+	if !controlAlterableEA[a.Src.Kind] {
+		return fmt.Errorf("LEA requires control addressing mode")
+	}
+	return nil
 }

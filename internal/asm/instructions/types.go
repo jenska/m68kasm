@@ -84,6 +84,10 @@ const (
 	// (two distinct registers, 64-bit dividend) rather than the "Dq"
 	// shorthand (32-bit dividend, remainder discarded).
 	FDivWide
+	// FMulRegH places the Dst operand's Dh register (Reg) into bits 2-0
+	// for MULU.L/MULS.L's 64-bit "Dh:Dl" form; the 32-bit form leaves the
+	// field zero.
+	FMulRegH
 	// FCas2Word2 combines CAS2's first-of-each-pair fields into one
 	// word: the pointer register (Aux.Reg) at bits 14-12, the update
 	// register (Dst.Reg) at bits 8-6, and the compare register (Src.Reg)
@@ -240,6 +244,16 @@ const (
 	// PACK/UNPK's #adjustment, always exactly one word regardless of
 	// the instruction's data size.
 	TAuxImmWord
+	// TDstImmByte emits a byte immediate given as the destination operand
+	// (BTST Dn,#<data>) as one word; a no-op for any other destination.
+	TDstImmByte
+	// TDstImmSized emits an immediate given as the destination operand at
+	// the instruction's size (TST #<data> on CPU32/68020+); a no-op for any
+	// other destination.
+	TDstImmSized
+	// TImmLong unconditionally emits the (source) immediate as two words —
+	// LINK.L's displacement, whose operands Validate swaps into place.
+	TImmLong
 )
 
 // DispSize is the encoded width of a 68020+ full-format base or outer
@@ -458,6 +472,11 @@ type EmitStep struct {
 }
 
 type Args struct {
+	// CPU is the target's CPU tier, set by the assembler before Validate
+	// runs, for the few checks whose legality differs between tiers in a
+	// way a form's Requires floor cannot express (MOVEC's control
+	// registers).
+	CPU           CPUKind
 	Target        string
 	TargetAddr    int64
 	HasTargetAddr bool
@@ -602,6 +621,11 @@ const (
 	// the generic OpkEA/EncodeEA machinery for its actual bit placement
 	// (FSincosRegCos0/FSincosRegSin7 — see cpu020_fpu_sincos.go).
 	EAkFPRegPair
+	// EAkCtrlReg is a MOVEC control register introduced after the 68010
+	// (CACR, CAAR, MSP, ISP, and the 68040/68060 MMU and bus registers),
+	// with its 12-bit MOVEC selector held directly in Reg. The 68010's own
+	// registers keep their dedicated kinds (EAkSFC, EAkDFC, EAkUSP, EAkVBR).
+	EAkCtrlReg
 )
 
 type EAExpr struct {

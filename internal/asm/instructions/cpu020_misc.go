@@ -33,6 +33,9 @@ func init() {
 	for c, m := range trapConditions {
 		registerInstrDef(newTrapccDef(m, uint16(c)))
 	}
+	for _, alias := range conditionAliases {
+		registerInstrDef(newTrapccDef("TRAP"+alias.name, uint16(alias.code)))
+	}
 	registerInstrDef(&defBGND)
 }
 

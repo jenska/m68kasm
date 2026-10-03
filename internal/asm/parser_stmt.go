@@ -182,6 +182,19 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 				words += len(dstEA.Ext)
 			case instructions.TImmSized:
 				words++
+			case instructions.TImmLong:
+				words += 2
+			case instructions.TDstImmByte:
+				if args.Dst.Kind == instructions.EAkImm {
+					words++
+				}
+			case instructions.TDstImmSized:
+				if args.Dst.Kind == instructions.EAkImm {
+					words++
+					if args.Size == instructions.LongSize {
+						words++
+					}
+				}
 			case instructions.TSrcImm:
 				if args.Src.Kind == instructions.EAkImm {
 					switch args.Size {

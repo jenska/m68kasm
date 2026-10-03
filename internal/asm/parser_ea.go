@@ -120,10 +120,18 @@ func (p *Parser) parseBitFieldSpec() (isReg bool, val int32, err error) {
 }
 
 // controlRegisterKind maps a MOVEC control-register name to its
-// EAExprKind. Only the registers introduced by the 68010 (SFC, DFC, USP,
-// VBR) are recognized here; 68020+ added several more that belong to a
-// later milestone (see docs/design/cpu-family-support.md).
-func controlRegisterKind(name string) (instructions.EAExprKind, bool) {
+// EAExprKind and, for the registers added after the 68010 (EAkCtrlReg),
+// the MOVEC selector to store in the EAExpr's Reg. Which CPU has which
+// register is validateMOVEC's business, not the parser's.
+func controlRegisterKind(name string) (instructions.EAExprKind, int, bool) {
+	if sel, ok := instructions.LaterControlRegisterSelector(name); ok {
+		return instructions.EAkCtrlReg, int(sel), true
+	}
+	kind, ok := baseControlRegisterKind(name)
+	return kind, 0, ok
+}
+
+func baseControlRegisterKind(name string) (instructions.EAExprKind, bool) {
 	switch strings.ToUpper(name) {
 	case "SFC":
 		return instructions.EAkSFC, true

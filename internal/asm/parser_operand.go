@@ -258,11 +258,12 @@ func (p *Parser) parseOperand(kind instructions.OperandKind, mn Token, args *ins
 		if err != nil {
 			return eaExpr, err
 		}
-		ctrlKind, ok := controlRegisterKind(tok.Text)
+		ctrlKind, sel, ok := controlRegisterKind(tok.Text)
 		if !ok {
-			return eaExpr, errorAtToken(tok, fmt.Errorf("expected a control register (SFC, DFC, USP, or VBR), got %s", tok.Text))
+			return eaExpr, errorAtToken(tok, fmt.Errorf("expected a MOVEC control register, got %s", tok.Text))
 		}
 		eaExpr.Kind = ctrlKind
+		eaExpr.Reg = sel
 
 	case instructions.OpkFPn:
 		tok, err := p.want(IDENT)

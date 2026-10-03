@@ -48,7 +48,7 @@ var defBTST = InstrDef{
 			Validate:    validateBitTestReg,
 			Steps: []EmitStep{
 				{WordBits: 0x0100, Fields: []FieldRef{FSrcDnRegHi, FDstEA}},
-				{Trailer: []TrailerItem{TDstEAExt}},
+				{Trailer: []TrailerItem{TDstEAExt, TDstImmByte}},
 			},
 		},
 		{
@@ -64,14 +64,20 @@ var defBTST = InstrDef{
 	},
 }
 
+// validateBitReg checks BCHG/BCLR/BSET Dn,<ea>: the destination is written,
+// so it must be data alterable.
 func validateBitReg(name string, a *Args) error {
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
+	return validateBitDestination(name, a)
+}
+
+func validateBitDestination(name string, a *Args) error {
+	switch {
+	case isDataAlterable(a.Dst.Kind):
 		return nil
-	case EAkNone:
+	case a.Dst.Kind == EAkNone:
 		return fmt.Errorf("%s requires destination", name)
 	default:
-		return fmt.Errorf("%s destination must be data register or memory EA", name)
+		return fmt.Errorf("%s destination must be data alterable EA", name)
 	}
 }
 
@@ -79,18 +85,15 @@ func validateBitImm(name string, a *Args) error {
 	if err := checkImmediateRange(a.Src.Imm, ByteSize); err != nil {
 		return err
 	}
-	switch a.Dst.Kind {
-	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
-		return nil
-	case EAkNone:
-		return fmt.Errorf("%s requires destination", name)
-	default:
-		return fmt.Errorf("%s destination must be data register or memory EA", name)
-	}
+	return validateBitDestination(name, a)
 }
 
+// validateBitTestReg checks BTST Dn,<ea>, which only reads its operand and
+// so accepts every data addressing mode, an immediate included.
 func validateBitTestReg(a *Args) error {
 	switch a.Dst.Kind {
+	case EAkImm:
+		return checkImmediateRange(a.Dst.Imm, ByteSize)
 	case EAkDn, EAkAddrInd, EAkAddrPostinc, EAkAddrPredec, EAkAddrDisp16, EAkIdxAnBrief, EAkAbsW, EAkAbsL, EAkPCDisp16, EAkIdxPCBrief:
 		return nil
 	case EAkNone:

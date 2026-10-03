@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.6.0] - 2026-10-03
+
+Checked against every opcode word of the 68000 (and, via m68kdasm, of the
+68010-68060, CPU32, FPU and PMMU) by assembling each instruction's text and
+comparing the result with the original encoding.
+
+### Added
+
+- `BCC`/`BCS`, `DBCC`/`DBCS`, `SCC`/`SCS` and `TRAPCC`/`TRAPCS`: the
+  Motorola names for carry clear/set, next to the `HS`/`LO` aliases
+- `MULU.L`/`MULS.L` (`<ea>,Dl` and `<ea>,Dh:Dl`), `DIVU.L`/`DIVS.L`
+  (`<ea>,Dq` and `<ea>,Dr:Dq`), `CHK.L` and `LINK.L` for CPU32/68020+
+- `MOVEC` to the control registers added after the 68010 — `CACR`, `CAAR`,
+  `MSP`, `ISP`, `TC`, `ITT0`/`ITT1`, `DTT0`/`DTT1`, `MMUSR`, `URP`, `SRP`,
+  `BUSCR`, `PCR` — each accepted only on the CPUs that have it
+- `TST` with PC-relative, immediate and (word/long) address register
+  operands on CPU32/68020+
+- `BTST Dn,#<data>`, `CHK #<data>,Dn` and `NBCD` with every data alterable
+  operand, as the 68000 allows
+
+### Fixed
+
+- `MOVEP` emitted the wrong opmode for all four forms (word and long,
+  either direction were swapped)
+- `MULU`/`MULS`/`DIVU`/`DIVS`/`DIVUL`/`DIVSL` with an immediate source
+  dropped the immediate's extension word(s)
+- FPU instructions accept a single-precision (`.s`) operand in a data
+  register, like the integer formats
+- Invalid 68000 forms are rejected: `BCHG`/`BCLR`/`BSET` with a PC-relative
+  destination, `CMP.B An,Dn`, `CHK An,Dn`, `LEA` with a non-control
+  source, `MOVEM` registers to `(An)+`, and `TST` with PC-relative operands
+
+### Changed
+
+- `DIVUL`/`DIVSL` follow the Motorola manual: `<ea>,Dr:Dq` divides a
+  32-bit dividend and keeps the remainder. They previously used the GNU as
+  meaning of `divul`/`divsl` and set the 64-bit dividend bit; that form is
+  now `DIVU.L`/`DIVS.L <ea>,Dr:Dq`
+- The 68060 emulation warning now names `DIVU.L`/`DIVS.L Dr:Dq` and
+  `MULU.L`/`MULS.L Dh:Dl`
+
+## [1.5.0] - 2026-09-14
+
+### Added
+
+- The full 68k family behind `--cpu`/`--fpu`/`--fpu-full`/`--mmu` (and the
+  matching `Target` in the Go API): 68010/68012, CPU32, 68020, 68030, 68040
+  and 68060, with 32-bit branches, memory-indirect addressing, scale
+  factors, bit-field instructions, `CAS`/`CAS2`, `CHK2`/`CMP2`, `TRAPcc`,
+  `PACK`/`UNPK`, `CALLM`/`RTM`, `MOVE16`, cache control and the CPU32
+  table-lookup instructions
+- The 68881/68882 FPU instruction set, including FPU conditionals,
+  `FMOVEM`, floating-point and packed BCD immediates, and the
+  transcendental and math-extension functions
+- The 68851/68030 PMMU instruction set (`PMOVE` with every register,
+  `PFLUSH`/`PLOAD`/`PTEST`, `PSAVE`/`PRESTORE`, `PMOVEFD`, the `P`
+  conditionals) and the 68040's single-word PMMU forms
+- Non-fatal warnings for forms the 68060 trap-emulates
+- A user manual (`docs/user-manual.md`)
+
+### Fixed
+
+- `MOVEM` no longer accepts `-(An)` as a load source
+- FPU coprocessor-ID and R/M-bit encodings, and `FSAVE`/`FRESTORE`'s
+  coprocessor-ID bit
+
 ## [1.4.0] - 2026-09-03
 
 ### Changed

@@ -118,8 +118,10 @@ func validateFPUOperand(name string, isStore bool, e EAExpr, sz Size) error {
 		}
 		return nil
 	case EAkDn:
-		if !isFPIntSize(sz) {
-			return fmt.Errorf("%s: a floating-point size requires a memory operand, not Dn", name)
+		// A data register holds a byte, word, long or single-precision
+		// operand; the 64- and 96-bit formats need memory.
+		if !isFPIntSize(sz) && sz != SingleSize {
+			return fmt.Errorf("%s: a double, extended or packed operand requires memory, not Dn", name)
 		}
 		return nil
 	default:

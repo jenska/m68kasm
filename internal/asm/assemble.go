@@ -148,6 +148,7 @@ func assembleItem(dst []byte, it any, labels map[string]uint32, cpu instructions
 		if err != nil {
 			return nil, "", contextualizeAt(x.Line, x.Col, err)
 		}
+		ins.Args.CPU = cpu
 		if form.Validate != nil {
 			if err := form.Validate(&ins.Args); err != nil {
 				return nil, "", contextualizeAt(x.Line, x.Col, err)
@@ -281,6 +282,7 @@ var operandKindByEA = map[instructions.EAExprKind]instructions.OperandKind{
 	instructions.EAkSFC:         instructions.OpkCtrlReg,
 	instructions.EAkDFC:         instructions.OpkCtrlReg,
 	instructions.EAkVBR:         instructions.OpkCtrlReg,
+	instructions.EAkCtrlReg:     instructions.OpkCtrlReg,
 	instructions.EAkFPn:         instructions.OpkFPn,
 	instructions.EAkRegPair:     instructions.OpkRegPair,
 	instructions.EAkAnIndPair:   instructions.OpkAnIndPair,

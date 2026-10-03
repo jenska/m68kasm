@@ -12,9 +12,9 @@ import "github.com/jenska/m68kasm/internal/asm/instructions"
 // package, which Target.Supports resolves purely from an InstrDef's
 // Requires): CAS2/CHK2/CMP2/MOVEP are unconditionally emulated whenever
 // they appear at all, but the 68020 bit-field instructions and
-// DIVSL/DIVUL are emulated only for specific *operand shapes* (a
-// register-specified bit-field offset/width, or the 64-bit Dr:Dq
-// dividend form) that a static Form-level flag can't express — the same
+// the long multiplies and divides are emulated only for specific *operand
+// shapes* (a register-specified bit-field offset/width, the 64-bit Dr:Dq
+// dividend of DIVU.L/DIVS.L, or the 64-bit Dh:Dl product of MULU.L/MULS.L) that a static Form-level flag can't express — the same
 // Form handles both the emulated and the native shape.
 //
 // Confirmed against the 68060 user's manual's software-emulated
@@ -35,9 +35,13 @@ func checkEmulatedOn68060(mnemonic string, args *instructions.Args) string {
 		if args.Src.BFOffsetIsReg || args.Src.BFWidthIsReg || args.Dst.BFOffsetIsReg || args.Dst.BFWidthIsReg {
 			return mnemonic + " with a register-specified bit-field offset/width traps and is software-emulated on 68060 (expect a large performance cliff)"
 		}
-	case "DIVSL", "DIVUL":
-		if args.Dst.RegPairWide {
-			return mnemonic + " with a 64-bit (Dr:Dq) dividend traps and is software-emulated on 68060 (expect a large performance cliff)"
+	case "DIVS", "DIVU":
+		if args.Size == instructions.LongSize && args.Dst.RegPairWide {
+			return mnemonic + ".L with a 64-bit (Dr:Dq) dividend traps and is software-emulated on 68060 (expect a large performance cliff)"
+		}
+	case "MULS", "MULU":
+		if args.Size == instructions.LongSize && args.Dst.RegPairWide {
+			return mnemonic + ".L with a 64-bit (Dh:Dl) product traps and is software-emulated on 68060 (expect a large performance cliff)"
 		}
 	}
 	return ""

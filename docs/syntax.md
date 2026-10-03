@@ -301,7 +301,7 @@ but not 68020's memory-indirect addressing, bit-field instructions,
 `CAS`/`CAS2`, or the coprocessor interface.
 
 ```asm
-MOVEC VBR,A0          ; 68010+
+MOVEC VBR,A0          ; 68010+ (CACR/CAAR/MSP/ISP on 68020/030, TC/URP/SRP/... on 040/060)
 BRA.L faraway          ; 68020+ or cpu32
 CHK2.B (A0),D1          ; 68020+ or cpu32
 MOVE.L (0,A0,D1.W*2),D2 ; 68020+ scale factor
@@ -458,7 +458,9 @@ A handful of 68020+ instructions take a colon-joined register pair or a
 bit-field specifier rather than a single register or plain `<ea>`:
 
 ```asm
-DIVSL.L (A0),D0:D1            ; Dr:Dq — 64-bit dividend; "D0" alone means Dq only
+DIVS.L (A0),D0:D1             ; Dr:Dq — 64-bit dividend; "D1" alone: 32-bit, Dq only
+DIVSL.L (A0),D0:D1            ; Dr:Dq — 32-bit dividend, remainder kept in Dr
+MULU.L D2,D3:D4                 ; Dh:Dl — 64-bit product; "D4" alone: 32-bit
 CAS2.L D0:D1,D2:D3,(A0):(A1)    ; compare/update pairs, plus a memory-pointer pair
 BFEXTU (A0){0:8},D2               ; bit-field {offset:width} — either half can be
 BFINS D3,(A0){D1:D2}                 ; a literal or a Dn register

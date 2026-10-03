@@ -20,6 +20,18 @@ var defLINK = InstrDef{
 				{Trailer: []TrailerItem{TImmSized}},
 			},
 		},
+		{
+			// LINK.L An,#<d32> (CPU32/68020+): 0100 1000 0000 1rrr.
+			DefaultSize: LongSize,
+			Sizes:       []Size{LongSize},
+			OperKinds:   []OperandKind{OpkAn, OpkImm},
+			Requires:    require68020orCPU32,
+			Validate:    validateLINKLong,
+			Steps: []EmitStep{
+				{WordBits: 0x4808, Fields: []FieldRef{FDstRegLow}},
+				{Trailer: []TrailerItem{TImmLong}},
+			},
+		},
 	},
 }
 
@@ -36,6 +48,16 @@ var defUNLK = InstrDef{
 			},
 		},
 	},
+}
+
+func validateLINKLong(a *Args) error {
+	if a.Src.Kind == EAkAn && a.Dst.Kind == EAkImm {
+		a.Src, a.Dst = a.Dst, a.Src
+	}
+	if a.Src.Kind != EAkImm || a.Dst.Kind != EAkAn {
+		return fmt.Errorf("LINK requires address register and immediate displacement")
+	}
+	return checkImmediateRange(a.Src.Imm, LongSize)
 }
 
 func validateLINK(a *Args) error {

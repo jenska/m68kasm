@@ -54,6 +54,7 @@ var eaTable = []eaEntry{
 	/* EAkBAC */ {mode: 0, reg: 0, valid: true},
 	/* EAkFCSpec */ {mode: 0, reg: 0, valid: true},
 	/* EAkFPRegPair */ {mode: 0, reg: 0, valid: true},
+	/* EAkCtrlReg */ {mode: 0, reg: 0, valid: true},
 }
 
 // EncodeEA converts an addressing expression into the mode/reg pair and any extension words.

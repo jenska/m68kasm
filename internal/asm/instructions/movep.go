@@ -6,6 +6,8 @@ func init() {
 	registerInstrDef(&defMOVEP)
 }
 
+// MOVEP's opmode (bits 8-6): 100 word and 101 long from memory to register,
+// 110 word and 111 long from register to memory.
 var defMOVEP = InstrDef{
 	Mnemonic: "MOVEP",
 	Forms: []FormDef{
@@ -15,7 +17,7 @@ var defMOVEP = InstrDef{
 			OperKinds:   []OperandKind{OpkEA, OpkDn},
 			Validate:    validateMOVEPFromMem,
 			Steps: []EmitStep{
-				{WordBits: 0x0148, Fields: []FieldRef{FDnReg, FSrcAnReg}},
+				{WordBits: 0x0108, Fields: []FieldRef{FDnReg, FSrcAnReg}},
 				{Trailer: []TrailerItem{TSrcEAExt}},
 			},
 		},
@@ -25,7 +27,7 @@ var defMOVEP = InstrDef{
 			OperKinds:   []OperandKind{OpkEA, OpkDn},
 			Validate:    validateMOVEPFromMem,
 			Steps: []EmitStep{
-				{WordBits: 0x01C8, Fields: []FieldRef{FDnReg, FSrcAnReg}},
+				{WordBits: 0x0148, Fields: []FieldRef{FDnReg, FSrcAnReg}},
 				{Trailer: []TrailerItem{TSrcEAExt}},
 			},
 		},
@@ -35,7 +37,7 @@ var defMOVEP = InstrDef{
 			OperKinds:   []OperandKind{OpkDn, OpkEA},
 			Validate:    validateMOVEPToMem,
 			Steps: []EmitStep{
-				{WordBits: 0x0108, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}},
+				{WordBits: 0x0188, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}},
 				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
@@ -45,7 +47,7 @@ var defMOVEP = InstrDef{
 			OperKinds:   []OperandKind{OpkDn, OpkEA},
 			Validate:    validateMOVEPToMem,
 			Steps: []EmitStep{
-				{WordBits: 0x0188, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}},
+				{WordBits: 0x01C8, Fields: []FieldRef{FSrcDnRegHi, FDstRegLow}},
 				{Trailer: []TrailerItem{TDstEAExt}},
 			},
 		},
