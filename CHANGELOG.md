@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Found by round-tripping m68kdasm's output through the assembler.
+
+### Added
+
+- `MOVE CCR,<ea>` (68010+)
+- `CMPI` with a PC-relative destination on CPU32/68020+
+- `CAS2` takes data registers as well as address registers as pointers
+- `FRESTORE`/`PRESTORE` with a PC-relative operand
+
+### Fixed
+
+- `DBcc` to the address right after its extension word encoded -2 instead
+  of 0
+- `CHK2`/`CMP2` emitted the operand's extension words before the register
+  word; the register word directly follows the opcode
+- `CAS2` left the D/A bit of its pointer registers clear, encoding
+  `(A0):(A1)` as `(D0):(D1)`
+
 ## [1.6.0] - 2026-10-03
 
 Checked against every opcode word of the 68000 (and, via m68kdasm, of the

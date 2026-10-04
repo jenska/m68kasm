@@ -41,9 +41,22 @@ var defCMPM = InstrDef{
 	},
 }
 
+// defCMPI's first form is the CPU32/68020+ one, whose destination may also
+// be PC-relative; on the 68000 it must be data alterable.
 var defCMPI = InstrDef{
 	Mnemonic: "CMPI",
 	Forms: []FormDef{
+		{
+			DefaultSize: WordSize,
+			Sizes:       []Size{ByteSize, WordSize, LongSize},
+			OperKinds:   []OperandKind{OpkImm, OpkEA},
+			Requires:    require68020orCPU32,
+			Validate:    validateCMPI020,
+			Steps: []EmitStep{
+				{WordBits: 0x0C00, Fields: []FieldRef{FSizeBits, FDstEA}},
+				{Trailer: []TrailerItem{TSrcImm, TDstEAExt}},
+			},
+		},
 		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{ByteSize, WordSize, LongSize},
@@ -101,6 +114,19 @@ func validateCMPI(a *Args) error {
 			return fmt.Errorf("CMPI requires destination")
 		}
 		return fmt.Errorf("CMPI destination must be data alterable EA")
+	}
+	return nil
+}
+
+func validateCMPI020(a *Args) error {
+	if err := checkImmediateRange(a.Src.Imm, a.Size); err != nil {
+		return err
+	}
+	if !isDataAlterable(a.Dst.Kind) && !isPCRelativeKind(a.Dst.Kind) {
+		if a.Dst.Kind == EAkNone {
+			return fmt.Errorf("CMPI requires destination")
+		}
+		return fmt.Errorf("CMPI destination must be data addressing other than immediate")
 	}
 	return nil
 }

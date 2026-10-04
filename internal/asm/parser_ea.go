@@ -352,6 +352,10 @@ func (p *Parser) parseAnIndPair() (instructions.EAExpr, error) {
 	return instructions.EAExpr{Kind: instructions.EAkAnIndPair, Reg: first, Reg2: second}, nil
 }
 
+// parseAnIndirectRegister parses one "(Rn)" of CAS2's pointer pair. Rn may
+// be a data or an address register; the result is the register number with
+// bit 3 set for An, which is how CAS2's extension words encode it (D/A in
+// bit 15, Rn in bits 14-12).
 func (p *Parser) parseAnIndirectRegister() (int, error) {
 	if _, err := p.want(LPAREN); err != nil {
 		return 0, err
@@ -360,14 +364,18 @@ func (p *Parser) parseAnIndirectRegister() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	ok, an := isRegAn(tok.Text)
-	if !ok {
-		return 0, errorAtToken(tok, fmt.Errorf("expected An, got %s", tok.Text))
+	var reg int
+	if ok, an := isRegAn(tok.Text); ok {
+		reg = 8 | an
+	} else if ok, dn := isRegDn(tok.Text); ok {
+		reg = dn
+	} else {
+		return 0, errorAtToken(tok, fmt.Errorf("expected Dn or An, got %s", tok.Text))
 	}
 	if _, err := p.want(RPAREN); err != nil {
 		return 0, err
 	}
-	return an, nil
+	return reg, nil
 }
 
 func parseSpecialRegisterEA(tok Token) (instructions.EAExpr, bool) {

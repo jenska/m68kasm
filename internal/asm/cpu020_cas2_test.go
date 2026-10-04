@@ -18,8 +18,10 @@ func TestAssembleCas2(t *testing.T) {
 		src  string
 		want []byte
 	}{
-		{"Word", "CAS2.W D0:D1,D2:D3,(A0):(A1)\n", []byte{0x0C, 0xFC, 0x00, 0x80, 0x10, 0xC1}},
-		{"Long", "CAS2.L D4:D5,D6:D7,(A2):(A3)\n", []byte{0x0E, 0xFC, 0x21, 0x84, 0x31, 0xC5}},
+		// Extension words: D/A(15) Rn(14-12) 000 Du(8-6) 000 Dc(2-0).
+		{"Word", "CAS2.W D0:D1,D2:D3,(A0):(A1)\n", []byte{0x0C, 0xFC, 0x80, 0x80, 0x90, 0xC1}},
+		{"Long", "CAS2.L D4:D5,D6:D7,(A2):(A3)\n", []byte{0x0E, 0xFC, 0xA1, 0x84, 0xB1, 0xC5}},
+		{"DataRegisterPointers", "CAS2.L D0:D1,D2:D3,(D4):(A5)\n", []byte{0x0E, 0xFC, 0x40, 0x80, 0xD0, 0xC1}},
 	}
 
 	for _, tc := range tests {
@@ -48,7 +50,7 @@ func TestCas2NotOnCPU32(t *testing.T) {
 
 func TestCas2KeptOn68030(t *testing.T) {
 	got := assembleForTarget(t, "CAS2.W D0:D1,D2:D3,(A0):(A1)\n", target68030)
-	want := []byte{0x0C, 0xFC, 0x00, 0x80, 0x10, 0xC1}
+	want := []byte{0x0C, 0xFC, 0x80, 0x80, 0x90, 0xC1}
 	if !bytes.Equal(got, want) {
 		t.Fatalf("got % X want % X", got, want)
 	}

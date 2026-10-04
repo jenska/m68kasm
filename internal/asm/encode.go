@@ -263,9 +263,11 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		}
 		return wordVal
 	case instructions.FCas2Word2:
-		return wordVal | (uint16(p.AuxReg&7) << 12) | (uint16(p.DstReg&7) << 6) | uint16(p.SrcReg&7)
+		// AuxReg carries the pointer register with bit 3 set for An, which
+		// lands on the D/A bit (15).
+		return wordVal | (uint16(p.AuxReg&15) << 12) | (uint16(p.DstReg&7) << 6) | uint16(p.SrcReg&7)
 	case instructions.FCas2Word3:
-		return wordVal | (uint16(p.AuxReg2&7) << 12) | (uint16(p.DstReg2&7) << 6) | uint16(p.SrcReg2&7)
+		return wordVal | (uint16(p.AuxReg2&15) << 12) | (uint16(p.DstReg2&7) << 6) | uint16(p.SrcReg2&7)
 	case instructions.FFPRomConst:
 		return wordVal | (uint16(p.Imm) & 0x7F)
 	case instructions.FFPRegMaskDst:
@@ -572,10 +574,6 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			p.BrDisp8 = int8(d8)
 		case instructions.WordSize:
 			d16 := int32(addr) - int32(basePC)
-			// Check if this is a DBcc instruction with target == current PC
-			if len(def.Mnemonic) >= 2 && def.Mnemonic[0:2] == "DB" && addr == basePC {
-				d16 = -2
-			}
 			if d16 < -32768 || d16 > 32767 {
 				return nil, fmt.Errorf("branch displacement out of range for .W")
 			}

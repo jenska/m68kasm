@@ -102,10 +102,12 @@ func newChk2Cmp2Def(name string, chkBit uint16) *InstrDef {
 			OperKinds:   []OperandKind{OpkEA, OpkEA},
 			Validate:    validate,
 			Requires:    require68020orCPU32,
+			// The register word directly follows the opcode; the <ea>'s
+			// own extension words come after it.
 			Steps: []EmitStep{
 				{WordBits: base, Fields: []FieldRef{FSrcEA}},
-				{Trailer: []TrailerItem{TSrcEAExt}},
 				{WordBits: chkBit, Fields: []FieldRef{FExtRegDst}},
+				{Trailer: []TrailerItem{TSrcEAExt}},
 			},
 		}
 	}

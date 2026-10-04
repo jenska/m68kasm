@@ -133,3 +133,54 @@ func TestFPUSingleInDataRegister(t *testing.T) {
 		mustAssembleErr(t, src, targetFPU)
 	}
 }
+
+// TestDBccDisplacementRelativeToExtensionWord pins DBcc's displacement to
+// the address of its extension word (PC+2): a target right after that word
+// is displacement 0, a loop back onto the instruction itself is -2.
+func TestDBccDisplacementRelativeToExtensionWord(t *testing.T) {
+	for _, tc := range []struct {
+		src  string
+		want []byte
+	}{
+		{"ORG $1000\nDBRA D0,$1002\n", []byte{0x51, 0xC8, 0x00, 0x00}},
+		{"ORG $1000\nDBRA D0,$1000\n", []byte{0x51, 0xC8, 0xFF, 0xFE}},
+		{"ORG $1000\nDBNE D3,$1010\n", []byte{0x56, 0xCB, 0x00, 0x0E}},
+		{"loop:\nDBRA D0,loop\n", []byte{0x51, 0xC8, 0xFF, 0xFE}},
+	} {
+		if got := assembleForTarget(t, tc.src, instructions.Target68000); !bytes.Equal(got, tc.want) {
+			t.Errorf("%q: got % X want % X", tc.src, got, tc.want)
+		}
+	}
+}
+
+// TestLateIntegerForms covers MOVE CCR,<ea> (68010+), CMPI with a
+// PC-relative destination (CPU32/68020+) and CHK2/CMP2's word order: the
+// register word directly follows the opcode, before the <ea> extension.
+func TestLateIntegerForms(t *testing.T) {
+	for _, tc := range []struct {
+		src    string
+		target instructions.Target
+		want   []byte
+	}{
+		{"MOVE CCR,D3\n", target68010, []byte{0x42, 0xC3}},
+		{"MOVE CCR,(4,A1)\n", target68010, []byte{0x42, 0xE9, 0x00, 0x04}},
+		{"CMPI.W #5,(8,PC)\n", target68020, []byte{0x0C, 0x7A, 0x00, 0x05, 0x00, 0x08}},
+		{"CMPI.B #1,D0\n", target68020, []byte{0x0C, 0x00, 0x00, 0x01}},
+		{"CHK2.L (4,A1),A2\n", target68020, []byte{0x04, 0xE9, 0xA8, 0x00, 0x00, 0x04}},
+		{"CMP2.W ($1234).W,D0\n", target68020, []byte{0x02, 0xF8, 0x00, 0x00, 0x12, 0x34}},
+	} {
+		if got := assembleForTarget(t, tc.src, tc.target); !bytes.Equal(got, tc.want) {
+			t.Errorf("%q: got % X want % X", tc.src, got, tc.want)
+		}
+	}
+	mustAssembleErr(t, "MOVE CCR,D0\n", instructions.Target68000)
+	mustAssembleErr(t, "CMPI.W #5,(8,PC)\n", instructions.Target68000)
+	mustAssembleErr(t, "CMPI.W #5,#6\n", target68020)
+}
+
+func TestCoprocessorRestoreFromPCRelative(t *testing.T) {
+	if got, want := assembleForTarget(t, "FRESTORE (4,PC)\n", targetFPU), []byte{0xF3, 0x7A, 0x00, 0x04}; !bytes.Equal(got, want) {
+		t.Errorf("FRESTORE (4,PC): got % X want % X", got, want)
+	}
+	mustAssembleErr(t, "FSAVE (4,PC)\n", targetFPU)
+}

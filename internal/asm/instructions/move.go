@@ -31,6 +31,18 @@ var defMOVE = InstrDef{
 			},
 		},
 		{
+			// MOVE CCR,<ea> (68010+): 0100 0010 11 eeeeee.
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
+			OperKinds:   []OperandKind{OpkCCR, OpkEA},
+			Validate:    validateMoveFromSR,
+			Requires:    require68010,
+			Steps: []EmitStep{
+				{WordBits: 0x42C0, Fields: []FieldRef{FDstEA}},
+				{Trailer: []TrailerItem{TDstEAExt}},
+			},
+		},
+		{
 			DefaultSize: WordSize,
 			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OpkEA, OpkCCR},

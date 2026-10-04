@@ -279,7 +279,13 @@ func newFSaveRestoreDef(name string, isSave bool) *InstrDef {
 		if a.Src.Kind == EAkNone {
 			return fmt.Errorf("%s requires an operand", name)
 		}
-		if !memoryAlterableEA[a.Src.Kind] || a.Src.Kind == forbidden {
+		// A save writes a frame (control alterable or -(An)); a restore
+		// only reads one, so PC-relative operands are allowed too.
+		ok := memoryAlterableEA[a.Src.Kind] && a.Src.Kind != forbidden
+		if !isSave && pcRelativeEA[a.Src.Kind] {
+			ok = true
+		}
+		if !ok {
 			return fmt.Errorf("%s requires a memory addressing mode", name)
 		}
 		return nil
