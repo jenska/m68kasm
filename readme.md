@@ -7,7 +7,7 @@
 A compact, **table-driven Motorola 68k assembler** written in Go, targeting the
 full 68000–68060 family plus CPU32, an optional FPU, and a PMMU.
 
-**Current version:** v1.6.0
+**Current version:** v1.6.1
 
 The goal of this project is to provide a clean, maintainable, and easily
 extensible assembler for the 68k family — focusing on clarity, modularity,

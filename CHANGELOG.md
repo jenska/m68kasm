@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-04
+
 Found by round-tripping m68kdasm's output through the assembler.
 
 ### Added
