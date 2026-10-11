@@ -42,7 +42,7 @@ func TestLayoutMatchesEncoding(t *testing.T) {
 			t.Errorf("%s: BRA.S over it = % X, want displacement %d", tc.ins, forward, tc.size)
 		}
 		backward := assembleForTarget(t, "l:\t"+tc.ins+"\n\tBRA.S l\n", tc.target)
-		if len(backward) != tc.size+2 || backward[tc.size+1] != byte(-(tc.size + 2)) {
+		if len(backward) != tc.size+2 || backward[tc.size+1] != byte(-(tc.size+2)) {
 			t.Errorf("%s: BRA.S back over it = % X, want displacement %d", tc.ins, backward, -(tc.size + 2))
 		}
 	}

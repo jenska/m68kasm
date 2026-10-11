@@ -9,24 +9,24 @@ import (
 	"github.com/jenska/m68kasm/internal/asm/instructions"
 )
 
-// Expected bytes below were derived by hand from the 68020 full
-// extension-word bit layout (cross-checked against GNU binutils'
-// gas/config/tc-m68k.c, the POST/PRE/BASE case) and then confirmed
-// against the actual assembler output before being pinned here.
+// Expected bytes below follow the 68020 full extension-word layout:
+// preindexed ([bd,An,Xn],od) leaves I/IS bit 2 clear, postindexed
+// ([bd,An],Xn,od) sets it, as GNU as (tc-m68k.c, POST mode) and m68kdasm
+// do. Earlier versions of these expectations had the two swapped.
 func TestMemoryIndirectAddressing(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
 		want []byte
 	}{
-		{"PreIndexedNullBdOd", "MOVE.L ([0,A0],D1,0),D2\n", []byte{0x24, 0x30, 0x11, 0x11}},
-		{"PostIndexedNullBdLongOd", "MOVE.L ([0,A0,D1],4),D2\n", []byte{0x24, 0x30, 0x11, 0x17, 0x00, 0x00, 0x00, 0x04}},
-		{"PreIndexedNoIndexNumericOuter", "MOVE.L ([0,A0],100),D2\n", []byte{0x24, 0x30, 0x01, 0x53, 0x00, 0x00, 0x00, 0x64}},
-		{"PreIndexedNoIndexNoOuter", "MOVE.L ([0,A0]),D2\n", []byte{0x24, 0x30, 0x01, 0x51}},
+		{"PostIndexedNullBdOd", "MOVE.L ([0,A0],D1,0),D2\n", []byte{0x24, 0x30, 0x11, 0x15}},
+		{"PreIndexedNullBdLongOd", "MOVE.L ([0,A0,D1],4),D2\n", []byte{0x24, 0x30, 0x11, 0x13, 0x00, 0x00, 0x00, 0x04}},
+		{"NoIndexNumericOuter", "MOVE.L ([0,A0],100),D2\n", []byte{0x24, 0x30, 0x01, 0x53, 0x00, 0x00, 0x00, 0x64}},
+		{"NoIndexNoOuter", "MOVE.L ([0,A0]),D2\n", []byte{0x24, 0x30, 0x01, 0x51}},
 		{"JmpThroughMemoryIndirect", "JMP ([0,A0])\n", []byte{0x4E, 0xF0, 0x01, 0x51}},
-		{"PCPostIndexedNullOuter", "LEA ([0,PC,D0],0),A1\n", []byte{0x43, 0xFB, 0x01, 0x15}},
-		{"PCPreIndexedLongBdWordOuter", "LEA ([100.L,PC],A0,2.W),A1\n", []byte{0x43, 0xFB, 0x81, 0x32, 0x00, 0x00, 0x00, 0x64, 0x00, 0x02}},
-		{"ExplicitLongBdEvenWhenZero", "mylabel:\nMOVE.L ([mylabel.L,A0],D1,4),D2\n", []byte{0x24, 0x30, 0x11, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04}},
+		{"PCPreIndexedNullOuter", "LEA ([0,PC,D0],0),A1\n", []byte{0x43, 0xFB, 0x01, 0x11}},
+		{"PCPostIndexedLongBdWordOuter", "LEA ([100.L,PC],A0,2.W),A1\n", []byte{0x43, 0xFB, 0x81, 0x36, 0x00, 0x00, 0x00, 0x64, 0x00, 0x02}},
+		{"ExplicitLongBdEvenWhenZero", "mylabel:\nMOVE.L ([mylabel.L,A0],D1,4),D2\n", []byte{0x24, 0x30, 0x11, 0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04}},
 	}
 
 	for _, tc := range tests {
@@ -45,7 +45,7 @@ func TestMemoryIndirectForwardReferenceResolves(t *testing.T) {
 	// encoded length identical across both of the assembler's passes —
 	// see parseSizedDisp's doc comment on why a suffix is mandatory here.
 	src := "MOVE.L ([mylabel.W,A0],D1),D2\nNOP\nmylabel:\n"
-	want := []byte{0x24, 0x30, 0x11, 0x21, 0x00, 0x08, 0x4E, 0x71}
+	want := []byte{0x24, 0x30, 0x11, 0x25, 0x00, 0x08, 0x4E, 0x71} // postindexed
 	got := assembleForTarget(t, src, target68020)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("unexpected output: got % X want % X", got, want)

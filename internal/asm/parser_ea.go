@@ -692,8 +692,13 @@ func looksLikeIndexRegister(tok Token) bool {
 // parseMemIndirectEA parses 68020+ memory-indirect addressing, entered
 // once parseEAIndirect sees '[' right after the EA's opening '(':
 //
-//	([bd,An],Xn,od)  / ([bd,An],od)  / ([bd,An])   -- pre-indexed, Xn optional
-//	([bd,An,Xn],od)  / ([bd,An,Xn])                -- post-indexed, Xn required
+//	([bd,An,Xn],od)  / ([bd,An,Xn])                -- preindexed: index inside
+//	([bd,An],Xn,od)  / ([bd,An],od)  / ([bd,An])   -- postindexed, Xn optional
+//
+// Preindexed adds the index before reading the address from memory,
+// postindexed after (I/IS bit 2 set), as in Motorola's manuals and GNU
+// as (tc-m68k.c sets bit 2 for its POST mode, the index outside the
+// brackets).
 //
 // and their PC-relative equivalents (An replaced by PC). bd must always
 // be written explicitly (0 for "no base displacement"); od may be
@@ -721,11 +726,12 @@ func (p *Parser) parseMemIndirectEA() (instructions.EAExpr, error) {
 
 	var ix instructions.EAIndex
 	indexPresent := false
-	postIndexed := false
+	preIndexed := false
 
 	if p.accept(COMMA) {
-		// Post-indexed: [bd,An,Xn]
-		postIndexed = true
+		// Preindexed: [bd,An,Xn], the index is added before the
+		// indirection.
+		preIndexed = true
 		indexPresent = true
 		ix, err = p.parseEAIndex()
 		if err != nil {
@@ -736,8 +742,10 @@ func (p *Parser) parseMemIndirectEA() (instructions.EAExpr, error) {
 		return instructions.EAExpr{}, err
 	}
 
-	if !postIndexed && p.peek().Kind == COMMA && looksLikeIndexRegister(p.peekN(2)) {
+	if !preIndexed && p.peek().Kind == COMMA && looksLikeIndexRegister(p.peekN(2)) {
 		p.next() // ','
+		// Postindexed: [bd,An],Xn, the index is added after the
+		// indirection.
 		indexPresent = true
 		ix, err = p.parseEAIndex()
 		if err != nil {
@@ -765,6 +773,7 @@ func (p *Parser) parseMemIndirectEA() (instructions.EAExpr, error) {
 		OuterDisp:     od,
 		OuterDispSize: odSize,
 	}
+	postIndexed := indexPresent && !preIndexed
 	switch {
 	case isPC && postIndexed:
 		e.Kind = instructions.EAkMemPostPC

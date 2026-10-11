@@ -544,10 +544,9 @@ const (
 	EAkDFC
 	EAkVBR
 	// EAkMemPreAn/EAkMemPrePC and EAkMemPostAn/EAkMemPostPC are 68020+
-	// memory-indirect addressing with an An or PC base: "([bd,An],Xn,od)"
-	// (pre-indexed: indirection happens before adding the index) and
-	// "([bd,An,Xn],od)" (post-indexed: the index is added before
-	// indirection). See EAExpr's full-format fields and
+	// memory-indirect addressing with an An or PC base: "([bd,An,Xn],od)"
+	// (preindexed: the index is added before the indirection) and
+	// "([bd,An],Xn,od)" (postindexed: the index is added after it). See EAExpr's full-format fields and
 	// docs/design/cpu-family-support.md.
 	EAkMemPreAn
 	EAkMemPrePC

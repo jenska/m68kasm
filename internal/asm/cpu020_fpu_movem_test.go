@@ -17,15 +17,15 @@ func TestAssembleFMOVEM(t *testing.T) {
 		src  string
 		want []byte
 	}{
-		{"StaticStorePredec", "FMOVEM.X FP0-FP3,-(A7)\n", []byte{0xF2, 0x27, 0xE0, 0xF0}},
-		{"StaticStoreGeneral", "FMOVEM.X FP0-FP3,(A0)\n", []byte{0xF2, 0x10, 0xF0, 0x0F}},
-		{"StaticLoadPostinc", "FMOVEM.X (A0)+,FP0-FP3\n", []byte{0xF2, 0x18, 0xD0, 0x0F}},
+		{"StaticStorePredec", "FMOVEM.X FP0-FP3,-(A7)\n", []byte{0xF2, 0x27, 0xE0, 0x0F}},
+		{"StaticStoreGeneral", "FMOVEM.X FP0-FP3,(A0)\n", []byte{0xF2, 0x10, 0xF0, 0xF0}},
+		{"StaticLoadPostinc", "FMOVEM.X (A0)+,FP0-FP3\n", []byte{0xF2, 0x18, 0xD0, 0xF0}},
 		{"DynamicStorePredec", "FMOVEM.X D0,-(A7)\n", []byte{0xF2, 0x27, 0xE8, 0x00}},
 		{"DynamicStoreGeneral", "FMOVEM.X D0,(A0)\n", []byte{0xF2, 0x10, 0xF8, 0x00}},
 		{"DynamicLoadPostinc", "FMOVEM.X (A0)+,D0\n", []byte{0xF2, 0x18, 0xD8, 0x00}},
 		{"DynamicLoadGeneral", "FMOVEM.X (A0),D0\n", []byte{0xF2, 0x10, 0xD8, 0x00}},
-		{"StaticStoreSingleReg", "FMOVEM.X FP5,-(A7)\n", []byte{0xF2, 0x27, 0xE0, 0x04}},
-		{"StaticStoreSlashList", "FMOVEM.X FP1/FP4/FP6,(A0)\n", []byte{0xF2, 0x10, 0xF0, 0x52}},
+		{"StaticStoreSingleReg", "FMOVEM.X FP5,-(A7)\n", []byte{0xF2, 0x27, 0xE0, 0x20}},
+		{"StaticStoreSlashList", "FMOVEM.X FP1/FP4/FP6,(A0)\n", []byte{0xF2, 0x10, 0xF0, 0x4A}},
 	}
 
 	for _, tc := range tests {
@@ -46,11 +46,13 @@ func TestAssembleFMOVEM(t *testing.T) {
 func TestFMovemStorePredecReversesListVsGeneral(t *testing.T) {
 	general := assembleForTarget(t, "FMOVEM.X FP0-FP3,(A0)\n", targetFPU)
 	predec := assembleForTarget(t, "FMOVEM.X FP0-FP3,-(A7)\n", targetFPU)
-	if general[2] != 0xF0 || general[3] != 0x0F {
-		t.Fatalf("general store word2 = % X, want F0 0F (unreversed mask)", general[2:4])
+	// Unlike integer MOVEM, the control mask has FP0 in bit 7 and the
+	// predecrement mask has it in bit 0.
+	if general[2] != 0xF0 || general[3] != 0xF0 {
+		t.Fatalf("general store word2 = % X, want F0 F0 (FP0 in bit 7)", general[2:4])
 	}
-	if predec[2] != 0xE0 || predec[3] != 0xF0 {
-		t.Fatalf("predecrement store word2 = % X, want E0 F0 (reversed mask)", predec[2:4])
+	if predec[2] != 0xE0 || predec[3] != 0x0F {
+		t.Fatalf("predecrement store word2 = % X, want E0 0F (FP0 in bit 0)", predec[2:4])
 	}
 }
 

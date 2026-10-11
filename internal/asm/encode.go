@@ -274,14 +274,19 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 	case instructions.FFPRomConst:
 		return wordVal | (uint16(p.Imm) & 0x7F)
 	case instructions.FFPRegMaskDst:
-		return wordVal | (p.FPRegMaskDst & 0xFF)
+		// FMOVEM loads use the control/postincrement list: FP0 in bit 7.
+		return wordVal | fpRegListControl(p.FPRegMaskDst)
 	case instructions.FFPDynDstReg4:
 		return wordVal | (uint16(p.DstReg&7) << 4)
 	case instructions.FFPMovemStoreWord2:
-		if p.DstEA.Mode == 4 { // -(An): predecrement, list order reversed
-			return wordVal | 0xE000 | (reverse16(p.FPRegMaskSrc&0xFF) >> 8)
+		// Unlike integer MOVEM, the FPU's predecrement list has FP0 in
+		// bit 0 and the control/postincrement list has it in bit 7 (MAME's
+		// m68kfpu.cpp fmovem: "1 << i" for predecrement, "0x80 >> i"
+		// otherwise).
+		if p.DstEA.Mode == 4 { // -(An): predecrement
+			return wordVal | 0xE000 | (p.FPRegMaskSrc & 0xFF)
 		}
-		return wordVal | 0xF000 | (p.FPRegMaskSrc & 0xFF)
+		return wordVal | 0xF000 | fpRegListControl(p.FPRegMaskSrc)
 	case instructions.FFPMovemDynStoreWord2:
 		if p.DstEA.Mode == 4 { // -(An): predecrement
 			return wordVal | 0xE800 | (uint16(p.SrcReg&7) << 4)
@@ -620,6 +625,12 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 		}
 	}
 	return out, nil
+}
+
+// fpRegListControl converts a parsed FPn list (bit n = FPn) to the FMOVEM
+// control/postincrement mask, which has FP0 in bit 7.
+func fpRegListControl(mask uint16) uint16 {
+	return reverse16(mask&0xFF) >> 8
 }
 
 func reverse16(v uint16) uint16 {
