@@ -124,12 +124,12 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 			lastErr = err
 			continue
 		}
-		ins := &Instr{Def: instrDef, Form: form, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col, Section: p.section}
-		p.items = append(p.items, ins)
 		words, err := instructionWords(form, args)
 		if err != nil {
 			return err
 		}
+		ins := &Instr{Def: instrDef, Form: form, Args: args, PC: p.pc, Line: mn.Line, Col: mn.Col, Section: p.section, Size: words * 2}
+		p.items = append(p.items, ins)
 		p.pc += uint32(words * 2)
 		return nil
 	}
@@ -142,6 +142,9 @@ func (p *Parser) parseInstruction(instrDef *instructions.InstrDef) error {
 
 func instructionWords(form *instructions.FormDef, args instructions.Args) (int, error) {
 	words := 0
+	if operandMovesToDst(form, args) {
+		args.Dst, args.Src = args.Src, instructions.EAExpr{}
+	}
 
 	var srcEA, dstEA, auxEA instructions.EAEncoded
 	var err error
@@ -196,10 +199,16 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 					}
 				}
 			case instructions.TSrcImm:
+				// Must match encode.go's TSrcImm sizes, including the
+				// IEEE and extended-precision FPU immediates.
 				if args.Src.Kind == instructions.EAkImm {
 					switch args.Size {
-					case instructions.LongSize:
+					case instructions.LongSize, instructions.SingleSize:
 						words += 2
+					case instructions.DoubleSize:
+						words += 4
+					case instructions.ExtendedSize:
+						words += 6
 					default:
 						words++
 					}
@@ -223,6 +232,37 @@ func instructionWords(form *instructions.FormDef, args instructions.Args) (int, 
 	}
 
 	return words, nil
+}
+
+// operandMovesToDst reports whether form encodes its only operand as the
+// destination although the parser stored it as the source. The form's
+// validator moves it there (swapSrcDstIfDstNone), but validators run only
+// when the program is encoded, after the layout pass, so instructionWords
+// has to count the form the same way.
+func operandMovesToDst(form *instructions.FormDef, args instructions.Args) bool {
+	if args.Dst.Kind != instructions.EAkNone || args.Src.Kind == instructions.EAkNone {
+		return false
+	}
+	usesSrc, usesDst := false, false
+	for _, step := range form.Steps {
+		for _, f := range step.Fields {
+			switch f {
+			case instructions.FSrcEA:
+				usesSrc = true
+			case instructions.FDstEA, instructions.FMoveDestEA:
+				usesDst = true
+			}
+		}
+		for _, tr := range step.Trailer {
+			switch tr {
+			case instructions.TSrcEAExt, instructions.TSrcImm:
+				usesSrc = true
+			case instructions.TDstEAExt, instructions.TDstImmByte, instructions.TDstImmSized:
+				usesDst = true
+			}
+		}
+	}
+	return usesDst && !usesSrc
 }
 
 // emitPaddingBytes centralizes emitting zero/filled padding while keeping the

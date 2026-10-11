@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Labels after a single-operand instruction with extension words were
+  placed too early: the layout pass counted `TST`, `CLR`, `NEG`, `NEGX`,
+  `NOT`, `NBCD`, `TAS`, memory shifts and rotates, `Scc`, `PEA`, `JMP` and
+  `JSR` without the operand's extension words, so `TST.W -16(A0)` followed
+  by a label put the label two bytes into the instruction
+- Labels after an FPU instruction with a single, double or extended
+  immediate (`FMOVE.D #1.5,FP0`) were placed as if the immediate were one
+  word
+
+### Changed
+
+- The assembler checks that every instruction encodes to the size the
+  layout pass reserved for it, and reports an internal error otherwise
+
 ## [1.6.1] - 2026-10-04
 
 Found by round-tripping m68kdasm's output through the assembler.

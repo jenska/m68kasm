@@ -15,6 +15,9 @@ type Instr struct {
 	Line    int
 	Col     int
 	Section SectionKind
+	// Size is the number of bytes the layout pass reserved for the
+	// instruction; encoding it must produce exactly that many.
+	Size int
 }
 
 func sizeToBits(sz instructions.Size) uint16 {

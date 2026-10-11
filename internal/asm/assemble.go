@@ -162,6 +162,11 @@ func assembleItem(dst []byte, it any, labels map[string]uint32, cpu instructions
 		if err != nil {
 			return nil, "", contextualizeAt(x.Line, x.Col, err)
 		}
+		if len(bytes) != x.Size {
+			// The labels after this instruction were placed for x.Size
+			// bytes, so the program would be wrong.
+			return nil, "", contextualizeAt(x.Line, x.Col, fmt.Errorf("internal error: %s encodes to %d bytes but the layout reserved %d", def.Mnemonic, len(bytes), x.Size))
+		}
 		var warning string
 		if cpu == instructions.CPU68060 {
 			warning = checkEmulatedOn68060(def.Mnemonic, &ins.Args)
