@@ -68,9 +68,13 @@ func TestMemoryIndirectSymbolRequiresExplicitSize(t *testing.T) {
 
 func TestBriefIndexedOverflowNowErrors(t *testing.T) {
 	// Previously this silently truncated the displacement to a signed
-	// byte instead of erroring — a correctness bug fixed alongside the
-	// full-format addressing work (see parser_ea.go's indexedEA).
-	mustAssembleErr(t, "MOVE.L (200,A0,D1.W),D2\n", target68020)
+	// byte instead of erroring. The 68000 has only the brief format; the
+	// 68020 uses the full format with a word base displacement instead.
+	mustAssembleErr(t, "MOVE.L (200,A0,D1.W),D2\n", instructions.Target68000)
+	got := assembleForTarget(t, "MOVE.L (200,A0,D1.W),D2\n", target68020)
+	if want := []byte{0x24, 0x30, 0x11, 0x20, 0x00, 0xC8}; !bytes.Equal(got, want) {
+		t.Fatalf("got % X want % X", got, want)
+	}
 }
 
 func TestBriefIndexedInRangeUnaffected(t *testing.T) {

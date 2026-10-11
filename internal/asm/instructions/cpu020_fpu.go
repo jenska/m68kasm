@@ -70,6 +70,13 @@ func init() {
 	registerInstrDef(newFPMonadicDef("FABS", 0x18, requireFPU))
 	registerInstrDef(newFPMonadicDef("FNEG", 0x1A, requireFPU))
 	registerInstrDef(newFPMonadicDef("FSQRT", 0x04, requireFPU))
+	// FINT/FINTRZ (round to integer, in the FPCR mode or toward zero) and
+	// FSGLDIV/FSGLMUL (single-precision divide and multiply) complete the
+	// 68881/68882 arithmetic opmodes.
+	registerInstrDef(newFPMonadicDef("FINT", 0x01, requireFPU))
+	registerInstrDef(newFPMonadicDef("FINTRZ", 0x03, requireFPU))
+	registerInstrDef(newFPBinaryDef("FSGLDIV", 0x24, false, requireFPU))
+	registerInstrDef(newFPBinaryDef("FSGLMUL", 0x27, false, requireFPU))
 	registerInstrDef(&defFTST)
 	registerInstrDef(&defFNOP)
 }

@@ -310,27 +310,36 @@ TBLS.B (A0),D0            ; cpu32 only
 MOVE16 (A0)+,(A1)+         ; 68040+ (also 68060)
 ```
 
-### 7.2 68020+ memory-indirect addressing
+### 7.2 68020+ full extension word addressing
 
 ```text
-([bd,An],Xn,od)     pre-indexed
-([bd,An,Xn],od)      post-indexed
+([bd,An,Xn],od)      preindexed: the index is added before the indirection
+([bd,An],Xn,od)      postindexed: the index is added after it
+(bd,An,Xn)           indexed, with a word or long base displacement
+(bd,An)              displaced, with a long base displacement
 ```
 
-plus PC-relative equivalents (`([bd,PC],Xn,od)`, `([bd,PC,Xn],od)`). Notes:
+plus PC-relative equivalents (`([bd,PC],Xn,od)`, `(bd,PC,Xn)`). Notes:
 
-- A base register is always required — register suppression is not
-  supported.
-- `bd` must always be written explicitly inside the brackets; there is no
-  `([An],...)` shorthand for a zero base displacement.
+- Inside the brackets, `bd`, the base register and the index are each
+  optional: `([A0])`, `([A0,D1.L*4])`, `([$1234.L])` (no base register:
+  the base is suppressed).
+- `ZA0`-`ZA7` and `ZPC` suppress the base register, `ZD0`-`ZD7` and
+  `ZA0`-`ZA7` in the index position suppress the index:
+  `LEA ($1000.W,ZA0,D1.W),A3`, `LEA ([$10.W,ZA0],ZD0,$20.L),A2`.
+- `(bd,An,Xn)` uses the brief format when `bd` fits a signed byte and the
+  full format otherwise; `(bd,An)` the 16-bit form when `bd` fits a word.
+  A `.w`/`.l` size on `bd` selects the full format explicitly.
 - A `bd`/`od` that references a symbol must carry an explicit `.w`/`.l`
   size, since a symbol's value can change between the assembler's two
   passes and its encoded length can never be auto-detected from it.
+  Constants are sized automatically.
 
 ```asm
-MOVE.L ([0,A0],D1,0),D2
-MOVE.L ([0,A0,D1],4),D2
+MOVE.L ([0,A0],D1,0),D2          ; postindexed
+MOVE.L ([0,A0,D1],4),D2          ; preindexed
 LEA ([100.L,PC],A0,2.W),A1
+LEA ($12345678,A0,D2.L*4),A1     ; full format, long base displacement
 ```
 
 ### 7.3 FPU (`--fpu`)
@@ -388,7 +397,11 @@ FMOVEM.X FP0-FP7,-(SP)          ; static FPn list — range/slash syntax like MO
 FMOVEM.X D0,-(SP)                ; dynamic list: the mask is read from D0 at runtime
 FMOVEM FPIAR,D0                    ; a single named control register may target Dn/An too
 FMOVEM FPCR/FPSR,(A0)                ; a genuine multi-register combination needs memory
+FMOVE.L #$400,FPCR                   ; FMOVE takes one control register
 ```
+
+Unlike integer `MOVEM`, the encoded `FMOVEM` mask has FP0 in bit 7 for the
+control and postincrement modes and in bit 0 for predecrement.
 
 `FPCR`, `FPSR`, and `FPIAR` are also valid as plain register operands
 elsewhere `--fpu` accepts a control register.

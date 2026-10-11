@@ -428,18 +428,27 @@ func (p *Parser) parseAbsoluteSuffix(defaultKind instructions.EAExprKind, invali
 	}
 }
 
-func parseEABaseRegister(text string) (reg int, pcRelative bool, ok bool) {
+// parseEABaseRegister parses the base register of an indexed or memory
+// indirect operand: An, PC, or their suppressed forms ZAn and ZPC (68020+
+// full extension word format).
+func parseEABaseRegister(text string) (reg int, pcRelative, suppressed, ok bool) {
+	if len(text) > 1 && (text[0] == 'z' || text[0] == 'Z') {
+		if r, pc, _, ok := parseEABaseRegister(text[1:]); ok {
+			return r, pc, true, true
+		}
+		return 0, false, false, false
+	}
 	if ok, an := isRegAn(text); ok {
-		return an, false, true
+		return an, false, false, true
 	}
 	if isPC(text) {
-		return 0, true, true
+		return 0, true, false, true
 	}
-	return 0, false, false
+	return 0, false, false, false
 }
 
 func displacementEA(base Token, disp int64) (instructions.EAExpr, error) {
-	if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
+	if reg, isPC, suppressed, ok := parseEABaseRegister(base.Text); ok && !suppressed {
 		if isPC {
 			return instructions.EAExpr{Kind: instructions.EAkPCDisp16, Disp16: int32(disp)}, nil
 		}
@@ -450,16 +459,75 @@ func displacementEA(base Token, disp int64) (instructions.EAExpr, error) {
 
 func indexedEA(base Token, disp int64, ix instructions.EAIndex) (instructions.EAExpr, error) {
 	if disp < -128 || disp > 127 {
-		return instructions.EAExpr{}, parserError(base, fmt.Sprintf("displacement out of range for indexed addressing: %d (brief indexed addressing is limited to a signed byte on every 68k CPU)", disp))
+		return instructions.EAExpr{}, parserError(base, fmt.Sprintf("displacement out of range for brief indexed addressing: %d (a signed byte; the 68020 full format takes a constant or an explicit .w/.l size)", disp))
 	}
 	ix.Disp8 = int8(disp)
-	if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
+	if reg, isPC, suppressed, ok := parseEABaseRegister(base.Text); ok && !suppressed {
 		if isPC {
 			return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
 		}
 		return instructions.EAExpr{Kind: instructions.EAkIdxAnBrief, Reg: reg, Index: ix}, nil
 	}
 	return instructions.EAExpr{}, parserError(base, "base must be An or PC for indexed addressing")
+}
+
+// baseDisp is a base displacement as written: its value, whether it uses a
+// symbol, and its size if given explicitly with .w or .l.
+type baseDisp struct {
+	value     int64
+	hasSymbol bool
+	size      instructions.DispSize
+	explicit  bool
+}
+
+// needsFullFormat reports whether an (d,An/PC[,Xn]) operand must use the
+// 68020 full extension word: a suppressed base or index, an explicit
+// displacement size, or a constant displacement too large for the brief
+// format (limit is the largest brief displacement: a byte with an index,
+// a word without).
+func needsFullFormat(d baseDisp, baseSuppressed, indexSuppressed bool, limit int64) bool {
+	if baseSuppressed || indexSuppressed || d.explicit {
+		return true
+	}
+	return !d.hasSymbol && (d.value < -limit-1 || d.value > limit)
+}
+
+// fullIndexedEA builds a 68020+ full-format indexed operand without memory
+// indirection: (bd,An,Xn), (bd,PC,Xn) and their forms with a suppressed
+// base or index. A constant base displacement gets the smallest size.
+func (p *Parser) fullIndexedEA(base Token, d baseDisp, ix instructions.EAIndex, indexPresent bool) (instructions.EAExpr, error) {
+	if !p.target.Supports(instructions.Target{CPU: instructions.CPU68020}) {
+		return instructions.EAExpr{}, parserError(base, fmt.Sprintf("the full extension word format requires 68020 or later (target is %s)", p.target.CPU))
+	}
+	reg, isPC, suppressed, ok := parseEABaseRegister(base.Text)
+	if !ok {
+		return instructions.EAExpr{}, parserError(base, "base must be An, PC, ZAn or ZPC")
+	}
+	size := d.size
+	if !d.explicit {
+		switch {
+		case d.value == 0:
+			size = instructions.DispNull
+		case d.value >= -32768 && d.value <= 32767:
+			size = instructions.DispWord
+		default:
+			size = instructions.DispLong
+		}
+	}
+	e := instructions.EAExpr{
+		Kind:           instructions.EAkIdxAnBrief,
+		Reg:            reg,
+		Full:           true,
+		Index:          ix,
+		IndexPresent:   indexPresent && !ix.Suppressed,
+		BaseSuppressed: suppressed,
+		BaseDisp:       int32(d.value),
+		BaseDispSize:   size,
+	}
+	if isPC {
+		e.Kind, e.Reg = instructions.EAkIdxPCBrief, 0
+	}
+	return e, nil
 }
 
 // splitSizedSymbol splits a bare label token's text on a trailing ".w"
@@ -593,7 +661,7 @@ func (p *Parser) parseEADisplacementOrAbsolute() (instructions.EAExpr, error) {
 
 	// Case 1: Displacement modes, identified by a following '('.
 	if p.accept(LPAREN) {
-		return p.parseEADisplacementBody(expr)
+		return p.parseEADisplacementBody(expr, instructions.DispNull, false)
 	}
 
 	kind, err := p.parseAbsoluteSuffix(instructions.EAkAbsL, "unknown size suffix .%s")
@@ -631,9 +699,9 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 		}
 	}
 
-	// Case 2: (An, ix) or (PC, ix) -- no outer displacement
+	// Case 2: (An, ix) or (PC, ix) -- no displacement
 	if base := p.peek(); base.Kind == IDENT && p.peekN(2).Kind == COMMA {
-		if reg, isPC, ok := parseEABaseRegister(base.Text); ok {
+		if reg, isPC, suppressed, ok := parseEABaseRegister(base.Text); ok {
 			p.next() // base
 			p.next() // ','
 			ix, err := p.parseEAIndex()
@@ -643,6 +711,9 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 			if _, err := p.want(RPAREN); err != nil {
 				return instructions.EAExpr{}, err
 			}
+			if suppressed || ix.Suppressed {
+				return p.fullIndexedEA(base, baseDisp{}, ix, true)
+			}
 			if isPC {
 				return instructions.EAExpr{Kind: instructions.EAkIdxPCBrief, Index: ix}, nil
 			}
@@ -650,15 +721,45 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 		}
 	}
 
-	// Case 3: (disp, ...), (abs).W, or (abs).L
-	expr, err := p.parseExprInfoUntil(COMMA, RPAREN)
+	// Case 3: (disp, ...), (abs).W, or (abs).L. The displacement may
+	// carry a .w or .l size (68020 full format), on a number or a label.
+	if t := p.peek(); t.Kind == IDENT && p.peekN(2).Kind == COMMA {
+		if _, _, sized := splitSizedSymbol(t.Text); sized {
+			value, size, err := p.parseSizedDisp(COMMA)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			p.next() // ','
+			return p.parseEADisplacementBody(exprInfo{Value: int64(value), HasSymbol: true}, size, true)
+		}
+	}
+	expr, err := p.parseExprInfoUntil(COMMA, RPAREN, DOT)
 	if err != nil {
 		return instructions.EAExpr{}, err
+	}
+	size, explicit := instructions.DispNull, false
+	if p.peek().Kind == DOT && p.peekN(3).Kind == COMMA {
+		p.next() // '.'
+		szTok, err := p.want(IDENT)
+		if err != nil {
+			return instructions.EAExpr{}, err
+		}
+		switch strings.ToUpper(szTok.Text) {
+		case "W":
+			if expr.Value < -32768 || expr.Value > 32767 {
+				return instructions.EAExpr{}, parserError(szTok, fmt.Sprintf("displacement out of range for .w: %d", expr.Value))
+			}
+			size, explicit = instructions.DispWord, true
+		case "L":
+			size, explicit = instructions.DispLong, true
+		default:
+			return instructions.EAExpr{}, parserError(szTok, "expected .w or .l for the displacement size")
+		}
 	}
 
 	// Subcase 3a: (disp, An/PC) or (disp, An/PC, ix)
 	if p.accept(COMMA) {
-		return p.parseEADisplacementBody(expr)
+		return p.parseEADisplacementBody(expr, size, explicit)
 	}
 
 	// Subcase 3b: (abs).W or (abs).L
@@ -681,6 +782,9 @@ func (p *Parser) parseEAIndirect() (instructions.EAExpr, error) {
 func looksLikeIndexRegister(tok Token) bool {
 	if tok.Kind != IDENT {
 		return false
+	}
+	if _, err := parseIndexRegister(strings.SplitN(tok.Text, ".", 2)[0]); err == nil {
+		return true
 	}
 	if ok, _ := isRegDn(tok.Text); ok {
 		return true
@@ -707,119 +811,121 @@ func looksLikeIndexRegister(tok Token) bool {
 func (p *Parser) parseMemIndirectEA() (instructions.EAExpr, error) {
 	p.next() // consume '['
 
-	bd, bdSize, err := p.parseSizedDisp(COMMA)
-	if err != nil {
-		return instructions.EAExpr{}, err
-	}
-	if _, err := p.want(COMMA); err != nil {
-		return instructions.EAExpr{}, err
-	}
-
-	baseTok, err := p.want(IDENT)
-	if err != nil {
-		return instructions.EAExpr{}, err
-	}
-	reg, isPC, ok := parseEABaseRegister(baseTok.Text)
-	if !ok {
-		return instructions.EAExpr{}, parserError(baseTok, "expected An or PC as the base register")
-	}
-
+	// Inside the brackets: an optional base displacement, an optional base
+	// register (An, PC, ZAn, ZPC; none suppresses the base) and, for the
+	// preindexed form, an index register.
+	e := instructions.EAExpr{BaseDispSize: instructions.DispNull}
+	var baseTok Token
+	haveBase, isPC, preIndexed := false, false, false
 	var ix instructions.EAIndex
-	indexPresent := false
-	preIndexed := false
-
-	if p.accept(COMMA) {
-		// Preindexed: [bd,An,Xn], the index is added before the
-		// indirection.
-		preIndexed = true
-		indexPresent = true
-		ix, err = p.parseEAIndex()
-		if err != nil {
-			return instructions.EAExpr{}, err
+	first := true
+	for p.peek().Kind != RBRACKET {
+		if !first {
+			if _, err := p.want(COMMA); err != nil {
+				return instructions.EAExpr{}, err
+			}
 		}
+		t := p.peek()
+		reg, pc, suppressed, isBase := parseEABaseRegister(t.Text)
+		switch {
+		case t.Kind == IDENT && isBase && !haveBase && !preIndexed && !hasIndexSyntax(p, t):
+			p.next()
+			baseTok, haveBase, isPC = t, true, pc
+			e.Reg, e.BaseSuppressed = reg, suppressed
+		case looksLikeIndexRegister(t):
+			if preIndexed {
+				return instructions.EAExpr{}, parserError(t, "only one index register allowed")
+			}
+			var err error
+			if ix, err = p.parseEAIndex(); err != nil {
+				return instructions.EAExpr{}, err
+			}
+			preIndexed = true
+		case first:
+			bd, size, err := p.parseSizedDisp(COMMA, RBRACKET)
+			if err != nil {
+				return instructions.EAExpr{}, err
+			}
+			e.BaseDisp, e.BaseDispSize = bd, size
+		default:
+			return instructions.EAExpr{}, parserError(t, "expected a base or index register")
+		}
+		first = false
 	}
-	if _, err := p.want(RBRACKET); err != nil {
-		return instructions.EAExpr{}, err
+	p.next() // ']'
+	if !haveBase {
+		e.BaseSuppressed = true
 	}
+	_ = baseTok
 
+	indexPresent := preIndexed
 	if !preIndexed && p.peek().Kind == COMMA && looksLikeIndexRegister(p.peekN(2)) {
-		p.next() // ','
 		// Postindexed: [bd,An],Xn, the index is added after the
 		// indirection.
-		indexPresent = true
-		ix, err = p.parseEAIndex()
-		if err != nil {
+		p.next() // ','
+		var err error
+		if ix, err = p.parseEAIndex(); err != nil {
 			return instructions.EAExpr{}, err
 		}
+		indexPresent = true
 	}
 
-	od := int32(0)
-	odSize := instructions.DispNull
+	e.OuterDispSize = instructions.DispNull
 	if p.accept(COMMA) {
-		od, odSize, err = p.parseSizedDisp(RPAREN)
+		od, odSize, err := p.parseSizedDisp(RPAREN)
 		if err != nil {
 			return instructions.EAExpr{}, err
 		}
+		e.OuterDisp, e.OuterDispSize = od, odSize
 	}
 	if _, err := p.want(RPAREN); err != nil {
 		return instructions.EAExpr{}, err
 	}
 
-	e := instructions.EAExpr{
-		IndexPresent:  indexPresent,
-		Index:         ix,
-		BaseDisp:      bd,
-		BaseDispSize:  bdSize,
-		OuterDisp:     od,
-		OuterDispSize: odSize,
-	}
+	e.Index = ix
+	e.IndexPresent = indexPresent && !ix.Suppressed
 	postIndexed := indexPresent && !preIndexed
 	switch {
 	case isPC && postIndexed:
-		e.Kind = instructions.EAkMemPostPC
+		e.Kind, e.Reg = instructions.EAkMemPostPC, 0
 	case isPC:
-		e.Kind = instructions.EAkMemPrePC
+		e.Kind, e.Reg = instructions.EAkMemPrePC, 0
 	case postIndexed:
-		e.Kind, e.Reg = instructions.EAkMemPostAn, reg
+		e.Kind = instructions.EAkMemPostAn
 	default:
-		e.Kind, e.Reg = instructions.EAkMemPreAn, reg
+		e.Kind = instructions.EAkMemPreAn
 	}
 	return e, nil
 }
 
-func (p *Parser) parseEADisplacementBody(expr exprInfo) (instructions.EAExpr, error) {
+// hasIndexSyntax reports whether the register token t carries an index size
+// or scale (D0.L, A1*4), which makes an An an index rather than the base.
+func hasIndexSyntax(p *Parser, t Token) bool {
+	if strings.ContainsRune(t.Text, '.') {
+		return true
+	}
+	next := p.peekN(2).Kind
+	return next == STAR || next == DOT
+}
+
+func (p *Parser) parseEADisplacementBody(expr exprInfo, size instructions.DispSize, explicit bool) (instructions.EAExpr, error) {
 	// We are inside the parentheses of d(...) or (d,...)
 	base, err := p.want(IDENT)
 	if err != nil {
 		return instructions.EAExpr{}, err
 	}
-	disp := expr.Value
-	if isPC(base.Text) {
-		if p.accept(COMMA) {
-			ix, err := p.parseEAIndex()
-			if err != nil {
-				return instructions.EAExpr{}, err
-			}
-			if _, err := p.want(RPAREN); err != nil {
-				return instructions.EAExpr{}, err
-			}
-			disp, err = p.pcRelativeDisp(expr, -128, 127)
-			if err != nil {
-				return instructions.EAExpr{}, err
-			}
-			return indexedEA(base, disp, ix)
-		}
-		if _, err := p.want(RPAREN); err != nil {
-			return instructions.EAExpr{}, err
-		}
-		disp, err = p.pcRelativeDisp(expr, -32768, 32767)
-		if err != nil {
-			return instructions.EAExpr{}, err
-		}
-		return displacementEA(base, disp)
+	_, pcBase, suppressed, ok := parseEABaseRegister(base.Text)
+	if !ok {
+		return instructions.EAExpr{}, parserError(base, "base must be An, PC, ZAn or ZPC")
+	}
+	d := baseDisp{value: expr.Value, hasSymbol: expr.HasSymbol, size: size, explicit: explicit}
+	if pcBase && !suppressed && expr.HasSymbol {
+		// PC-relative addressing uses the extension word's address as the
+		// base.
+		d.value -= int64(p.pc) + 2
 	}
 
-	// Is it an indexed mode, d(An,ix) or d(PC,ix)?
+	// Indexed: d(An,ix) or d(PC,ix)
 	if p.accept(COMMA) {
 		ix, err := p.parseEAIndex()
 		if err != nil {
@@ -828,14 +934,29 @@ func (p *Parser) parseEADisplacementBody(expr exprInfo) (instructions.EAExpr, er
 		if _, err := p.want(RPAREN); err != nil {
 			return instructions.EAExpr{}, err
 		}
-		return indexedEA(base, disp, ix)
+		if needsFullFormat(d, suppressed, ix.Suppressed, 127) && p.target.Supports(instructions.Target{CPU: instructions.CPU68020}) {
+			return p.fullIndexedEA(base, d, ix, true)
+		}
+		if pcBase && (d.value < -128 || d.value > 127) {
+			return instructions.EAExpr{}, errorAtLine(p.line, fmt.Errorf("PC-relative displacement out of range: %d", d.value))
+		}
+		return indexedEA(base, d.value, ix)
 	}
 
-	// It's a simple displacement mode: d(An) or d(PC)
+	// Simple displacement: d(An) or d(PC)
 	if _, err := p.want(RPAREN); err != nil {
 		return instructions.EAExpr{}, err
 	}
-	return displacementEA(base, disp)
+	if needsFullFormat(d, suppressed, false, 32767) && p.target.Supports(instructions.Target{CPU: instructions.CPU68020}) {
+		return p.fullIndexedEA(base, d, instructions.EAIndex{}, false)
+	}
+	if d.value < -32768 || d.value > 32767 {
+		if pcBase {
+			return instructions.EAExpr{}, errorAtLine(p.line, fmt.Errorf("PC-relative displacement out of range: %d", d.value))
+		}
+		return instructions.EAExpr{}, errorAtLine(p.line, fmt.Errorf("displacement out of range: %d", d.value))
+	}
+	return displacementEA(base, d.value)
 }
 
 func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
@@ -907,6 +1028,11 @@ func (p *Parser) parseEAIndex() (instructions.EAIndex, error) {
 
 func parseIndexRegister(name string) (instructions.EAIndex, error) {
 	var ix instructions.EAIndex
+	if len(name) == 3 && (name[0] == 'z' || name[0] == 'Z') {
+		ix, err := parseIndexRegister(name[1:])
+		ix.Suppressed = true
+		return ix, err
+	}
 	if ok, dn := isRegDn(name); ok {
 		ix.Reg = dn
 		return ix, nil

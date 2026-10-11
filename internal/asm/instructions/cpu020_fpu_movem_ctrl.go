@@ -76,10 +76,38 @@ func init() {
 			Steps: []EmitStep{
 				{WordBits: fpuWord1Base, Fields: []FieldRef{FSrcEA}},
 				{WordBits: 0x8000, Fields: []FieldRef{FFPCtrlSelDst10}},
-				{Trailer: []TrailerItem{TSrcEAExt}},
+				// TSrcImm emits an immediate source (#data), which has no
+				// EA extension words of its own.
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 	)
+}
+
+// init gives FMOVE the single-register forms of the control register
+// moves, FMOVE.L FPCR,<ea> and FMOVE.L <ea>,FPSR, as Motorola's manuals and
+// GNU as write them; FMOVEM takes lists. It runs after the init above
+// (same file), so FMOVEM's control forms exist to copy.
+func init() {
+	fmove, fmovem := Instructions["FMOVE"], Instructions["FMOVEM"]
+	if fmove == nil || fmovem == nil {
+		panic("cpu020_fpu_movem_ctrl.go: FMOVE and FMOVEM must be registered first")
+	}
+	n := len(fmovem.Forms)
+	store, load := fmovem.Forms[n-2], fmovem.Forms[n-1]
+	store.Validate = func(a *Args) error {
+		if bits.OnesCount16(a.FPCtrlMaskSrc) != 1 {
+			return fmt.Errorf("FMOVE moves one control register; use FMOVEM for a list")
+		}
+		return validateFMovemlStore(a)
+	}
+	load.Validate = func(a *Args) error {
+		if bits.OnesCount16(a.FPCtrlMaskDst) != 1 {
+			return fmt.Errorf("FMOVE moves one control register; use FMOVEM for a list")
+		}
+		return validateFMovemlLoad(a)
+	}
+	fmove.Forms = append(fmove.Forms, store, load)
 }
 
 func validateFMovemlStore(a *Args) error {

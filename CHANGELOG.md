@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Memory indirect addressing had preindexed and postindexed swapped:
+  `([bd,An],Xn,od)` is postindexed and `([bd,An,Xn],od)` preindexed, as
+  in Motorola's manuals, GNU as and m68kdasm
+- `FMOVEM` used the integer `MOVEM` register masks; the FPU's control and
+  postincrement mask has FP0 in bit 7, the predecrement mask in bit 0
+- `FMOVEM.L #data,FPCR` (and the other control registers) left out the
+  immediate data
+
+### Added
+
+- 68020 full extension word syntax: memory indirect operands without a
+  base displacement or base register (`([A0])`, `([$1234.L])`), suppressed
+  registers (`ZA0`-`ZA7`, `ZD0`-`ZD7`, `ZPC`), word and long base
+  displacements for indexed operands (`(bd,An,Xn)`) and long ones for
+  displaced operands (`(bd,An)`), chosen automatically for constants or
+  with an explicit `.w`/`.l` size
+- `FMOVE.L` with one FPU control register (`FMOVE.L FPSR,D0`,
+  `FMOVE.L #$400,FPCR`)
+- `FINT`, `FINTRZ`, `FSGLDIV` and `FSGLMUL`
+
 ## [1.6.2] - 2026-10-11
 
 ### Fixed

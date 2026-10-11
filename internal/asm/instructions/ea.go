@@ -89,7 +89,37 @@ func eaExtDisp16(e EAExpr) ([]uint16, error) {
 }
 
 func eaExtIndexBrief(e EAExpr) ([]uint16, error) {
+	if e.Full {
+		return eaExtFullIndexed(e)
+	}
 	return []uint16{encodeBriefIndex(e.Index)}, nil
+}
+
+// eaExtFullIndexed encodes an indexed operand in the 68020+ full extension
+// word format without memory indirection (I/IS = 000): the index/flags
+// word, then the base displacement words.
+func eaExtFullIndexed(e EAExpr) ([]uint16, error) {
+	word := uint16(0x0100) | fullBaseIndexBits(e) | bdSizeBits(e.BaseDispSize)
+	bdWords, err := dispWords(e.BaseDispSize, e.BaseDisp)
+	if err != nil {
+		return nil, err
+	}
+	return append([]uint16{word}, bdWords...), nil
+}
+
+// fullBaseIndexBits returns the index specifier and the BS (bit 7) and IS
+// (bit 6) suppress bits of a full extension word.
+func fullBaseIndexBits(e EAExpr) uint16 {
+	var word uint16
+	if e.IndexPresent {
+		word |= indexSpecifierBits(e.Index)
+	} else {
+		word |= 0x0040
+	}
+	if e.BaseSuppressed {
+		word |= 0x0080
+	}
+	return word
 }
 
 func eaExtAbsW(e EAExpr) ([]uint16, error) {
@@ -197,12 +227,7 @@ func dispWords(size DispSize, val int32) ([]uint16, error) {
 // gas/config/tc-m68k.c (the POST/PRE/BASE case) — see
 // docs/design/cpu-family-support.md.
 func eaExtFull(e EAExpr) ([]uint16, error) {
-	word := uint16(0x0100) // bit 8: full-format flag
-	if e.IndexPresent {
-		word |= indexSpecifierBits(e.Index)
-	} else {
-		word |= 0x0040 // IS: index suppressed
-	}
+	word := uint16(0x0100) | fullBaseIndexBits(e) // bit 8: full-format flag
 	word |= bdSizeBits(e.BaseDispSize)
 
 	postIndexed := e.Kind == EAkMemPostAn || e.Kind == EAkMemPostPC

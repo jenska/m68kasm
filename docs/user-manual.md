@@ -480,12 +480,10 @@ looking for something that isn't wired up yet:
 - **No `.include` directive.** Splitting source across files from
   *within* a `.s` file isn't supported — only `-I`/multiple `-i`-style
   resolution of the single top-level input file (see [§3](#3-the-cli)).
-- A few memory-indirect addressing-mode edge cases (base-register
-  suppression, an implicit-zero-displacement bracket shorthand, and
-  auto-upgrading a brief displacement to full format on overflow) are
-  deliberately unimplemented — each for a specific technical reason,
-  not for lack of time. See `syntax.md` §7.2 and
-  `design/cpu-family-support.md`'s closing section for why.
+- A `bd`/`od` displacement that references a symbol in the 68020 full
+  extension word format needs an explicit `.w`/`.l` size, because a
+  symbol's value can change between the assembler's two passes. See
+  `syntax.md` §7.2.
 
 ## 10. Further Reading
 

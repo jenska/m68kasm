@@ -645,6 +645,14 @@ type EAExpr struct {
 	BaseDispSize  DispSize
 	OuterDisp     int32
 	OuterDispSize DispSize
+	// BaseSuppressed marks a suppressed base register (ZAn, ZPC, or no
+	// base at all in a memory indirect operand).
+	BaseSuppressed bool
+	// Full makes an indexed kind (EAkIdxAnBrief/EAkIdxPCBrief) use the
+	// 68020+ full extension word without memory indirection: a word or
+	// long base displacement (BaseDisp/BaseDispSize), optional base and
+	// index suppression. Index and IndexPresent describe the index.
+	Full bool
 
 	// HasBitField and the four fields below attach a 68020 bit-field
 	// specifier ("{offset:width}") to this EA — a suffix on the base
@@ -707,6 +715,9 @@ type EAIndex struct {
 	Long  bool
 	Scale uint8
 	Disp8 int8
+	// Suppressed marks a suppressed index register, written ZDn or ZAn
+	// (68020+ full extension word format only).
+	Suppressed bool
 }
 
 type EAEncoded struct {
