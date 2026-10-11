@@ -427,7 +427,7 @@ which line/column it occurred at.
 ### 7.7 Version
 
 ```go
-m68kasm.Version // e.g. "v1.6.1"
+m68kasm.Version // e.g. "v1.6.2"
 ```
 
 Used internally as the S-record header text; also handy for embedding
