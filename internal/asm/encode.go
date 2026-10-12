@@ -578,6 +578,12 @@ func Encode(def *instructions.InstrDef, form *instructions.FormDef, ins *Instr, 
 			if d8 < -128 || d8 > 127 {
 				return nil, fmt.Errorf("branch displacement out of range for .S")
 			}
+			if d8 == 0 || d8 == -1 {
+				// A displacement byte of $00 announces a 16-bit displacement
+				// word and $FF a 32-bit one, so .S cannot reach the next
+				// instruction (or the middle of the branch itself).
+				return nil, fmt.Errorf("branch displacement %d cannot be encoded as .S; use .W", d8)
+			}
 			p.BrUseWord = false
 			p.BrDisp8 = int8(d8)
 		case instructions.WordSize:

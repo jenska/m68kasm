@@ -29,8 +29,8 @@ func TestAssemblePflushPloadPtest(t *testing.T) {
 		{"PloadrDn", "PLOADR D2,(A0)\n", []byte{0xF0, 0x10, 0x22, 0x0A}},
 		{"PtestrSfcLevel", "PTESTR SFC,(A0),#3\n", []byte{0xF0, 0x10, 0x8E, 0x00}},
 		{"PtestwDfcLevel", "PTESTW DFC,(A0),#5\n", []byte{0xF0, 0x10, 0x94, 0x01}},
-		{"PtestrSfcLevelAn", "PTESTR SFC,(A0),#3,A2\n", []byte{0xF0, 0x10, 0x8E, 0x40}},
-		{"PtestwDnLevelAn", "PTESTW D1,(A0),#7,A5\n", []byte{0xF0, 0x10, 0x9C, 0xA9}},
+		{"PtestrSfcLevelAn", "PTESTR SFC,(A0),#3,A2\n", []byte{0xF0, 0x10, 0x8F, 0x40}},
+		{"PtestwDnLevelAn", "PTESTW D1,(A0),#7,A5\n", []byte{0xF0, 0x10, 0x9D, 0xA9}},
 	}
 
 	for _, tc := range tests {

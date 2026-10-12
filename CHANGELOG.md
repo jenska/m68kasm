@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `PTESTR`/`PTESTW` with an address register operand left out the A bit
+  (bit 8) of the command word, so the MMU did not load the register:
+  `PTESTR #1,(A0),#7,A1` assembled to `$9E31` instead of `$9F31`
+- A short branch to the next instruction assembled to a bare `$6x00`, which
+  the CPU reads as a branch with a 16-bit displacement in the next word.
+  A `.S` displacement of 0 or -1 ($FF, a 32-bit displacement on the
+  68020) is now an error that asks for `.W`
+
 ## [1.6.3] - 2026-10-11
 
 ### Fixed

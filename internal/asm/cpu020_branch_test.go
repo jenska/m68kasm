@@ -73,3 +73,17 @@ func TestShortAndWordBranchesUnaffectedOn68020(t *testing.T) {
 		t.Errorf("got % X want % X", got, want)
 	}
 }
+
+func TestShortBranchToNextInstructionRejected(t *testing.T) {
+	// BRA.S with a displacement of 0 would assemble to $6000, which the CPU
+	// reads as BRA.W with the next word as its displacement; -1 is $60FF,
+	// BRA.L on a 68020. Both must be errors, not wrong code.
+	for _, src := range []string{"BRA next\nnext:\nNOP\n", "BEQ.S next\nnext:\nNOP\n"} {
+		for _, target := range []instructions.Target{instructions.Target68000, target68020} {
+			mustAssembleErr(t, src, target)
+		}
+	}
+	if got := assembleForTarget(t, "BRA.W next\nnext:\nNOP\n", target68020); !bytes.Equal(got, []byte{0x60, 0x00, 0x00, 0x02, 0x4E, 0x71}) {
+		t.Errorf("BRA.W to the next instruction: got % X", got)
+	}
+}

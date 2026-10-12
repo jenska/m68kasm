@@ -173,7 +173,9 @@ var defPTESTW = newPTestDef("PTESTW", 0x8000)
 // newPTestDef builds PTESTR or PTESTW, each with two forms: "FC,<ea>,
 // #level" and "FC,<ea>,#level,An" (the optional trailing result
 // register). base is the word2 literal (0x8200 for PTESTR, 0x8000 for
-// PTESTW — the same R/W bit PLOADR/PLOADW use).
+// PTESTW — the same R/W bit PLOADR/PLOADW use). The An form also sets the
+// A bit (bit 8), which tells the MMU to load the register (MC68030 User's
+// Manual, PTEST instruction format).
 func newPTestDef(name string, base uint16) *InstrDef {
 	validateEA := func(a *Args) error {
 		if !memoryAlterableEA[a.Dst.Kind] {
@@ -210,7 +212,7 @@ func newPTestDef(name string, base uint16) *InstrDef {
 				Requires:    requirePMMU,
 				Steps: []EmitStep{
 					{WordBits: 0xF000, Fields: []FieldRef{FDstEA}},
-					{WordBits: base, Fields: []FieldRef{FFCSpecWord, FAuxImmShift10, FAux2RegShift5}},
+					{WordBits: base | 0x0100, Fields: []FieldRef{FFCSpecWord, FAuxImmShift10, FAux2RegShift5}},
 					{Trailer: []TrailerItem{TDstEAExt}},
 				},
 			},
