@@ -12,13 +12,11 @@ import "fmt"
 //     the "numbered instance" shape EAkFPn/OpkFPn already use, unlike
 //     every other PMMU register in cpu030_pmmu_xlate.go/cpu030_pmmu_access.go
 //     (each its own single fixed register, no number to encode);
-//   - an INVERTED load/store direction bit relative to every other
-//     PMOVE register. Every other register in this file follows a
-//     "word2 = base | direction(0x0000 load / 0x0200 store) | selector"
-//     convention (see cpu030_pmmu.go's TC, the very first one); GAS's
-//     own opcode-table rows for BAD/BAC ("*wX3" load, word2 0x6200;
-//     "X3%s" store, word2 0x6000, gas/config/tc-m68k.c) have that bit
-//     backwards — 0x0200 set means LOAD here, not store.
+//   - a 16-bit operand. The direction bit is the usual one ("word2 =
+//     base | direction(0x0000 load / 0x0200 store) | selector", MC68851
+//     User's Manual, PMOVE format 2); GAS's own opcode-table rows for
+//     BAD/BAC ("*wX3" load, word2 0x6200; "X3%s" store, word2 0x6000)
+//     have it reversed, which this assembler followed until v1.6.5.
 //
 // Because load and store already have distinct OperKinds ([OpkEA,
 // OpkBAD/OpkBAC] vs [OpkBAD/OpkBAC,OpkEA] — unlike, say, MOVE16's
@@ -28,15 +26,13 @@ import "fmt"
 // NUMBER (FSrcRegShift2/FDstRegShift2, types.go) needs a runtime
 // FieldRef.
 //
-// Word2 bases, derived from GAS's own literals (0x6200 load / 0x6000
-// store) combined with the family bit ("case 'X':" in
-// gas/config/tc-m68k.c: BAD tmpreg = 0x1000 | (n<<2), BAC tmpreg =
-// 0x1400 | (n<<2)):
+// Word2 bases: format 2's 0x6000 with the family bit (BAD 0x1000, BAC
+// 0x1400) and the direction bit:
 //
-//	BADn load  = 0x6200 | 0x1000 = 0x7200 | (n<<2)
-//	BADn store = 0x6000 | 0x1000 = 0x7000 | (n<<2)
-//	BACn load  = 0x6200 | 0x1400 = 0x7600 | (n<<2)
-//	BACn store = 0x6000 | 0x1400 = 0x7400 | (n<<2)
+//	BADn load  = 0x7000 | (n<<2)
+//	BADn store = 0x7200 | (n<<2)
+//	BACn load  = 0x7400 | (n<<2)
+//	BACn store = 0x7600 | (n<<2)
 //
 // EA restrictions match TC/TT0/TT1/MMUSR's own broad ones (GAS's '*'
 // load-side / '%' store-side argument types here are exactly the same
@@ -45,13 +41,14 @@ import "fmt"
 //
 // This completes PMOVE's register set entirely.
 func init() {
-	newPmmuNumberedReg(OpkBAD, 0x7200, 0x7000)
-	newPmmuNumberedReg(OpkBAC, 0x7600, 0x7400)
+	newPmmuNumberedReg(OpkBAD, 0x7000, 0x7200)
+	newPmmuNumberedReg(OpkBAC, 0x7400, 0x7600)
 }
 
-// newPmmuNumberedReg appends a load Form ("PMOVE.L <ea>,REGn") and a
-// store Form ("PMOVE.L REGn,<ea>") to the existing PMOVE InstrDef for
-// one numbered PMMU register family (BAD or BAC).
+// newPmmuNumberedReg appends a load Form ("PMOVE.W <ea>,REGn") and a
+// store Form ("PMOVE.W REGn,<ea>") to the existing PMOVE InstrDef for
+// one numbered PMMU register family (BAD or BAC), both 16-bit registers
+// (MC68851 User's Manual, PMOVE: "a word operation for BAC, BAD").
 func newPmmuNumberedReg(opk OperandKind, loadBase, storeBase uint16) {
 	loadValidate := func(a *Args) error {
 		if !readableDataEA[a.Src.Kind] {
@@ -73,20 +70,20 @@ func newPmmuNumberedReg(opk OperandKind, loadBase, storeBase uint16) {
 	}
 	defPMOVE.Forms = append(defPMOVE.Forms,
 		FormDef{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{OpkEA, opk},
 			Validate:    loadValidate,
 			Requires:    requirePMMU,
 			Steps: []EmitStep{
 				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
 				{WordBits: loadBase, Fields: []FieldRef{FDstRegShift2}},
-				{Trailer: []TrailerItem{TSrcEAExt}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 		FormDef{
-			DefaultSize: LongSize,
-			Sizes:       []Size{LongSize},
+			DefaultSize: WordSize,
+			Sizes:       []Size{WordSize},
 			OperKinds:   []OperandKind{opk, OpkEA},
 			Validate:    storeValidate,
 			Requires:    requirePMMU,

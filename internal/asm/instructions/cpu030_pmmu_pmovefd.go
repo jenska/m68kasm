@@ -75,7 +75,7 @@ func newPmoveFDForm(opk OperandKind, sz Size, word2 uint16, ea map[EAExprKind]bo
 		Steps: []EmitStep{
 			{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
 			{WordBits: word2},
-			{Trailer: []TrailerItem{TSrcEAExt}},
+			{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 		},
 	}
 }

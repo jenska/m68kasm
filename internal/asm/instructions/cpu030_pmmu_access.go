@@ -33,17 +33,8 @@ package instructions
 // cpu030_pmmu_xlate.go, so it needed a second accepted spelling, not a
 // second Form.
 //
-// Deliberately NOT included: BAD0-7/BAC0-7 (breakpoint address/access
-// registers, 8 numbered instances each). Their encoding is genuinely
-// different in shape from everything else PMOVE moves — a register
-// NUMBER at bits 4-2 in addition to the usual selector, and (unlike
-// every other PMOVE register) an INVERTED load/store direction bit
-// (GAS's own table: load word2 0x6200, store word2 0x6000 — the
-// opposite of every other register's 0x...00-load/0x...200-store
-// convention) — a distinct enough sub-feature, and obscure enough even
-// among an already-rare instruction family (68851-only debug/
-// breakpoint support), to warrant its own separately-scoped milestone
-// rather than folding it in here.
+// BAD0-7/BAC0-7 (breakpoint registers, 8 numbered instances each, with
+// a register number at bits 4-2) are in cpu030_pmmu_badbac.go.
 func init() {
 	newPmmuFixedReg(OpkDRP, LongSize, 0x4000|(1<<10), 0x4200|(1<<10), memoryAlterableEA, memoryAlterableEA)
 	newPmmuFixedReg(OpkCAL, ByteSize, 0x4000|(4<<10), 0x4200|(4<<10), nil, nil)

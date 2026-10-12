@@ -316,7 +316,7 @@ func applyField(wordVal uint16, f instructions.FieldRef, p *prepared) uint16 {
 		case 1: // Dn
 			return wordVal | 0x08 | (uint16(p.SrcReg) & 7)
 		case 2: // immediate
-			return wordVal | 0x10 | (uint16(p.Imm) & 7)
+			return wordVal | 0x10 | (uint16(p.Imm) & 0xf)
 		default: // named SFC(0)/DFC(1)
 			return wordVal | (uint16(p.SrcReg) & 7)
 		}
@@ -480,13 +480,25 @@ func emitTrailer(out []byte, t instructions.TrailerItem, p *prepared) ([]byte, e
 		}
 		return out, nil
 	case instructions.TBranchWordIfNeeded:
+		// A displacement counts from its own address: the opcode plus two
+		// for Bcc, DBcc and cpBcc, plus four for cpDBcc (FDBcc, PDBcc),
+		// whose condition word comes first (MC68020 User's Manual
+		// 7.2.2.3.2: the scanPC points to the displacement).
 		if p.BrUseWord {
-			return appendWord(out, uint16(p.BrDisp16)), nil
+			d16 := int64(p.TargetPC) - int64(p.PC) - int64(len(out))
+			if d16 < math.MinInt16 || d16 > math.MaxInt16 {
+				return nil, fmt.Errorf("branch displacement out of range for .W")
+			}
+			return appendWord(out, uint16(d16)), nil
 		}
 		return out, nil
 	case instructions.TBranchLongIfNeeded:
 		if p.BrUseLong {
-			u := uint32(p.BrDisp32)
+			d32 := int64(p.TargetPC) - int64(p.PC) - int64(len(out))
+			if d32 < math.MinInt32 || d32 > math.MaxInt32 {
+				return nil, fmt.Errorf("branch displacement out of range for .L")
+			}
+			u := uint32(d32)
 			out = appendWord(out, uint16(u>>16))
 			out = appendWord(out, uint16(u))
 		}

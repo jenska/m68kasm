@@ -97,7 +97,7 @@ func newPmmuFixedReg(opk OperandKind, sz Size, loadWord2, storeWord2 uint16, loa
 			Steps: []EmitStep{
 				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
 				{WordBits: loadWord2},
-				{Trailer: []TrailerItem{TSrcEAExt}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 		FormDef{

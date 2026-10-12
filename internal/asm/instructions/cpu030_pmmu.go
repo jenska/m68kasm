@@ -48,7 +48,7 @@ var defPMOVE = InstrDef{
 			Steps: []EmitStep{
 				{WordBits: 0xF000, Fields: []FieldRef{FSrcEA}},
 				{WordBits: 0x4000},
-				{Trailer: []TrailerItem{TSrcEAExt}},
+				{Trailer: []TrailerItem{TSrcEAExt, TSrcImm}},
 			},
 		},
 		{

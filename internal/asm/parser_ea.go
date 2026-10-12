@@ -197,8 +197,14 @@ func (p *Parser) parseFCSpec() (instructions.EAExpr, error) {
 		if err != nil {
 			return instructions.EAExpr{}, err
 		}
-		if imm < 0 || imm > 7 {
-			return instructions.EAExpr{}, fmt.Errorf("function code immediate out of range 0-7: %d", imm)
+		// The MC68851 takes four bits (FC3 selects DMA, "1DDDD"); the
+		// MC68030's MMU three ("10XXX").
+		limit := int64(15)
+		if p.target.CPU >= instructions.CPU68030 {
+			limit = 7
+		}
+		if imm < 0 || imm > limit {
+			return instructions.EAExpr{}, fmt.Errorf("function code immediate out of range 0-%d: %d", limit, imm)
 		}
 		return instructions.EAExpr{Kind: instructions.EAkFCSpec, FCMode: 2, Imm: imm}, nil
 	}

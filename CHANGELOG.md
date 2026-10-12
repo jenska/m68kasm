@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `PVALID VAL,<ea>` and `PVALID An,<ea>` for the MC68851 (68020 target with
+  the PMMU feature)
+
+### Fixed
+
+- `PMOVE #<data>,<reg>` left out the immediate data
+- `PMOVE` to and from `BADn`/`BACn` had the direction bit reversed (as in
+  GAS's opcode table) and took a long operand; they are 16-bit registers,
+  and bit 9 set stores to `<ea>` as for every other PMOVE (MC68851 User's
+  Manual, PMOVE format 2)
+- Function code immediates of `PFLUSH`, `PLOAD` and `PTEST` may be 0-15
+  for the MC68851, whose function codes have four bits; the MC68030 keeps
+  0-7
+- `FDBcc` and `PDBcc` computed the displacement from the instruction word
+  plus two instead of from the displacement word, which follows the
+  condition word (MC68020 User's Manual 7.2.2.3.2); branches landed two
+  bytes off
+
 ## [1.6.4] - 2026-10-12
 
 ### Fixed
