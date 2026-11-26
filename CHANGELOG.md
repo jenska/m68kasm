@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MC68040 FPU instructions that round to single or double precision:
+  `FSMOVE`, `FDMOVE`, `FSSQRT`, `FDSQRT`, `FSABS`, `FDABS`, `FSNEG`, `FDNEG`,
+  `FSDIV`, `FDDIV`, `FSADD`, `FDADD`, `FSMUL`, `FDMUL`, `FSSUB`, `FDSUB`
+  (68040 and later with the FPU feature; same forms as the base instruction)
+- `*` is the location counter in expressions (`BRA *`, `LEA *+4,A0`,
+  `DC.L *`); after a value it is still multiplication
+- `EQU` and `SET` (`label EQU expr`, `label: EQU expr`); `SET` and `=` may
+  redefine a symbol, `EQU` may not
+- `DS.B/.W/.L`, `DCB.B/.W/.L`, `.SPACE`, `.SKIP`, `.ASCII`, `.ASCIZ`, and
+  multi-character strings in `DC.B "abc"` / `DC.B 'abc'`
+- `END` stops assembling
+- `INCLUDE "file"` and `INCBIN "file"`, resolved relative to the including
+  source; reader/string sources need `ParseOptions.BaseDir`. Errors and
+  listing entries of included code point at the `INCLUDE` line.
+
 ## [1.6.5] - 2026-10-12
 
 ### Added

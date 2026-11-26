@@ -56,6 +56,12 @@ func parserError(t Token, msg string) error {
 func (p *Parser) parseLabelDefinition() (bool, error) {
 	t := p.peek()
 	if (t.Kind == IDENT || t.Kind == NUMBER) && p.peekN(2).Kind == COLON {
+		// "name: EQU expr" defines a constant, not a label.
+		if t.Kind == IDENT {
+			if kind, n, ok := p.constDefinition(3); ok {
+				return true, p.parseConstDefinition(kind, n)
+			}
+		}
 		lbl := p.next()
 		p.next() // consume ':'
 		if lbl.Kind == IDENT {

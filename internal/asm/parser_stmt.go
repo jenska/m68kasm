@@ -15,17 +15,26 @@ func (p *Parser) parseStmt() (bool, error) {
 		if def, ok := p.macros[t.Text]; ok {
 			return p.invokeMacro(def)
 		}
-		if p.isConstDefinitionStart() {
-			return false, p.parseConstDefinition(t)
+		if kind, n, ok := p.constDefinition(2); ok {
+			return false, p.parseConstDefinition(kind, n)
 		}
 		base, suffix := splitMnemonic(t.Text)
 		if instrDef := p.instrs.Lookup(base); instrDef != nil {
 			return false, p.parseInstruction(instrDef)
 		}
 
-		if base == "DC" && suffix != "" {
-			_ = p.next()
-			return false, parseDC(p, suffix)
+		if suffix != "" {
+			switch base {
+			case "DC":
+				_ = p.next()
+				return false, parseDC(p, suffix)
+			case "DS":
+				_ = p.next()
+				return false, parseDS(p, suffix)
+			case "DCB":
+				_ = p.next()
+				return false, parseDCB(p, suffix)
+			}
 		}
 
 		if pseudo, ok := lookupPseudo(t.Text); ok {
@@ -50,11 +59,50 @@ func (p *Parser) parseStmt() (bool, error) {
 	return false, parserError(t, "unexpected token")
 }
 
-func (p *Parser) isConstDefinitionStart() bool {
-	if p.peekN(2).Kind == EQUAL {
-		return true
+// symKind records how a symbol was defined by NAME = expr, SET or EQU.
+type symKind uint8
+
+const (
+	// symSet symbols (SET, and '=') may be redefined.
+	symSet symKind = iota + 1
+	// symEqu symbols may not.
+	symEqu
+)
+
+// constDefinition reports whether the tokens starting at lookahead
+// position at (1-based, after the symbol name) form a constant definition
+// keyword: '=', EQU or SET, optionally written with a leading dot. It
+// returns the kind of definition and the number of tokens the keyword
+// takes.
+func (p *Parser) constDefinition(at int) (symKind, int, bool) {
+	t := p.peekN(at)
+	if t.Kind == EQUAL {
+		return symSet, 1, true
 	}
-	return p.peekN(2).Kind == DOT && isEquToken(p.peekN(3))
+	if t.Kind == IDENT {
+		if kind, ok := constKeyword(t); ok {
+			return kind, 1, true
+		}
+	}
+	if t.Kind == DOT {
+		if kind, ok := constKeyword(p.peekN(at + 1)); ok {
+			return kind, 2, true
+		}
+	}
+	return 0, 0, false
+}
+
+func constKeyword(tok Token) (symKind, bool) {
+	if tok.Kind != IDENT {
+		return 0, false
+	}
+	switch strings.ToUpper(tok.Text) {
+	case "EQU":
+		return symEqu, true
+	case "SET":
+		return symSet, true
+	}
+	return 0, false
 }
 
 func splitMnemonic(text string) (base, suffix string) {
@@ -70,26 +118,16 @@ func lookupPseudo(text string) (func(*Parser) error, bool) {
 	return pseudo, ok
 }
 
-func isEquToken(tok Token) bool {
-	return tok.Kind == IDENT && strings.EqualFold(tok.Text, "equ")
-}
-
-func (p *Parser) parseConstDefinition(nameTok Token) error {
-	_ = p.next() // consume name
-
-	if p.peek().Kind == DOT {
+// parseConstDefinition parses NAME = expr, NAME EQU expr, NAME SET expr
+// (with an optional colon after NAME, and an optional dot before the
+// keyword). keywordTokens is the number of tokens the keyword takes, as
+// reported by constDefinition. EQU symbols cannot be redefined; SET and '='
+// symbols can, as long as they were not defined by EQU.
+func (p *Parser) parseConstDefinition(kind symKind, keywordTokens int) error {
+	nameTok := p.next()
+	p.accept(COLON)
+	for range keywordTokens {
 		p.next()
-		eqTok, err := p.want(IDENT)
-		if err != nil {
-			return err
-		}
-		if !isEquToken(eqTok) {
-			return parserError(eqTok, "expected EQU")
-		}
-	} else {
-		if _, err := p.want(EQUAL); err != nil {
-			return err
-		}
 	}
 
 	val, err := p.parseExpr()
@@ -100,7 +138,12 @@ func (p *Parser) parseConstDefinition(nameTok Token) error {
 		return errorAtLine(nameTok.Line, fmt.Errorf("constant out of 32-bit range: %d", val))
 	}
 
-	p.labels[nameTok.Text] = uint32(val)
+	name := nameTok.Text
+	if prev, seen := p.symKinds[name]; seen && (kind == symEqu || prev == symEqu) {
+		return errorAtToken(nameTok, fmt.Errorf("symbol %s is already defined by EQU and cannot be redefined", name))
+	}
+	p.symKinds[name] = kind
+	p.labels[name] = uint32(val)
 	return nil
 }
 

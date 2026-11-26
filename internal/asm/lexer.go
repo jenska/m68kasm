@@ -411,18 +411,37 @@ func (lx *Lexer) scanString() Token {
 	return lx.tok(STRING, b.String(), 0)
 }
 
+// scanChar scans a single-quoted literal. One character is a number (its
+// character code); several characters, as in DC.B 'abc', make a string
+// token like a double-quoted one.
 func (lx *Lexer) scanChar() Token {
+	first := lx.readQuotedRune()
+	if lx.peekRune() == '\'' {
+		lx.read()
+		return lx.tok(NUMBER, fmt.Sprintf("'%c'", first), int64(first))
+	}
+	var b strings.Builder
+	b.WriteRune(first)
+	for {
+		ch := lx.peekRune()
+		if ch == eof || ch == '\n' || ch == '\r' {
+			return lx.errToken(fmt.Errorf("unterminated char literal"))
+		}
+		if ch == '\'' {
+			lx.read()
+			return lx.tok(STRING, b.String(), 0)
+		}
+		b.WriteRune(lx.readQuotedRune())
+	}
+}
+
+// readQuotedRune reads one possibly escaped character of a quoted literal.
+func (lx *Lexer) readQuotedRune() rune {
 	ch := lx.read()
-	var v rune
 	if ch == '\\' {
-		v = lx.readEscapedRune()
-	} else {
-		v = ch
+		return lx.readEscapedRune()
 	}
-	if lx.read() != '\'' {
-		return lx.errToken(fmt.Errorf("unterminated char literal"))
-	}
-	return lx.tok(NUMBER, fmt.Sprintf("'%c'", v), int64(v))
+	return ch
 }
 
 func (lx *Lexer) finishBaseNumber(b *strings.Builder, prefixLen int, base int, accept func(rune) bool) Token {

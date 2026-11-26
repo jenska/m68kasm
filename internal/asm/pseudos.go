@@ -17,6 +17,18 @@ var pseudoMap = map[string]func(*Parser) error{
 	".DATA":    parseDATA,
 	".BSS":     parseBSS,
 	".SECTION": parseSECTION,
+	".SPACE":   parseSPACE,
+	".SKIP":    parseSPACE,
+	".ASCII":   func(p *Parser) error { return parseASCII(p, false) },
+	".ASCIZ":   func(p *Parser) error { return parseASCII(p, true) },
+	".END":     parseEND,
+	".INCBIN":  parseINCBIN,
+}
+
+func init() {
+	// Registered here, not in the literal above: INCLUDE parses statements,
+	// which look pseudo ops up in pseudoMap (an initialization cycle).
+	pseudoMap[".INCLUDE"] = parseINCLUDE
 }
 
 func parseTEXT(p *Parser) error {
@@ -95,26 +107,33 @@ func parseORG(p *Parser) error {
 	return nil
 }
 
+// parseBYTE parses .byte / DC.B items: expressions and strings, in any mix.
+// A string contributes one byte per character.
 func parseBYTE(p *Parser) error {
 	col := p.col
-	val, err := p.parseExpr()
-	if err != nil {
-		return err
-	}
-	if err := ensureBSSValue(p, val, ".byte"); err != nil {
-		return err
-	}
 	var bytes []byte
-	bytes = append(bytes, byte(val))
-	for p.accept(COMMA) {
-		v, err := p.parseExpr()
-		if err != nil {
-			return err
+	for {
+		if p.peek().Kind == STRING {
+			str := p.next().Text
+			for i := 0; i < len(str); i++ {
+				if err := ensureBSSValue(p, int64(str[i]), ".byte"); err != nil {
+					return err
+				}
+			}
+			bytes = append(bytes, str...)
+		} else {
+			v, err := p.parseExpr()
+			if err != nil {
+				return err
+			}
+			if err := ensureBSSValue(p, v, ".byte"); err != nil {
+				return err
+			}
+			bytes = append(bytes, byte(v))
 		}
-		if err := ensureBSSValue(p, v, ".byte"); err != nil {
-			return err
+		if !p.accept(COMMA) {
+			break
 		}
-		bytes = append(bytes, byte(v))
 	}
 	p.items = append(p.items, &DataBytes{Bytes: bytes, PC: p.pc, Line: p.line, Col: col, Section: p.section})
 	p.pc += uint32(len(bytes))
@@ -309,5 +328,142 @@ func parseMACRO(p *Parser) error {
 	}
 
 	p.macros[nameTok.Text] = macroDef{params: params, body: body}
+	return nil
+}
+
+// unitSize returns the size in bytes of a DS/DCB .B/.W/.L suffix.
+func unitSize(directive, suffix string) (uint32, error) {
+	switch strings.ToUpper(suffix) {
+	case "B":
+		return 1, nil
+	case "W":
+		return 2, nil
+	case "L":
+		return 4, nil
+	default:
+		return 0, fmt.Errorf("unknown %s size .%s", directive, suffix)
+	}
+}
+
+// parseCount parses a non-negative repeat count or byte count.
+func parseCount(p *Parser, directive string) (uint32, error) {
+	n, err := p.parseExpr()
+	if err != nil {
+		return 0, err
+	}
+	if n < 0 {
+		return 0, contextualizeAt(p.line, p.col, fmt.Errorf("%s count must not be negative: %d", directive, n))
+	}
+	if n > int64(maxProgramSize) {
+		return 0, contextualizeAt(p.line, p.col, fmt.Errorf("%s count %d would exceed maximum program size of %d bytes", directive, n, maxProgramSize))
+	}
+	return uint32(n), nil
+}
+
+// parseDS parses DS.B/.W/.L <count>: reserve count zero-filled units. Like
+// DC.W and DC.L, it does not align the location counter.
+func parseDS(p *Parser, suffix string) error {
+	unit, err := unitSize("DS", suffix)
+	if err != nil {
+		return err
+	}
+	count, err := parseCount(p, "DS")
+	if err != nil {
+		return err
+	}
+	return p.emitPaddingBytes(count*unit, 0)
+}
+
+// parseSPACE parses .space / .skip <n>: n zero bytes.
+func parseSPACE(p *Parser) error {
+	n, err := parseCount(p, ".space")
+	if err != nil {
+		return err
+	}
+	return p.emitPaddingBytes(n, 0)
+}
+
+// parseDCB parses DCB.B/.W/.L <count>,<value>: count copies of value.
+func parseDCB(p *Parser, suffix string) error {
+	unit, err := unitSize("DCB", suffix)
+	if err != nil {
+		return err
+	}
+	col := p.col
+	count, err := parseCount(p, "DCB")
+	if err != nil {
+		return err
+	}
+	if _, err := p.want(COMMA); err != nil {
+		return err
+	}
+	v, err := p.parseExpr()
+	if err != nil {
+		return err
+	}
+	var lo, hi int64
+	switch unit {
+	case 1:
+		lo, hi = -0x80, 0xFF
+	case 2:
+		lo, hi = -0x8000, 0xFFFF
+	default:
+		lo, hi = -0x80000000, 0xFFFFFFFF
+	}
+	if v < lo || v > hi {
+		return contextualizeAt(p.line, p.col, fmt.Errorf("DCB.%s value out of range: %d", strings.ToUpper(suffix), v))
+	}
+	if err := ensureBSSValue(p, v, "DCB"); err != nil {
+		return err
+	}
+	total := count * unit
+	if total > maxProgramSize || p.pc > maxProgramSize-total {
+		return errorAtLine(p.line, fmt.Errorf("DCB would exceed maximum program size of %d bytes", maxProgramSize))
+	}
+	unitBytes := make([]byte, 0, 4)
+	for shift := int(unit-1) * 8; shift >= 0; shift -= 8 {
+		unitBytes = append(unitBytes, byte(uint32(v)>>uint(shift)))
+	}
+	out := make([]byte, 0, total)
+	for range count {
+		out = append(out, unitBytes...)
+	}
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col, Section: p.section})
+	p.pc += total
+	return nil
+}
+
+// parseASCII parses .ascii / .asciz "text"[, "text"]...; .asciz appends a
+// zero byte to every string.
+func parseASCII(p *Parser, terminate bool) error {
+	col := p.col
+	var out []byte
+	for {
+		t, err := p.want(STRING)
+		if err != nil {
+			return err
+		}
+		for i := 0; i < len(t.Text); i++ {
+			if err := ensureBSSValue(p, int64(t.Text[i]), ".ascii"); err != nil {
+				return err
+			}
+		}
+		out = append(out, t.Text...)
+		if terminate {
+			out = append(out, 0)
+		}
+		if !p.accept(COMMA) {
+			break
+		}
+	}
+	p.items = append(p.items, &DataBytes{Bytes: out, PC: p.pc, Line: p.line, Col: col, Section: p.section})
+	p.pc += uint32(len(out))
+	return nil
+}
+
+// parseEND stops assembling; the rest of the source, including the rest
+// of the line, is ignored.
+func parseEND(p *Parser) error {
+	p.ended = true
 	return nil
 }

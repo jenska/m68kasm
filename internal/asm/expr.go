@@ -191,6 +191,16 @@ loop:
 			wantValue = false
 		case PLUS, MINUS, STAR, SLASH, PERCENT, LSHIFT, RSHIFT, AMP, PIPE, CARET, TILDE, BANG, LT, GT, LTE, GTE, EQEQ, NEQ, ANDAND, OROR:
 			p.next()
+			if t.Kind == STAR && wantValue {
+				// A '*' where a value is expected is the location counter
+				// (Motorola convention), the address of the first word of
+				// the current instruction or directive, like '$'. Where a
+				// value precedes it, it stays the multiplication operator.
+				hasSymbol = true
+				out = append(out, int64(p.pc))
+				wantValue = false
+				continue
+			}
 			if isUnaryOperator(t.Kind) && wantValue && t.Kind != TILDE && t.Kind != BANG {
 				if err := pushOp(t.Kind); err != nil {
 					return exprInfo{}, err

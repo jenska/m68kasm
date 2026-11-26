@@ -22,7 +22,12 @@ MOVEQ #7, D3   ; set D3 to 7
 - Global labels use `name:`.
 - Local numeric labels use `1:` style definitions and `1f` / `1b` references.
 - Forward references are supported through the assembler's two-pass parse.
-- Constants can be defined with either `NAME = expr` or `NAME .equ expr`.
+- Constants can be defined with `NAME = expr`, `NAME SET expr` or
+  `NAME EQU expr` (also `NAME: EQU expr`, and `.equ`/`.set`). `=` and `SET`
+  may redefine a symbol; `EQU` may not.
+- `*` where a value is expected is the location counter: the address of the
+  first word of the current instruction or directive (`BRA *`, `LEA *+4,A0`,
+  `DC.L *`). After a value it is multiplication.
 
 ```asm
 START:
@@ -106,6 +111,9 @@ Emits one byte per expression.
 .byte 1, $FF, 'A', 2+3
 ```
 
+A string (`"abc"` or `'abc'`) contributes one byte per character and may be
+mixed with expressions: `DC.B "Hi",0`. `DC.B` is the same directive.
+
 ### `.word <expr[, expr ...]>`
 
 Emits 16-bit big-endian words.
@@ -125,6 +133,32 @@ Emits 32-bit big-endian long words.
 ```asm
 .long $11223344, -1
 ```
+
+### `DS.B|.W|.L <count>`
+
+Reserves `count` zero-filled bytes, words or longs. Like `DC.W`/`DC.L` it does
+not align the location counter. `.space <n>` and `.skip <n>` reserve `n` zero
+bytes.
+
+### `DCB.B|.W|.L <count>,<value>`
+
+Emits `count` copies of `value`.
+
+### `.ascii "text"[, ...]`, `.asciz "text"[, ...]`
+
+Emit the bytes of each string; `.asciz` appends a zero byte to every string.
+
+### `END`
+
+Stops assembling; the rest of the source is ignored. In an included file it
+ends the whole assembly.
+
+### `INCLUDE "file"`, `INCBIN "file"`
+
+`INCLUDE` assembles another source file at this point; `INCBIN` emits a file's
+bytes. Relative names are relative to the including file, so the source must
+come from a file (or `ParseOptions.BaseDir` must be set). Errors and listing
+entries of included code point at the `INCLUDE` line.
 
 ### `.align <n[, fill]>`
 
