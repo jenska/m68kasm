@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `FMOVE FP1,FP0` (and the other `FPm,FPn` forms) was sized in the first pass
+  as `<ea>,FPn` with an absolute address, because an FPn name was taken for a
+  forward-referenced symbol; every later label was then four bytes too high.
+  An FPn is now rejected where an `<ea>` is expected.
+
 ## [1.6.6] - 2026-11-26
 
 ### Added

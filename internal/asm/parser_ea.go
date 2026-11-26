@@ -58,6 +58,14 @@ func (p *Parser) parseEABase() (instructions.EAExpr, error) {
 			p.next()
 			return ea, nil
 		}
+		// An FPn is never a symbol. Left to the expression parser it would
+		// pass in the first pass, where undefined symbols are assumed to be
+		// forward references, as an absolute address; the instruction would
+		// be sized with an extension word the second pass does not emit
+		// (FMOVE FP1,FP0 laid out as <ea>,FPn), shifting every later label.
+		if _, isFP := parseFPRegister(t.Text); isFP {
+			return instructions.EAExpr{}, parserError(t, "an FPU register is not valid as this operand")
+		}
 	}
 
 	// If we're here, it must be one of the forms that can start with an

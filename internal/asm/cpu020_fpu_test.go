@@ -160,3 +160,15 @@ func TestFPUCoprocessorIDBit(t *testing.T) {
 		t.Fatalf("word1 high byte = %02X, want F2 (coprocessor ID 1 in bits 11-9)", got[0])
 	}
 }
+
+// An FPn register in an <ea> slot must not be taken for a forward reference
+// in the first pass: FMOVE FP1,FP0 was laid out as <ea>,FPn with an
+// absolute address (8 bytes) and then assembled in 4, so LEA out,A0 got an
+// address four bytes too high.
+func TestFPURegisterNotSymbolInLayoutPass(t *testing.T) {
+	got := assembleForTarget(t, "FMOVE FP1,FP0\nLEA out,A0\nNOP\nALIGN 4\nout: DC.L 0\n", targetFPU)
+	want := []byte{0xF2, 0x00, 0x04, 0x00, 0x41, 0xF9, 0x00, 0x00, 0x00, 0x0C, 0x4E, 0x71, 0, 0, 0, 0}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("got % X want % X", got, want)
+	}
+}
